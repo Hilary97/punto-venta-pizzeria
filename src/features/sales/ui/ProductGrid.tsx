@@ -7,11 +7,12 @@ import type { Category, Product } from '../../products/domain/product'
 interface ProductGridProps {
   categories: Category[]
   products: Product[]
+  cartProductIds: Set<string>
   onSelectProduct: (product: Product) => void
   disabled?: boolean
 }
 
-export function ProductGrid({ categories, products, onSelectProduct, disabled = false }: ProductGridProps) {
+export function ProductGrid({ categories, products, cartProductIds, onSelectProduct, disabled = false }: ProductGridProps) {
   const searchId = useId()
   const [query, setQuery] = useState('')
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | 'all'>('all')
@@ -56,18 +57,26 @@ export function ProductGrid({ categories, products, onSelectProduct, disabled = 
         </p>
       ) : (
         <div className="grid grid-cols-1 gap-3 min-[360px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3">
-          {visibleProducts.map((product) => (
-            <button
-              key={product.id}
-              type="button"
-              disabled={disabled}
-              onClick={() => onSelectProduct(product)}
-              className="flex min-w-0 min-h-28 break-words disabled:opacity-50 flex-col justify-between rounded-2xl border-2 border-slate-200 bg-white p-4 text-left shadow-sm transition-transform hover:border-red-400 hover:shadow-md active:scale-95"
-            >
-              <span className="font-semibold text-slate-900">{product.name}</span>
-              <MoneyText cents={product.priceCents} className="text-lg font-bold text-red-700" />
-            </button>
-          ))}
+          {visibleProducts.map((product) => {
+            const isInCart = cartProductIds.has(product.id)
+            return (
+              <button
+                key={product.id}
+                type="button"
+                disabled={disabled}
+                onClick={() => onSelectProduct(product)}
+                className={cn(
+                  'flex min-w-0 min-h-28 break-words disabled:opacity-50 flex-col justify-between rounded-2xl border-2 p-4 text-left shadow-sm transition-colors transition-transform hover:shadow-md active:scale-95',
+                  isInCart
+                    ? 'border-emerald-600 bg-emerald-50 hover:border-emerald-600'
+                    : 'border-slate-200 bg-white hover:border-red-400',
+                )}
+              >
+                <span className="font-semibold text-slate-900">{product.name}</span>
+                <MoneyText cents={product.priceCents} className="text-lg font-bold text-red-700" />
+              </button>
+            )
+          })}
         </div>
       )}
     </div>

@@ -95,7 +95,13 @@ export function PosPage() {
             {lastSaleMessage}
           </div>
         )}
-        <ProductGrid categories={categories} products={products} onSelectProduct={handleSelectProduct} disabled={isSubmitting} />
+        <ProductGrid
+          categories={categories}
+          products={products}
+          cartProductIds={new Set(cart.map((item) => item.productId))}
+          onSelectProduct={handleSelectProduct}
+          disabled={isSubmitting}
+        />
       </div>
 
       <div className="flex min-w-0 flex-col gap-4 rounded-xl border border-slate-200 bg-white p-4">
