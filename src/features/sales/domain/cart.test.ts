@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   addItemToCart,
+  cartItemCount,
   cartTotalCents,
   decrementItemInCart,
   incrementItemInCart,
@@ -68,5 +69,16 @@ describe('cartTotalCents', () => {
 
   it('returns 0 for an empty cart', () => {
     expect(cartTotalCents([])).toBe(0)
+  })
+})
+
+describe('cartItemCount', () => {
+  it('sums quantities across all items', () => {
+    const count = cartItemCount([pizza, { ...soda, quantity: 2 }])
+    expect(count).toBe(3)
+  })
+
+  it('returns 0 for an empty cart', () => {
+    expect(cartItemCount([])).toBe(0)
   })
 })

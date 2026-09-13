@@ -24,31 +24,33 @@ export function ProductGrid({ categories, products, cartProductIds, onSelectProd
 
   return (
     <div className="flex min-w-0 flex-col gap-4">
-      <Input id={searchId} type="search" label="Buscar producto por nombre" value={query} onChange={(event) => setQuery(event.target.value)} />
-      <div className="flex gap-2 overflow-x-auto pb-1">
-        <button
-          type="button"
-          onClick={() => setSelectedCategoryId('all')}
-          className={cn(
-            'shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition-colors',
-            selectedCategoryId === 'all' ? 'bg-red-700 text-white' : 'bg-slate-200 text-slate-700',
-          )}
-        >
-          Todos
-        </button>
-        {categories.map((category) => (
+      <div className="sticky top-0 z-10 flex flex-col gap-4 bg-slate-50 pb-2">
+        <Input id={searchId} type="search" label="Buscar producto por nombre" value={query} onChange={(event) => setQuery(event.target.value)} />
+        <div className="flex gap-2 overflow-x-auto pb-1">
           <button
-            key={category.id}
             type="button"
-            onClick={() => setSelectedCategoryId(category.id)}
+            onClick={() => setSelectedCategoryId('all')}
             className={cn(
               'shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition-colors',
-              selectedCategoryId === category.id ? 'bg-red-700 text-white' : 'bg-slate-200 text-slate-700',
+              selectedCategoryId === 'all' ? 'bg-red-700 text-white' : 'bg-slate-200 text-slate-700',
             )}
           >
-            {category.name}
+            Todos
           </button>
-        ))}
+          {categories.map((category) => (
+            <button
+              key={category.id}
+              type="button"
+              onClick={() => setSelectedCategoryId(category.id)}
+              className={cn(
+                'shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition-colors',
+                selectedCategoryId === category.id ? 'bg-red-700 text-white' : 'bg-slate-200 text-slate-700',
+              )}
+            >
+              {category.name}
+            </button>
+          ))}
+        </div>
       </div>
 
       {visibleProducts.length === 0 ? (

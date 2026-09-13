@@ -96,6 +96,17 @@ describe('integrated POS', () => {
     expect(submit).toBeDisabled()
   })
 
+  it('opens the cart in a dialog from the mobile FAB and closes it after confirming a sale', async () => {
+    const { user } = await setupSale()
+    await user.click(screen.getByRole('button', { name: /ver carrito/i }))
+    const dialog = screen.getByRole('dialog')
+    expect(within(dialog).getByText('Pizza queso')).toBeVisible()
+    await user.type(within(dialog).getByLabelText(/monto recibido/i), '200')
+    await user.click(within(dialog).getByRole('button', { name: /registrar venta/i }))
+    expect(createSale).toHaveBeenCalledWith([{ productId: 'p', quantity: 1 }], 20000)
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
   it('retains cash and cart on failure without retry, allowing correction', async () => {
     vi.mocked(createSale).mockRejectedValueOnce(new Error('No se pudo registrar la venta.'))
     const { user, cash, submit } = await setupSale()

@@ -34,7 +34,7 @@ export function CartPanel({ cart, onIncrement, onDecrement, onRemove, onCheckout
                   aria-label={`Quitar una unidad de ${item.name}`}
                   disabled={disabled}
                   onClick={() => onDecrement(item.productId)}
-                  className="h-8 w-8 rounded-full bg-slate-200 font-bold text-slate-700 hover:bg-slate-300"
+                  className="h-11 w-11 rounded-full bg-slate-200 font-bold text-slate-700 hover:bg-slate-300"
                 >
                   −
                 </button>
@@ -44,7 +44,7 @@ export function CartPanel({ cart, onIncrement, onDecrement, onRemove, onCheckout
                   aria-label={`Agregar una unidad de ${item.name}`}
                   disabled={disabled}
                   onClick={() => onIncrement(item.productId)}
-                  className="h-8 w-8 rounded-full bg-slate-200 font-bold text-slate-700 hover:bg-slate-300"
+                  className="h-11 w-11 rounded-full bg-slate-200 font-bold text-slate-700 hover:bg-slate-300"
                 >
                   +
                 </button>
@@ -55,7 +55,7 @@ export function CartPanel({ cart, onIncrement, onDecrement, onRemove, onCheckout
                 aria-label={`Eliminar ${item.name} del carrito`}
                 disabled={disabled}
                 onClick={() => onRemove(item.productId)}
-                className="text-slate-400 hover:text-red-600"
+                className="p-2 text-slate-400 hover:text-red-600"
               >
                 ✕
               </button>

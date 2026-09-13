@@ -43,3 +43,8 @@ export function decrementItemInCart(cart: CartItem[], productId: string): CartIt
 export function cartTotalCents(cart: CartItem[]): number {
   return cart.reduce((total, item) => total + item.unitPriceCents * item.quantity, 0)
 }
+
+/** Sum of quantities across all cart lines. */
+export function cartItemCount(cart: CartItem[]): number {
+  return cart.reduce((total, item) => total + item.quantity, 0)
+}

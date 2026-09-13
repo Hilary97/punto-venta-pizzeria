@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { ErrorBanner } from '../../../shared/ui/ErrorBanner'
+import { Modal } from '../../../shared/ui/Modal'
 import { Spinner } from '../../../shared/ui/Spinner'
 import { toUserMessage } from '../../../shared/errors'
 import { formatMoney } from '../../../shared/money'
 import type { Category, Product } from '../../products/domain/product'
 import { listCategories, listProducts } from '../../products/infrastructure/productsRepository'
-import { addItemToCart, cartTotalCents, decrementItemInCart, incrementItemInCart, removeItemFromCart } from '../domain/cart'
+import { addItemToCart, cartItemCount, cartTotalCents, decrementItemInCart, incrementItemInCart, removeItemFromCart } from '../domain/cart'
 import type { CartItem } from '../domain/cart'
 import { createSale } from '../infrastructure/salesRepository'
+import { CartFab } from './CartFab'
 import { CartPanel } from './CartPanel'
 import { CheckoutForm } from './CheckoutForm'
 import { ProductGrid } from './ProductGrid'
@@ -21,6 +23,7 @@ export function PosPage() {
   const pending = useRef(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [lastSaleMessage, setLastSaleMessage] = useState<string | null>(null)
+  const [isCartOpen, setIsCartOpen] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -63,6 +66,7 @@ export function PosPage() {
         receivedCents,
       )
       setCart([])
+      setIsCartOpen(false)
       setLastSaleMessage(`Venta registrada correctamente. Total cobrado: ${formatMoney(result.totalCents)}. Cambio: ${formatMoney(result.changeCents)}.`)
     } finally {
       pending.current = false
@@ -85,35 +89,55 @@ export function PosPage() {
   const total = cartTotalCents(cart)
 
   return (
-    <div className="grid min-w-0 gap-6 p-4 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start">
-      <div className="min-w-0">
-        {lastSaleMessage && (
-          <div
-            role="status"
-            className="mb-4 rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800"
-          >
-            {lastSaleMessage}
-          </div>
-        )}
-        <ProductGrid
-          categories={categories}
-          products={products}
-          cartProductIds={new Set(cart.map((item) => item.productId))}
-          onSelectProduct={handleSelectProduct}
-          disabled={isSubmitting}
-        />
+    <>
+      <div className="grid min-w-0 gap-6 p-4 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start">
+        <div className="min-w-0">
+          {lastSaleMessage && (
+            <div
+              role="status"
+              className="mb-4 rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800"
+            >
+              {lastSaleMessage}
+            </div>
+          )}
+          <ProductGrid
+            categories={categories}
+            products={products}
+            cartProductIds={new Set(cart.map((item) => item.productId))}
+            onSelectProduct={handleSelectProduct}
+            disabled={isSubmitting}
+          />
+        </div>
+
+        <div className="hidden min-w-0 flex-col gap-4 rounded-xl border border-slate-200 bg-white p-4 lg:flex">
+          <CartPanel
+            cart={cart}
+            onIncrement={(id) => updateCart((c) => incrementItemInCart(c, id))}
+            onDecrement={(id) => updateCart((c) => decrementItemInCart(c, id))}
+            onRemove={(id) => updateCart((c) => removeItemFromCart(c, id))}
+            disabled={isSubmitting}
+          />
+          <CheckoutForm totalCents={total} isEmpty={cart.length === 0} isSubmitting={isSubmitting} onConfirm={handleConfirmSale} />
+        </div>
       </div>
 
-      <div className="flex min-w-0 flex-col gap-4 rounded-xl border border-slate-200 bg-white p-4">
-        <CartPanel
-          cart={cart}
-          onIncrement={(id) => updateCart((c) => incrementItemInCart(c, id))}
-          onDecrement={(id) => updateCart((c) => decrementItemInCart(c, id))}
-          onRemove={(id) => updateCart((c) => removeItemFromCart(c, id))}
-          disabled={isSubmitting}
-        />
-        <CheckoutForm totalCents={total} isEmpty={cart.length === 0} isSubmitting={isSubmitting} onConfirm={handleConfirmSale} />
-      </div>
-    </div>
+      {cart.length > 0 && (
+        <CartFab itemCount={cartItemCount(cart)} totalCents={total} onOpen={() => setIsCartOpen(true)} />
+      )}
+      {isCartOpen && (
+        <Modal title="Carrito" onClose={() => setIsCartOpen(false)}>
+          <div className="flex flex-col gap-4">
+            <CartPanel
+              cart={cart}
+              onIncrement={(id) => updateCart((c) => incrementItemInCart(c, id))}
+              onDecrement={(id) => updateCart((c) => decrementItemInCart(c, id))}
+              onRemove={(id) => updateCart((c) => removeItemFromCart(c, id))}
+              disabled={isSubmitting}
+            />
+            <CheckoutForm totalCents={total} isEmpty={cart.length === 0} isSubmitting={isSubmitting} onConfirm={handleConfirmSale} />
+          </div>
+        </Modal>
+      )}
+    </>
   )
 }
