@@ -110,6 +110,22 @@ export async function closeCashSession(countedCents: number): Promise<CloseSessi
   }
 }
 
+const deletionResultSchema = z.object({
+  deleted_session_id: z.string().uuid(),
+})
+
+/** Permanently deletes one closed session; authorization is enforced by the RPC. */
+export async function deleteClosedCashSession(sessionId: string): Promise<string> {
+  const { data, error } = await getSupabaseClient().rpc('delete_closed_cash_session', {
+    p_session_id: sessionId,
+  })
+  const result = parseRpcResult(deletionResultSchema, data, error, 'No se pudo eliminar el corte.')
+  if (result.deleted_session_id !== sessionId) {
+    throw new Error('La respuesta no corresponde al corte seleccionado.')
+  }
+  return result.deleted_session_id
+}
+
 /** Admin-only: past (closed) cash sessions, most recent first. */
 export async function listPastSessions(): Promise<CashSession[]> {
   const { data, error } = await getSupabaseClient()

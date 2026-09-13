@@ -162,6 +162,10 @@ export interface Database {
         Args: { p_session_id: string }
         Returns: unknown
       }
+      delete_closed_cash_session: {
+        Args: { p_session_id: string }
+        Returns: unknown
+      }
       close_cash_session: {
         Args: { p_counted_cents: number }
         Returns: unknown
