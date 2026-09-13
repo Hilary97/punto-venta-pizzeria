@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { Navigate } from 'react-router'
+import loginBackground from '../../../assets/login-background.png'
 import { Button } from '../../../shared/ui/Button'
 import { ErrorBanner } from '../../../shared/ui/ErrorBanner'
 import { Input } from '../../../shared/ui/Input'
@@ -21,7 +22,12 @@ export function LoginPage() {
 
   if (status === 'error') {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-slate-100 p-4">
+      <div className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-slate-100 p-4">
+        <img
+          src={loginBackground}
+          alt="Chuy's & Liz Pizzería"
+          className="h-48 w-48 rounded-3xl object-cover shadow-lg"
+        />
         <div className="w-full max-w-sm">
           <AuthErrorNotice
             message={authErrorMessage ?? 'Ocurrió un error inesperado.'}
@@ -46,7 +52,12 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-slate-100 p-4">
+    <div className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-slate-100 p-4">
+      <img
+        src={loginBackground}
+        alt="Chuy's & Liz Pizzería"
+        className="h-78 w-78 rounded-3xl object-cover shadow-lg"
+      />
       <form
         onSubmit={handleSubmit}
         className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-lg"
