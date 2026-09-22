@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as repository from '../infrastructure/cashRegisterRepository'
 import { CashHistoryPage } from './CashHistoryPage'
@@ -8,6 +9,12 @@ vi.mock('../infrastructure/cashRegisterRepository', () => ({
   listPastSessions: vi.fn(),
   deleteClosedCashSession: vi.fn(),
 }))
+
+const navigate = vi.hoisted(() => vi.fn())
+vi.mock('react-router', async () => {
+  const actual = await vi.importActual<typeof import('react-router')>('react-router')
+  return { ...actual, useNavigate: () => navigate }
+})
 
 const makeSession = (day: 1 | 2) => ({
   id: `00000000-0000-4000-8000-00000000000${day}`,
@@ -27,9 +34,17 @@ beforeEach(() => {
   vi.mocked(repository.deleteClosedCashSession).mockResolvedValue(sessions[0].id)
 })
 
+function renderPage() {
+  return render(
+    <MemoryRouter>
+      <CashHistoryPage />
+    </MemoryRouter>,
+  )
+}
+
 async function openConfirmation() {
   const user = userEvent.setup()
-  render(<CashHistoryPage />)
+  renderPage()
   const buttons = await screen.findAllByRole('button', { name: /eliminar corte del/i })
   expect(buttons).toHaveLength(2)
   const [firstButton, secondButton] = buttons
@@ -90,8 +105,21 @@ describe('permanent cash history deletion', () => {
 
   it('has no deletion controls when history is empty', async () => {
     vi.mocked(repository.listPastSessions).mockResolvedValue([])
-    render(<CashHistoryPage />)
+    renderPage()
     await screen.findByText(/aún no hay cortes/i)
     expect(screen.queryByRole('button', { name: /eliminar/i })).not.toBeInTheDocument()
+  })
+})
+
+describe('cash history detail navigation', () => {
+  it('navigates to the detail route for the selected session', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    const detailButtons = await screen.findAllByRole('button', { name: /ver detalle/i })
+    expect(detailButtons).toHaveLength(2)
+    const [firstButton] = detailButtons
+    if (!firstButton) throw new Error('Expected a detail button for each session')
+    await user.click(firstButton)
+    expect(navigate).toHaveBeenCalledExactlyOnceWith(`/admin/historial/${sessions[0].id}`)
   })
 })

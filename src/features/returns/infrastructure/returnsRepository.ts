@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { getSupabaseClient } from '../../../shared/supabase/client'
 import { parseRpcResult } from '../../../shared/supabase/rpc'
 import type { SaleWithItems } from '../../sales/domain/sale'
+import type { ReturnRecord } from '../domain/returnRecord'
 
 /** Lists the sales (with line items and already-returned quantities) for the given cash session. */
 export async function listSessionSalesWithItems(sessionId: string): Promise<SaleWithItems[]> {
@@ -97,4 +98,44 @@ export async function createReturn(
 
   const result = parseRpcResult(createReturnResultSchema, data, error, 'No se pudo registrar la devolución.')
   return { returnId: result.return_id, totalCents: result.total_cents }
+}
+
+/** Lists the returns (with line items) registered during the given cash session. */
+export async function listSessionReturns(sessionId: string): Promise<ReturnRecord[]> {
+  const supabase = getSupabaseClient()
+
+  const { data: returns, error: returnsError } = await supabase
+    .from('returns')
+    .select('id, sale_id, cashier_id, reason, total_cents, created_at')
+    .eq('session_id', sessionId)
+    .order('created_at', { ascending: false })
+
+  if (returnsError) throw new Error('No se pudieron cargar las devoluciones.')
+  if (returns.length === 0) return []
+
+  const returnIds = returns.map((returnRecord) => returnRecord.id)
+
+  const { data: items, error: itemsError } = await supabase
+    .from('return_items')
+    .select('id, return_id, sale_item_id, quantity, amount_cents')
+    .in('return_id', returnIds)
+
+  if (itemsError) throw new Error('No se pudieron cargar los artículos devueltos.')
+
+  return returns.map((returnRecord) => ({
+    id: returnRecord.id,
+    saleId: returnRecord.sale_id,
+    cashierId: returnRecord.cashier_id,
+    reason: returnRecord.reason,
+    totalCents: returnRecord.total_cents,
+    createdAt: returnRecord.created_at,
+    items: items
+      .filter((item) => item.return_id === returnRecord.id)
+      .map((item) => ({
+        id: item.id,
+        saleItemId: item.sale_item_id,
+        quantity: item.quantity,
+        amountCents: item.amount_cents,
+      })),
+  }))
 }

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router'
 import { Button } from '../../../shared/ui/Button'
 import { Modal } from '../../../shared/ui/Modal'
 import { ErrorBanner } from '../../../shared/ui/ErrorBanner'
@@ -9,6 +10,7 @@ import type { CashSession } from '../domain/cashSession'
 import { deleteClosedCashSession, listPastSessions } from '../infrastructure/cashRegisterRepository'
 
 export function CashHistoryPage() {
+  const navigate = useNavigate()
   const [sessions, setSessions] = useState<CashSession[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -106,20 +108,28 @@ export function CashHistoryPage() {
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    {session.closedAt && (
+                    <div className="flex flex-wrap gap-2">
                       <Button
-                        variant="danger"
-                        disabled={isDeleting}
-                        aria-label={`Eliminar corte del ${new Date(session.openedAt).toLocaleString('es-MX')}`}
-                        onClick={() => {
-                          if (deletionInFlight.current) return
-                          setDeletionError(null)
-                          setSelectedSession(session)
-                        }}
+                        variant="secondary"
+                        onClick={() => navigate(`/admin/historial/${session.id}`)}
                       >
-                        Eliminar
+                        Ver detalle
                       </Button>
-                    )}
+                      {session.closedAt && (
+                        <Button
+                          variant="danger"
+                          disabled={isDeleting}
+                          aria-label={`Eliminar corte del ${new Date(session.openedAt).toLocaleString('es-MX')}`}
+                          onClick={() => {
+                            if (deletionInFlight.current) return
+                            setDeletionError(null)
+                            setSelectedSession(session)
+                          }}
+                        >
+                          Eliminar
+                        </Button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

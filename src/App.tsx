@@ -7,6 +7,7 @@ import { RequireAuth } from './features/auth/ui/RequireAuth'
 import { RequireRole } from './features/auth/ui/RequireRole'
 import { CashCutPage } from './features/cash-register/ui/CashCutPage'
 import { CashHistoryPage } from './features/cash-register/ui/CashHistoryPage'
+import { CashSessionDetailPage } from './features/cash-register/ui/CashSessionDetailPage'
 import { OpenRegisterPage } from './features/cash-register/ui/OpenRegisterPage'
 import { RequireOpenSession } from './features/cash-register/ui/RequireOpenSession'
 import { AdminProductsPage } from './features/products/ui/AdminProductsPage'
@@ -49,6 +50,14 @@ function App() {
               element={
                 <RequireRole role="admin">
                   <CashHistoryPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="admin/historial/:sessionId"
+              element={
+                <RequireRole role="admin">
+                  <CashSessionDetailPage />
                 </RequireRole>
               }
             />

@@ -137,3 +137,16 @@ export async function listPastSessions(): Promise<CashSession[]> {
   if (error) throw new Error('No se pudo cargar el historial de cortes.')
   return data.map(mapRow)
 }
+
+/** Admin-only: a single closed cash session by id. */
+export async function getClosedSessionById(sessionId: string): Promise<CashSession> {
+  const { data, error } = await getSupabaseClient()
+    .from('cash_sessions')
+    .select('*')
+    .eq('id', sessionId)
+    .not('closed_at', 'is', null)
+    .single()
+
+  if (error || !data) throw new Error('No se pudo cargar el corte seleccionado.')
+  return mapRow(data)
+}
