@@ -10,6 +10,7 @@ interface ProductGridProps {
   cartProductIds: Set<string>;
   onSelectProduct: (product: Product) => void;
   disabled?: boolean;
+  showPrices?: boolean;
 }
 
 export function ProductGrid({
@@ -18,6 +19,7 @@ export function ProductGrid({
   cartProductIds,
   onSelectProduct,
   disabled = false,
+  showPrices = true,
 }: ProductGridProps) {
   const searchId = useId();
   const [query, setQuery] = useState("");
@@ -101,10 +103,12 @@ export function ProductGrid({
                 <span className="font-semibold text-slate-900">
                   {product.name}
                 </span>
-                <MoneyText
-                  cents={product.priceCents}
-                  className="text-lg font-bold text-red-700"
-                />
+                {showPrices && (
+                  <MoneyText
+                    cents={product.priceCents}
+                    className="text-lg font-bold text-red-700"
+                  />
+                )}
               </button>
             );
           })}
