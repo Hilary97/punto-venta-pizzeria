@@ -9,9 +9,11 @@ interface CartPanelProps {
   onRemove: (productId: string) => void
   onCheckout?: () => void
   disabled?: boolean
+  /** Hides the quantity and remove controls (order checkout mode). */
+  readOnly?: boolean
 }
 
-export function CartPanel({ cart, onIncrement, onDecrement, onRemove, onCheckout, disabled = false }: CartPanelProps) {
+export function CartPanel({ cart, onIncrement, onDecrement, onRemove, onCheckout, disabled = false, readOnly = false }: CartPanelProps) {
   const total = cartTotalCents(cart)
 
   return (
@@ -28,37 +30,43 @@ export function CartPanel({ cart, onIncrement, onDecrement, onRemove, onCheckout
                 <p className="break-words font-medium text-slate-900">{item.name}</p>
                 <MoneyText cents={item.unitPriceCents} className="text-sm text-slate-500" />
               </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  aria-label={`Quitar una unidad de ${item.name}`}
-                  disabled={disabled}
-                  onClick={() => onDecrement(item.productId)}
-                  className="h-11 w-11 rounded-full bg-slate-200 font-bold text-slate-700 hover:bg-slate-300"
-                >
-                  −
-                </button>
-                <span className="w-6 text-center font-semibold">{item.quantity}</span>
-                <button
-                  type="button"
-                  aria-label={`Agregar una unidad de ${item.name}`}
-                  disabled={disabled}
-                  onClick={() => onIncrement(item.productId)}
-                  className="h-11 w-11 rounded-full bg-slate-200 font-bold text-slate-700 hover:bg-slate-300"
-                >
-                  +
-                </button>
-              </div>
+              {readOnly ? (
+                <span className="font-semibold">× {item.quantity}</span>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    aria-label={`Quitar una unidad de ${item.name}`}
+                    disabled={disabled}
+                    onClick={() => onDecrement(item.productId)}
+                    className="h-11 w-11 rounded-full bg-slate-200 font-bold text-slate-700 hover:bg-slate-300"
+                  >
+                    −
+                  </button>
+                  <span className="w-6 text-center font-semibold">{item.quantity}</span>
+                  <button
+                    type="button"
+                    aria-label={`Agregar una unidad de ${item.name}`}
+                    disabled={disabled}
+                    onClick={() => onIncrement(item.productId)}
+                    className="h-11 w-11 rounded-full bg-slate-200 font-bold text-slate-700 hover:bg-slate-300"
+                  >
+                    +
+                  </button>
+                </div>
+              )}
               <MoneyText cents={item.unitPriceCents * item.quantity} className="w-20 text-right font-semibold" />
-              <button
-                type="button"
-                aria-label={`Eliminar ${item.name} del carrito`}
-                disabled={disabled}
-                onClick={() => onRemove(item.productId)}
-                className="p-2 text-slate-400 hover:text-red-600"
-              >
-                ✕
-              </button>
+              {!readOnly && (
+                <button
+                  type="button"
+                  aria-label={`Eliminar ${item.name} del carrito`}
+                  disabled={disabled}
+                  onClick={() => onRemove(item.productId)}
+                  className="p-2 text-slate-400 hover:text-red-600"
+                >
+                  ✕
+                </button>
+              )}
             </li>
           ))}
         </ul>
