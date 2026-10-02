@@ -52,7 +52,7 @@ order loaded and the cashier charges it as a regular sale in the open cash sessi
 - Task 7: `ea899ba` — RED 7 domain tests → GREEN 167; new migration 20261002140000 (not executed).
 - Task 8: `4a919b9` — RED 4 → GREEN 173; empty state keeps Actualizar reachable.
 - Task 9: `a13bc39` — RED 15 → GREEN 164; catalog and direct sales removed from Venta.
-- Task 10: `a0fbe46` — RED (missing module + 5 UI tests) → GREEN 179; tsc/lint clean.
+- Task 10: `a0fbe46` — RED (missing module + 5 UI tests) → GREEN 179; tsc/lint clean. Flaky empty-state test fixed in `112f2dc` (5/5 full-suite runs green).
 
 ## Pending (user)
 
