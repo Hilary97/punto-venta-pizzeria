@@ -204,7 +204,6 @@ export interface Database {
           p_table_number: number | null
           p_customer_name: string | null
           p_items: unknown
-          p_waiter_token?: string | null
         }
         Returns: unknown
       }
@@ -216,10 +215,48 @@ export interface Database {
       }
       admin_reset_waiter_pin: { Args: { p_waiter_id: string; p_pin: string }; Returns: unknown }
       admin_unlock_waiter: { Args: { p_waiter_id: string }; Returns: unknown }
-      list_active_waiters: { Args: Record<string, never>; Returns: unknown }
-      start_waiter_shift: { Args: { p_waiter_id: string; p_pin: string }; Returns: unknown }
-      end_waiter_shift: { Args: { p_token: string }; Returns: unknown }
-      get_waiter_shift: { Args: { p_token: string }; Returns: unknown }
+      admin_register_device: { Args: { p_name: string }; Returns: unknown }
+      admin_list_devices: { Args: Record<string, never>; Returns: unknown }
+      admin_revoke_device: { Args: { p_device_id: string }; Returns: unknown }
+      device_info: { Args: { p_device_secret: string }; Returns: unknown }
+      device_list_waiters: { Args: { p_device_secret: string }; Returns: unknown }
+      device_start_shift: {
+        Args: { p_device_secret: string; p_waiter_id: string; p_pin: string }
+        Returns: unknown
+      }
+      device_get_shift: {
+        Args: { p_device_secret: string; p_shift_token: string }
+        Returns: unknown
+      }
+      device_end_shift: {
+        Args: { p_device_secret: string; p_shift_token: string }
+        Returns: unknown
+      }
+      device_list_catalog: { Args: { p_device_secret: string }; Returns: unknown }
+      device_list_open_orders: { Args: { p_device_secret: string }; Returns: unknown }
+      device_create_order: {
+        Args: {
+          p_device_secret: string
+          p_shift_token: string
+          p_table_number: number | null
+          p_customer_name: string | null
+          p_items: unknown
+        }
+        Returns: unknown
+      }
+      device_add_order_items: {
+        Args: {
+          p_device_secret: string
+          p_shift_token: string
+          p_order_id: string
+          p_items: unknown
+        }
+        Returns: unknown
+      }
+      device_cancel_order: {
+        Args: { p_device_secret: string; p_shift_token: string; p_order_id: string }
+        Returns: unknown
+      }
       add_order_items: {
         Args: { p_order_id: string; p_items: unknown }
         Returns: unknown

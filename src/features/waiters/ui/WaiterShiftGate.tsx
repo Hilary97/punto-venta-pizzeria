@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { toUserMessage } from '../../../shared/errors'
 import { Button } from '../../../shared/ui/Button'
 import { ErrorBanner } from '../../../shared/ui/ErrorBanner'
@@ -6,22 +6,42 @@ import { Spinner } from '../../../shared/ui/Spinner'
 import { PIN_LENGTH, type Waiter, type WaiterShift } from '../domain/waiter'
 import { clearShift, loadShift, saveShift } from '../domain/shiftStorage'
 import {
-  endWaiterShift,
-  getWaiterShift,
-  listActiveWaiters,
-  startWaiterShift,
+  deviceEndShift,
+  deviceGetShift,
+  deviceListWaiters,
+  deviceStartShift,
 } from '../infrastructure/waitersRepository'
 
 const KEYPAD_DIGITS = ['1', '2', '3', '4', '5', '6', '7', '8', '9'] as const
 
 const keyClass = 'min-h-16 text-2xl'
 
-interface WaiterShiftGateProps {
+/** Server calls the gate needs; defaults to the device RPCs for a given secret. */
+export interface ShiftApi {
+  listWaiters: () => Promise<Waiter[]>
+  startShift: (waiterId: string, pin: string) => Promise<WaiterShift>
+  getShift: (token: string) => Promise<WaiterShift | null>
+  endShift: (token: string) => Promise<void>
+}
+
+export function createDeviceShiftApi(secret: string): ShiftApi {
+  return {
+    listWaiters: () => deviceListWaiters(secret),
+    startShift: (waiterId, pin) => deviceStartShift(secret, waiterId, pin),
+    getShift: (token) => deviceGetShift(secret, token),
+    endShift: (token) => deviceEndShift(secret, token),
+  }
+}
+
+type ShiftApiSource = { secret: string; api?: undefined } | { api: ShiftApi; secret?: undefined }
+
+type WaiterShiftGateProps = ShiftApiSource & {
   /** Rendered once a shift is active; `onShiftExpired` drops a shift the server rejected. */
   children: (shift: WaiterShift, onChangeWaiter: () => void, onShiftExpired: () => void) => ReactNode
 }
 
-export function WaiterShiftGate({ children }: WaiterShiftGateProps) {
+export function WaiterShiftGate({ secret, api: injectedApi, children }: WaiterShiftGateProps) {
+  const api = useMemo(() => injectedApi ?? createDeviceShiftApi(secret), [injectedApi, secret])
   const [shift, setShift] = useState<WaiterShift | null>(null)
   const [isVerifying, setIsVerifying] = useState(true)
 
@@ -35,7 +55,7 @@ export function WaiterShiftGate({ children }: WaiterShiftGateProps) {
       }
       let verified: WaiterShift | null = null
       try {
-        verified = await getWaiterShift(stored.token)
+        verified = await api.getShift(stored.token)
       } catch {
         verified = null
       }
@@ -51,7 +71,7 @@ export function WaiterShiftGate({ children }: WaiterShiftGateProps) {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [api])
 
   const handleStarted = useCallback((started: WaiterShift) => {
     saveShift(started)
@@ -66,15 +86,15 @@ export function WaiterShiftGate({ children }: WaiterShiftGateProps) {
   const handleChangeWaiter = useCallback(() => {
     const current = shift
     handleExpired()
-    if (current) void endWaiterShift(current.token).catch(() => undefined)
-  }, [shift, handleExpired])
+    if (current) void api.endShift(current.token).catch(() => undefined)
+  }, [shift, handleExpired, api])
 
   if (isVerifying) return <Spinner label="Verificando turno…" className="min-h-dvh" />
   if (shift) return <>{children(shift, handleChangeWaiter, handleExpired)}</>
-  return <WaiterPicker onStarted={handleStarted} />
+  return <WaiterPicker api={api} onStarted={handleStarted} />
 }
 
-function WaiterPicker({ onStarted }: { onStarted: (shift: WaiterShift) => void }) {
+function WaiterPicker({ api, onStarted }: { api: ShiftApi; onStarted: (shift: WaiterShift) => void }) {
   const [waiters, setWaiters] = useState<Waiter[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -87,7 +107,7 @@ function WaiterPicker({ onStarted }: { onStarted: (shift: WaiterShift) => void }
     let cancelled = false
     async function load() {
       try {
-        const loaded = await listActiveWaiters()
+        const loaded = await api.listWaiters()
         if (!cancelled) setWaiters(loaded)
       } catch (error) {
         if (!cancelled) setLoadError(toUserMessage(error))
@@ -99,13 +119,13 @@ function WaiterPicker({ onStarted }: { onStarted: (shift: WaiterShift) => void }
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [api])
 
   async function submitPin(waiter: Waiter, digits: string) {
     setIsStarting(true)
     setPinError(null)
     try {
-      onStarted(await startWaiterShift(waiter.id, digits))
+      onStarted(await api.startShift(waiter.id, digits))
     } catch (error) {
       setPinError(toUserMessage(error))
       setPin('')

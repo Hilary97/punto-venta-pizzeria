@@ -11,7 +11,7 @@ import { CashSessionDetailPage } from './features/cash-register/ui/CashSessionDe
 import { OpenRegisterPage } from './features/cash-register/ui/OpenRegisterPage'
 import { RequireOpenSession } from './features/cash-register/ui/RequireOpenSession'
 import { AdminProductsPage } from './features/products/ui/AdminProductsPage'
-import { OrdersPage } from './features/orders/ui/OrdersPage'
+import { OrdersEntry } from './features/orders/ui/OrdersEntry'
 import { AdminWaitersPage } from './features/waiters/ui/AdminWaitersPage'
 import { ReturnsPage } from './features/returns/ui/ReturnsPage'
 import type { UserRole } from './shared/supabase/database.types'
@@ -24,6 +24,7 @@ function App() {
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/pedidos" element={<OrdersEntry />} />
           <Route
             element={
               <RequireAuth>
@@ -31,7 +32,6 @@ function App() {
               </RequireAuth>
             }
           >
-            <Route path="pedidos" element={<OrdersPage />} />
             <Route
               index
               element={

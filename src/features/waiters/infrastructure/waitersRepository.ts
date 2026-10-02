@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { getSupabaseClient } from '../../../shared/supabase/client'
 import { parseRpcResult } from '../../../shared/supabase/rpc'
+import type { AdminDevice, AuthorizedDevice } from '../domain/device'
 import type { AdminWaiter, Waiter, WaiterShift } from '../domain/waiter'
 
 const waiterListSchema = z.array(z.object({ id: z.string(), full_name: z.string() }))
@@ -33,9 +34,38 @@ const endShiftResultSchema = z.object({ ended: z.boolean() })
 
 const waiterIdResultSchema = z.object({ waiter_id: z.string() })
 
-/** Active waiters for the name picker. Visible to every signed-in user with a profile. */
-export async function listActiveWaiters(): Promise<Waiter[]> {
-  const { data, error } = await getSupabaseClient().rpc('list_active_waiters')
+const deviceInfoSchema = z.object({ device_id: z.string(), name: z.string() })
+
+const adminDeviceListSchema = z.array(
+  z.object({
+    id: z.string(),
+    name: z.string(),
+    created_at: z.string(),
+    last_seen_at: z.string().nullable(),
+    revoked: z.boolean(),
+  }),
+)
+
+const registerDeviceResultSchema = z.object({
+  device_id: z.string(),
+  name: z.string(),
+  device_secret: z.string(),
+})
+
+const deviceIdResultSchema = z.object({ device_id: z.string() })
+
+/** Identity of the device behind a secret; throws when the secret is unknown or revoked. */
+export async function deviceInfo(secret: string): Promise<{ deviceId: string; name: string }> {
+  const { data, error } = await getSupabaseClient().rpc('device_info', { p_device_secret: secret })
+  const result = parseRpcResult(deviceInfoSchema, data, error, 'No se pudo verificar el dispositivo.')
+  return { deviceId: result.device_id, name: result.name }
+}
+
+/** Active waiters for the name picker. */
+export async function deviceListWaiters(secret: string): Promise<Waiter[]> {
+  const { data, error } = await getSupabaseClient().rpc('device_list_waiters', {
+    p_device_secret: secret,
+  })
   const rows = parseRpcResult(waiterListSchema, data, error, 'No se pudieron cargar los meseros.')
   return rows.map((row) => ({ id: row.id, fullName: row.full_name }))
 }
@@ -45,8 +75,13 @@ export async function listActiveWaiters(): Promise<Waiter[]> {
  * `{ error }` (so the attempt counter persists); it is rethrown here so the UI
  * can show the message.
  */
-export async function startWaiterShift(waiterId: string, pin: string): Promise<WaiterShift> {
-  const { data, error } = await getSupabaseClient().rpc('start_waiter_shift', {
+export async function deviceStartShift(
+  secret: string,
+  waiterId: string,
+  pin: string,
+): Promise<WaiterShift> {
+  const { data, error } = await getSupabaseClient().rpc('device_start_shift', {
+    p_device_secret: secret,
     p_waiter_id: waiterId,
     p_pin: pin,
   })
@@ -61,14 +96,12 @@ export async function startWaiterShift(waiterId: string, pin: string): Promise<W
   }
 }
 
-export async function endWaiterShift(token: string): Promise<void> {
-  const { data, error } = await getSupabaseClient().rpc('end_waiter_shift', { p_token: token })
-  parseRpcResult(endShiftResultSchema, data, error, 'No se pudo cerrar el turno.')
-}
-
 /** The shift for a token, or null when it is unknown, expired, from another device or inactive. */
-export async function getWaiterShift(token: string): Promise<WaiterShift | null> {
-  const { data, error } = await getSupabaseClient().rpc('get_waiter_shift', { p_token: token })
+export async function deviceGetShift(secret: string, token: string): Promise<WaiterShift | null> {
+  const { data, error } = await getSupabaseClient().rpc('device_get_shift', {
+    p_device_secret: secret,
+    p_shift_token: token,
+  })
   const result = parseRpcResult(getShiftResultSchema, data, error, 'No se pudo verificar el turno.')
   if (!result) return null
 
@@ -78,6 +111,43 @@ export async function getWaiterShift(token: string): Promise<WaiterShift | null>
     fullName: result.full_name,
     expiresAt: result.expires_at,
   }
+}
+
+export async function deviceEndShift(secret: string, token: string): Promise<void> {
+  const { data, error } = await getSupabaseClient().rpc('device_end_shift', {
+    p_device_secret: secret,
+    p_shift_token: token,
+  })
+  parseRpcResult(endShiftResultSchema, data, error, 'No se pudo cerrar el turno.')
+}
+
+/** Authorizes a new device. The returned secret is shown by the server only this once. */
+export async function adminRegisterDevice(name: string): Promise<AuthorizedDevice> {
+  const { data, error } = await getSupabaseClient().rpc('admin_register_device', { p_name: name })
+  const result = parseRpcResult(
+    registerDeviceResultSchema,
+    data,
+    error,
+    'No se pudo autorizar el dispositivo.',
+  )
+  return { deviceId: result.device_id, name: result.name, secret: result.device_secret }
+}
+
+export async function adminListDevices(): Promise<AdminDevice[]> {
+  const { data, error } = await getSupabaseClient().rpc('admin_list_devices')
+  const rows = parseRpcResult(adminDeviceListSchema, data, error, 'No se pudieron cargar los dispositivos.')
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    createdAt: row.created_at,
+    lastSeenAt: row.last_seen_at,
+    revoked: row.revoked,
+  }))
+}
+
+export async function adminRevokeDevice(id: string): Promise<void> {
+  const { data, error } = await getSupabaseClient().rpc('admin_revoke_device', { p_device_id: id })
+  parseRpcResult(deviceIdResultSchema, data, error, 'No se pudo revocar el dispositivo.')
 }
 
 export async function adminListWaiters(): Promise<AdminWaiter[]> {

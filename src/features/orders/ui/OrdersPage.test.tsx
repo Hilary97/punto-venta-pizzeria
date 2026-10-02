@@ -2,37 +2,19 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { useAuth } from '../../auth/ui/AuthContext'
 import { listCategories, listProducts } from '../../products/infrastructure/productsRepository'
 import type { Order } from '../domain/order'
 import { addOrderItems, cancelOrder, createOrder, listOpenOrders } from '../infrastructure/ordersRepository'
-import { SHIFT_STORAGE_KEY } from '../../waiters/domain/shiftStorage'
-import type { WaiterShift } from '../../waiters/domain/waiter'
-import { endWaiterShift, getWaiterShift, listActiveWaiters } from '../../waiters/infrastructure/waitersRepository'
 import { OrdersPage } from './OrdersPage'
 
-vi.mock('../../auth/ui/AuthContext', () => ({ useAuth: vi.fn() }))
 vi.mock('../../products/infrastructure/productsRepository', () => ({ listCategories: vi.fn(), listProducts: vi.fn() }))
-vi.mock('../infrastructure/ordersRepository', () => ({
+vi.mock('../infrastructure/ordersRepository', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../infrastructure/ordersRepository')>()),
   listOpenOrders: vi.fn(),
   createOrder: vi.fn(),
   addOrderItems: vi.fn(),
   cancelOrder: vi.fn(),
 }))
-
-vi.mock('../../waiters/infrastructure/waitersRepository', () => ({
-  listActiveWaiters: vi.fn(),
-  startWaiterShift: vi.fn(),
-  getWaiterShift: vi.fn(),
-  endWaiterShift: vi.fn(),
-}))
-
-const shift: WaiterShift = {
-  token: 'tok-1',
-  waiterId: 'w1',
-  fullName: 'Carlos',
-  expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
-}
 
 const openOrder: Order = {
   id: 'order-1',
@@ -42,14 +24,6 @@ const openOrder: Order = {
   status: 'open',
   createdAt: '2026-01-01T10:00:00Z',
   items: [{ id: 'i1', productId: 'p', productName: 'Pizza queso', quantity: 2 }],
-}
-
-function mockRole(role: 'admin' | 'cashier' | 'waiter') {
-  vi.mocked(useAuth).mockReturnValue({
-    status: 'signed-in',
-    profile: { id: 'u', fullName: 'Usuario', role },
-    errorMessage: null,
-  } as ReturnType<typeof useAuth>)
 }
 
 function LocationProbe() {
@@ -70,12 +44,6 @@ function renderPage() {
 
 beforeEach(() => {
   vi.resetAllMocks()
-  localStorage.clear()
-  localStorage.setItem(SHIFT_STORAGE_KEY, JSON.stringify(shift))
-  vi.mocked(getWaiterShift).mockResolvedValue(shift)
-  vi.mocked(listActiveWaiters).mockResolvedValue([{ id: 'w1', fullName: 'Carlos' }])
-  vi.mocked(endWaiterShift).mockResolvedValue(undefined)
-  mockRole('waiter')
   vi.mocked(listCategories).mockResolvedValue([{ id: 'pizza', name: 'Pizzas', sortOrder: 0 }])
   vi.mocked(listProducts).mockResolvedValue([
     { id: 'p', categoryId: 'pizza', name: 'Pizza queso', priceCents: 15000, active: true },
@@ -114,7 +82,7 @@ describe('OrdersPage', () => {
     expect(submit).toBeEnabled()
 
     await user.click(submit)
-    expect(createOrder).toHaveBeenCalledWith(5, 'Luis Perez', [{ productId: 'p', quantity: 2 }], 'tok-1')
+    expect(createOrder).toHaveBeenCalledWith(5, 'Luis Perez', [{ productId: 'p', quantity: 2 }])
     expect(await screen.findByRole('status')).toHaveTextContent(/pedido registrado/i)
     expect(screen.getByLabelText(/nombre del cliente/i)).toHaveValue('')
     expect(submit).toBeDisabled()
@@ -130,7 +98,7 @@ describe('OrdersPage', () => {
     await user.click(screen.getByRole('button', { name: 'M-4' }))
     expect(submit).toBeEnabled()
     await user.click(submit)
-    expect(createOrder).toHaveBeenCalledWith(4, null, [{ productId: 'p', quantity: 1 }], 'tok-1')
+    expect(createOrder).toHaveBeenCalledWith(4, null, [{ productId: 'p', quantity: 1 }])
   })
 
   it('enables register with only a name', async () => {
@@ -141,7 +109,7 @@ describe('OrdersPage', () => {
     await user.type(screen.getByLabelText(/nombre del cliente/i), ' Juan ')
     expect(submit).toBeEnabled()
     await user.click(submit)
-    expect(createOrder).toHaveBeenCalledWith(null, 'Juan', [{ productId: 'p', quantity: 1 }], 'tok-1')
+    expect(createOrder).toHaveBeenCalledWith(null, 'Juan', [{ productId: 'p', quantity: 1 }])
   })
 
   it('keeps register disabled with neither table nor a non-blank name', async () => {
@@ -199,15 +167,8 @@ describe('OrdersPage', () => {
     expect(within(card).getByText(/pizza queso × 2/i)).toBeVisible()
   })
 
-  it('hides Cobrar for waiters', async () => {
-    renderPage()
-    await screen.findByText('Ana')
-    expect(screen.queryByRole('link', { name: /cobrar/i })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /cobrar/i })).not.toBeInTheDocument()
-  })
 
-  it('shows Cobrar for cashiers linking to the POS with the order id', async () => {
-    mockRole('cashier')
+  it('shows Cobrar linking to the POS with the order id', async () => {
     const user = userEvent.setup()
     renderPage()
     const link = await screen.findByRole('link', { name: /cobrar/i })
@@ -282,7 +243,7 @@ describe('OrdersPage', () => {
     const dialog = screen.getByRole('dialog')
     expect(within(dialog).getByText('Pizza queso')).toBeVisible()
     await user.click(within(dialog).getByRole('button', { name: /registrar pedido/i }))
-    expect(createOrder).toHaveBeenCalledWith(2, 'Mara', [{ productId: 'p', quantity: 2 }], 'tok-1')
+    expect(createOrder).toHaveBeenCalledWith(2, 'Mara', [{ productId: 'p', quantity: 2 }])
     expect(await screen.findByRole('status')).toHaveTextContent(/pedido registrado/i)
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /ver pedido/i })).not.toBeInTheDocument()
@@ -298,37 +259,17 @@ describe('OrdersPage', () => {
     expect(screen.getByLabelText(/nombre del cliente/i)).toBeVisible()
   })
 
-  it('shows the shift header and ends the shift with Cambiar mesero', async () => {
-    const user = userEvent.setup()
-    renderPage()
-    expect(await screen.findByText('Mesero: Carlos')).toBeVisible()
-    await user.click(screen.getByRole('button', { name: /cambiar mesero/i }))
-    expect(endWaiterShift).toHaveBeenCalledWith('tok-1')
-    expect(await screen.findByText('¿Quién está tomando pedidos?')).toBeVisible()
-  })
 
-  it('does not gate cashiers and creates orders without a token', async () => {
-    mockRole('cashier')
+  it('creates orders without any waiter gate', async () => {
     const user = userEvent.setup()
     renderPage()
     await user.click(await screen.findByRole('button', { name: 'M-4' }))
     await user.click(screen.getByRole('button', { name: /pizza queso/i }))
     await user.click(screen.getByRole('button', { name: /registrar pedido/i }))
-    expect(createOrder).toHaveBeenCalledWith(4, null, [{ productId: 'p', quantity: 1 }], null)
-    expect(getWaiterShift).not.toHaveBeenCalled()
+    expect(createOrder).toHaveBeenCalledWith(4, null, [{ productId: 'p', quantity: 1 }])
     expect(screen.queryByText(/^Mesero:/)).not.toBeInTheDocument()
   })
 
-  it('returns to the gate when the server says the shift expired', async () => {
-    vi.mocked(createOrder).mockRejectedValueOnce(new Error('Tu turno expiró. Ingresa tu PIN de nuevo.'))
-    const user = userEvent.setup()
-    renderPage()
-    await user.click(await screen.findByRole('button', { name: 'M-1' }))
-    await user.click(screen.getByRole('button', { name: /pizza queso/i }))
-    await user.click(screen.getByRole('button', { name: /registrar pedido/i }))
-    expect(await screen.findByText('¿Quién está tomando pedidos?')).toBeVisible()
-    expect(localStorage.getItem(SHIFT_STORAGE_KEY)).toBeNull()
-  })
 
   it('shows who served each open order', async () => {
     vi.mocked(listOpenOrders).mockResolvedValue([{ ...openOrder, waiterName: 'Carlos' }])

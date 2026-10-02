@@ -6,7 +6,6 @@ import { Input } from '../../../shared/ui/Input'
 import { Modal } from '../../../shared/ui/Modal'
 import { Spinner } from '../../../shared/ui/Spinner'
 import type { Category, Product } from '../../products/domain/product'
-import { listCategories, listProducts } from '../../products/infrastructure/productsRepository'
 import { ProductGrid } from '../../sales/ui/ProductGrid'
 import type { WaiterShift } from '../../waiters/domain/waiter'
 import {
@@ -27,18 +26,19 @@ import {
   removeDraftLine,
   type DraftLine,
 } from '../domain/orderDraft'
-import { addOrderItems, cancelOrder, createOrder, listOpenOrders } from '../infrastructure/ordersRepository'
+import type { OrdersSource } from '../domain/ordersSource'
 import { OpenOrdersList } from './OpenOrdersList'
 import { OrderFab } from './OrderFab'
 import { OrderDraftPanel } from './OrderDraftPanel'
 import { TableSelector } from './TableSelector'
 
 interface OrdersWorkspaceProps {
-  /** Active shift for waiter devices; null for admin/cashier. */
-  shift: WaiterShift | null
+  source: OrdersSource
+  /** Active shift on authorized devices; omitted for admin/cashier. */
+  shift?: WaiterShift
   canCharge: boolean
-  onChangeWaiter: () => void
-  onShiftExpired: () => void
+  onChangeWaiter?: () => void
+  onShiftExpired?: () => void
 }
 
 /** Matches the server messages for a missing or expired waiter shift. */
@@ -47,7 +47,7 @@ function isShiftError(error: unknown): boolean {
   return message.includes('turno') || message.includes('PIN')
 }
 
-export function OrdersWorkspace({ shift, canCharge, onChangeWaiter, onShiftExpired }: OrdersWorkspaceProps) {
+export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onShiftExpired }: OrdersWorkspaceProps) {
   const nameId = useId()
   const filterId = useId()
   const [categories, setCategories] = useState<Category[]>([])
@@ -69,25 +69,21 @@ export function OrdersWorkspace({ shift, canCharge, onChangeWaiter, onShiftExpir
 
   const reloadOrders = useCallback(async () => {
     try {
-      setOrders(await listOpenOrders())
+      setOrders(await source.listOpenOrders())
       setActionError(null)
     } catch (error) {
       setActionError(toUserMessage(error))
     }
-  }, [])
+  }, [source])
 
   useEffect(() => {
     async function load() {
       setIsLoading(true)
       setLoadError(null)
       try {
-        const [loadedCategories, loadedProducts, loadedOrders] = await Promise.all([
-          listCategories(),
-          listProducts(true),
-          listOpenOrders(),
-        ])
-        setCategories(loadedCategories)
-        setProducts(loadedProducts)
+        const [catalog, loadedOrders] = await Promise.all([source.loadCatalog(), source.listOpenOrders()])
+        setCategories(catalog.categories)
+        setProducts(catalog.products)
         setOrders(loadedOrders)
       } catch (error) {
         setLoadError(toUserMessage(error))
@@ -96,7 +92,7 @@ export function OrdersWorkspace({ shift, canCharge, onChangeWaiter, onShiftExpir
       }
     }
     void load()
-  }, [])
+  }, [source])
 
   /** Runs a server action behind the pending guard; returns whether it succeeded. */
   async function runGuarded(action: () => Promise<void>): Promise<boolean> {
@@ -110,7 +106,7 @@ export function OrdersWorkspace({ shift, canCharge, onChangeWaiter, onShiftExpir
       return true
     } catch (error) {
       if (shift && isShiftError(error)) {
-        onShiftExpired()
+        onShiftExpired?.()
         return false
       }
       setActionError(toUserMessage(error))
@@ -139,9 +135,9 @@ export function OrdersWorkspace({ shift, canCharge, onChangeWaiter, onShiftExpir
     const items = draftToPayload(draft)
     const succeeded = await runGuarded(async () => {
       if (addingToOrder) {
-        await addOrderItems(addingToOrder.id, items)
+        await source.addOrderItems(addingToOrder.id, items)
       } else {
-        await createOrder(tableNumber, normalizeCustomerName(customerName) || null, items, shift?.token ?? null)
+        await source.createOrder(tableNumber, normalizeCustomerName(customerName) || null, items)
       }
     })
     if (!succeeded) return
@@ -161,7 +157,7 @@ export function OrdersWorkspace({ shift, canCharge, onChangeWaiter, onShiftExpir
     const order = orderToCancel
     setOrderToCancel(null)
     const succeeded = await runGuarded(async () => {
-      await cancelOrder(order.id)
+      await source.cancelOrder(order.id)
     })
     if (!succeeded) return
     if (addingToOrder?.id === order.id) {
@@ -228,7 +224,7 @@ export function OrdersWorkspace({ shift, canCharge, onChangeWaiter, onShiftExpir
 
   return (
     <div className="flex min-w-0 flex-col gap-8 p-4">
-      {shift && (
+      {shift && onChangeWaiter && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3">
           <p className="break-words font-semibold text-slate-900">Mesero: {shift.fullName}</p>
           <Button variant="secondary" disabled={isSubmitting} onClick={onChangeWaiter}>

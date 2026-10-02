@@ -1,20 +1,7 @@
-import { useAuth } from '../../auth/ui/AuthContext'
-import { WaiterShiftGate } from '../../waiters/ui/WaiterShiftGate'
+import { authenticatedOrdersSource } from '../infrastructure/ordersSources'
 import { OrdersWorkspace } from './OrdersWorkspace'
 
-/** Waiters pick their name and PIN first; admin and cashier go straight in. */
+/** Orders for a signed-in admin or cashier: no waiter gate, and orders can be charged. */
 export function OrdersPage() {
-  const { profile } = useAuth()
-
-  if (profile?.role !== 'waiter') {
-    return <OrdersWorkspace shift={null} canCharge onChangeWaiter={() => undefined} onShiftExpired={() => undefined} />
-  }
-
-  return (
-    <WaiterShiftGate>
-      {(shift, onChangeWaiter, onShiftExpired) => (
-        <OrdersWorkspace shift={shift} canCharge={false} onChangeWaiter={onChangeWaiter} onShiftExpired={onShiftExpired} />
-      )}
-    </WaiterShiftGate>
-  )
+  return <OrdersWorkspace source={authenticatedOrdersSource} canCharge />
 }

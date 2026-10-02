@@ -4,19 +4,21 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { WaiterShift } from '../domain/waiter'
 import { SHIFT_STORAGE_KEY } from '../domain/shiftStorage'
 import {
-  endWaiterShift,
-  getWaiterShift,
-  listActiveWaiters,
-  startWaiterShift,
+  deviceEndShift,
+  deviceGetShift,
+  deviceListWaiters,
+  deviceStartShift,
 } from '../infrastructure/waitersRepository'
 import { WaiterShiftGate } from './WaiterShiftGate'
 
 vi.mock('../infrastructure/waitersRepository', () => ({
-  listActiveWaiters: vi.fn(),
-  startWaiterShift: vi.fn(),
-  getWaiterShift: vi.fn(),
-  endWaiterShift: vi.fn(),
+  deviceListWaiters: vi.fn(),
+  deviceStartShift: vi.fn(),
+  deviceGetShift: vi.fn(),
+  deviceEndShift: vi.fn(),
 }))
+
+const SECRET = 'b2'.repeat(32)
 
 const shift: WaiterShift = {
   token: 'tok-1',
@@ -27,7 +29,7 @@ const shift: WaiterShift = {
 
 function renderGate() {
   return render(
-    <WaiterShiftGate>
+    <WaiterShiftGate secret={SECRET}>
       {(current, onChangeWaiter) => (
         <div>
           <p>Mesero: {current.fullName}</p>
@@ -47,13 +49,13 @@ async function enterPin(user: ReturnType<typeof userEvent.setup>, digits: string
 beforeEach(() => {
   vi.resetAllMocks()
   localStorage.clear()
-  vi.mocked(listActiveWaiters).mockResolvedValue([
+  vi.mocked(deviceListWaiters).mockResolvedValue([
     { id: 'w1', fullName: 'Carlos' },
     { id: 'w2', fullName: 'Lucia' },
   ])
-  vi.mocked(startWaiterShift).mockResolvedValue(shift)
-  vi.mocked(getWaiterShift).mockResolvedValue(shift)
-  vi.mocked(endWaiterShift).mockResolvedValue(undefined)
+  vi.mocked(deviceStartShift).mockResolvedValue(shift)
+  vi.mocked(deviceGetShift).mockResolvedValue(shift)
+  vi.mocked(deviceEndShift).mockResolvedValue(undefined)
 })
 
 describe('WaiterShiftGate', () => {
@@ -64,8 +66,14 @@ describe('WaiterShiftGate', () => {
     expect(screen.getByRole('button', { name: 'Lucia' })).toBeVisible()
   })
 
+  it('lists waiters with the device secret', async () => {
+    renderGate()
+    await screen.findByText('¿Quién está tomando pedidos?')
+    expect(deviceListWaiters).toHaveBeenCalledWith(SECRET)
+  })
+
   it('explains when there are no waiters', async () => {
-    vi.mocked(listActiveWaiters).mockResolvedValue([])
+    vi.mocked(deviceListWaiters).mockResolvedValue([])
     renderGate()
     expect(await screen.findByText(/no hay meseros registrados/i)).toBeVisible()
   })
@@ -75,14 +83,14 @@ describe('WaiterShiftGate', () => {
     renderGate()
     await user.click(await screen.findByRole('button', { name: 'Carlos' }))
     await enterPin(user, '1234')
-    expect(startWaiterShift).toHaveBeenCalledWith('w1', '1234')
+    expect(deviceStartShift).toHaveBeenCalledWith(SECRET, 'w1', '1234')
     expect(await screen.findByText('Mesero: Carlos')).toBeVisible()
     expect(JSON.parse(localStorage.getItem(SHIFT_STORAGE_KEY)!).token).toBe('tok-1')
   })
 
   it('never shows the PIN digits', async () => {
     const user = userEvent.setup()
-    vi.mocked(startWaiterShift).mockRejectedValue(new Error('PIN incorrecto.'))
+    vi.mocked(deviceStartShift).mockRejectedValue(new Error('PIN incorrecto.'))
     renderGate()
     await user.click(await screen.findByRole('button', { name: 'Carlos' }))
     await user.click(screen.getByRole('button', { name: '1' }))
@@ -92,14 +100,14 @@ describe('WaiterShiftGate', () => {
 
   it('shows the server message and clears the PIN on a wrong PIN', async () => {
     const user = userEvent.setup()
-    vi.mocked(startWaiterShift).mockRejectedValueOnce(new Error('PIN incorrecto.'))
+    vi.mocked(deviceStartShift).mockRejectedValueOnce(new Error('PIN incorrecto.'))
     renderGate()
     await user.click(await screen.findByRole('button', { name: 'Carlos' }))
     await enterPin(user, '0000')
     expect(await screen.findByRole('alert')).toHaveTextContent('PIN incorrecto.')
     await enterPin(user, '1234')
-    expect(startWaiterShift).toHaveBeenLastCalledWith('w1', '1234')
-    expect(startWaiterShift).toHaveBeenCalledTimes(2)
+    expect(deviceStartShift).toHaveBeenLastCalledWith(SECRET, 'w1', '1234')
+    expect(deviceStartShift).toHaveBeenCalledTimes(2)
   })
 
   it('goes back to the waiter list with Volver', async () => {
@@ -115,13 +123,13 @@ describe('WaiterShiftGate', () => {
     renderGate()
     expect(screen.getByRole('status')).toBeVisible()
     expect(await screen.findByText('Mesero: Carlos')).toBeVisible()
-    expect(getWaiterShift).toHaveBeenCalledWith('tok-1')
-    expect(startWaiterShift).not.toHaveBeenCalled()
+    expect(deviceGetShift).toHaveBeenCalledWith(SECRET, 'tok-1')
+    expect(deviceStartShift).not.toHaveBeenCalled()
   })
 
   it('shows the gate when the server rejects the stored shift', async () => {
     localStorage.setItem(SHIFT_STORAGE_KEY, JSON.stringify(shift))
-    vi.mocked(getWaiterShift).mockResolvedValue(null)
+    vi.mocked(deviceGetShift).mockResolvedValue(null)
     renderGate()
     expect(await screen.findByText('¿Quién está tomando pedidos?')).toBeVisible()
     expect(localStorage.getItem(SHIFT_STORAGE_KEY)).toBeNull()
@@ -130,10 +138,10 @@ describe('WaiterShiftGate', () => {
   it('ends the shift with Cambiar mesero and shows the gate, even if the network fails', async () => {
     const user = userEvent.setup()
     localStorage.setItem(SHIFT_STORAGE_KEY, JSON.stringify(shift))
-    vi.mocked(endWaiterShift).mockRejectedValue(new Error('offline'))
+    vi.mocked(deviceEndShift).mockRejectedValue(new Error('offline'))
     renderGate()
     await user.click(await screen.findByRole('button', { name: /cambiar mesero/i }))
-    expect(endWaiterShift).toHaveBeenCalledWith('tok-1')
+    expect(deviceEndShift).toHaveBeenCalledWith(SECRET, 'tok-1')
     await waitFor(() => expect(screen.getByText('¿Quién está tomando pedidos?')).toBeVisible())
     expect(localStorage.getItem(SHIFT_STORAGE_KEY)).toBeNull()
   })

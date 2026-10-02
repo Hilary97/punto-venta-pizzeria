@@ -3,7 +3,7 @@ import { getSupabaseClient } from '../../../shared/supabase/client'
 import { parseRpcResult } from '../../../shared/supabase/rpc'
 import type { Order, OrderItemPayload } from '../domain/order'
 
-const orderRowSchema = z.object({
+export const orderRowSchema = z.object({
   id: z.string(),
   table_number: z.number().int().nullable(),
   customer_name: z.string().nullable(),
@@ -22,7 +22,7 @@ const orderRowSchema = z.object({
 
 const ORDER_SELECT = 'id, table_number, customer_name, status, created_at, waiter_name, order_items(id, product_id, product_name, quantity)'
 
-function mapRow(row: z.infer<typeof orderRowSchema>): Order {
+export function mapOrderRow(row: z.infer<typeof orderRowSchema>): Order {
   return {
     id: row.id,
     tableNumber: row.table_number,
@@ -39,7 +39,7 @@ function mapRow(row: z.infer<typeof orderRowSchema>): Order {
   }
 }
 
-function toRpcItems(items: OrderItemPayload[]) {
+export function toRpcItems(items: OrderItemPayload[]) {
   return items.map((item) => ({ product_id: item.productId, quantity: item.quantity }))
 }
 
@@ -54,7 +54,7 @@ export async function listOpenOrders(): Promise<Order[]> {
   if (error) throw new Error('No se pudieron cargar los pedidos.')
   const parsed = z.array(orderRowSchema).safeParse(data)
   if (!parsed.success) throw new Error('No se pudieron cargar los pedidos.')
-  return parsed.data.map(mapRow)
+  return parsed.data.map(mapOrderRow)
 }
 
 /** A single order by id, or null when it does not exist or is not visible to the user. */
@@ -69,30 +69,27 @@ export async function getOrder(orderId: string): Promise<Order | null> {
   if (!data) return null
   const parsed = orderRowSchema.safeParse(data)
   if (!parsed.success) throw new Error('No se pudo cargar el pedido.')
-  return mapRow(parsed.data)
+  return mapOrderRow(parsed.data)
 }
 
-const orderIdResultSchema = z.object({
+export const orderIdResultSchema = z.object({
   order_id: z.string(),
 })
 
 /**
  * Creates an open order through the `create_order` security-definer RPC.
  * Only product ids and quantities are sent; the server snapshots product
- * names and never stores prices. The waiter shift token, when given, lets the
- * server record who registered the order. Returns the new order id.
+ * names and never stores prices. Returns the new order id.
  */
 export async function createOrder(
   tableNumber: number | null,
   customerName: string | null,
   items: OrderItemPayload[],
-  waiterToken: string | null = null,
 ): Promise<string> {
   const { data, error } = await getSupabaseClient().rpc('create_order', {
     p_table_number: tableNumber,
     p_customer_name: customerName,
     p_items: toRpcItems(items),
-    p_waiter_token: waiterToken,
   })
   return parseRpcResult(orderIdResultSchema, data, error, 'No se pudo crear el pedido.').order_id
 }
