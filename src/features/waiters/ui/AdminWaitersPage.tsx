@@ -11,6 +11,7 @@ import {
   adminUnlockWaiter,
   adminUpdateWaiter,
 } from '../infrastructure/waitersRepository'
+import { DevicesSection } from './DevicesSection'
 import { WaiterFormModal } from './WaiterFormModal'
 import { WaiterPinModal } from './WaiterPinModal'
 import { WaitersTable } from './WaitersTable'
@@ -108,6 +109,8 @@ export function AdminWaitersPage() {
         }
         onUnlock={(waiter) => performFromRow(() => adminUnlockWaiter(waiter.id), 'Mesero desbloqueado.')}
       />
+
+      <DevicesSection />
 
       {modal.kind === 'new' && (
         <WaiterFormModal

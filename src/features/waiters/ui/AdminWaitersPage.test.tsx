@@ -1,5 +1,6 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router'
 import { beforeEach, expect, it, vi } from 'vitest'
 import type { AdminWaiter } from '../domain/waiter'
 import { AdminWaitersPage } from './AdminWaitersPage'
@@ -10,7 +11,11 @@ const repo = vi.hoisted(() => ({
   adminUpdateWaiter: vi.fn(),
   adminResetWaiterPin: vi.fn(),
   adminUnlockWaiter: vi.fn(),
+  adminListDevices: vi.fn(),
+  adminRegisterDevice: vi.fn(),
+  adminRevokeDevice: vi.fn(),
 }))
+vi.mock('../../auth/infrastructure/authRepository', () => ({ signOut: vi.fn() }))
 vi.mock('../infrastructure/waitersRepository', () => repo)
 
 const WAITERS: AdminWaiter[] = [
@@ -25,10 +30,15 @@ beforeEach(() => {
   repo.adminUpdateWaiter.mockResolvedValue(undefined)
   repo.adminResetWaiterPin.mockResolvedValue(undefined)
   repo.adminUnlockWaiter.mockResolvedValue(undefined)
+  repo.adminListDevices.mockResolvedValue([])
 })
 
 async function renderPage() {
-  render(<AdminWaitersPage />)
+  render(
+    <MemoryRouter>
+      <AdminWaitersPage />
+    </MemoryRouter>,
+  )
   await screen.findByText('Ana Pérez')
   return userEvent.setup()
 }
