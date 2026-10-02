@@ -4,9 +4,9 @@ import { cartTotalCents, type CartItem } from '../domain/cart'
 
 interface CartPanelProps {
   cart: CartItem[]
-  onIncrement: (productId: string) => void
-  onDecrement: (productId: string) => void
-  onRemove: (productId: string) => void
+  onIncrement?: (productId: string) => void
+  onDecrement?: (productId: string) => void
+  onRemove?: (productId: string) => void
   onCheckout?: () => void
   disabled?: boolean
   /** Hides the quantity and remove controls (order checkout mode). */
@@ -38,7 +38,7 @@ export function CartPanel({ cart, onIncrement, onDecrement, onRemove, onCheckout
                     type="button"
                     aria-label={`Quitar una unidad de ${item.name}`}
                     disabled={disabled}
-                    onClick={() => onDecrement(item.productId)}
+                    onClick={() => onDecrement?.(item.productId)}
                     className="h-11 w-11 rounded-full bg-slate-200 font-bold text-slate-700 hover:bg-slate-300"
                   >
                     −
@@ -48,7 +48,7 @@ export function CartPanel({ cart, onIncrement, onDecrement, onRemove, onCheckout
                     type="button"
                     aria-label={`Agregar una unidad de ${item.name}`}
                     disabled={disabled}
-                    onClick={() => onIncrement(item.productId)}
+                    onClick={() => onIncrement?.(item.productId)}
                     className="h-11 w-11 rounded-full bg-slate-200 font-bold text-slate-700 hover:bg-slate-300"
                   >
                     +
@@ -61,7 +61,7 @@ export function CartPanel({ cart, onIncrement, onDecrement, onRemove, onCheckout
                   type="button"
                   aria-label={`Eliminar ${item.name} del carrito`}
                   disabled={disabled}
-                  onClick={() => onRemove(item.productId)}
+                  onClick={() => onRemove?.(item.productId)}
                   className="p-2 text-slate-400 hover:text-red-600"
                 >
                   ✕
