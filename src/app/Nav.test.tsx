@@ -6,9 +6,35 @@ import { Nav } from './Nav'
 
 const logout = vi.hoisted(() => vi.fn())
 vi.mock('../features/auth/infrastructure/authRepository', () => ({ signOut: logout }))
+const auth = vi.hoisted(() => ({ role: 'admin' as 'admin' | 'cashier' | 'waiter' }))
 vi.mock('../features/auth/ui/AuthContext', () => ({
-  useAuth: () => ({ profile: { fullName: 'Administrador', role: 'admin' } }),
+  useAuth: () => ({ profile: { fullName: 'Administrador', role: auth.role } }),
 }))
+
+it('shows only Pedidos to waiters', () => {
+  auth.role = 'waiter'
+  render(<MemoryRouter><Nav /></MemoryRouter>)
+  expect(screen.getByRole('link', { name: 'Pedidos' })).toHaveAttribute('href', '/pedidos')
+  for (const name of ['Venta', 'Devoluciones', 'Corte de caja', 'Productos', 'Historial'])
+    expect(screen.queryByRole('link', { name })).not.toBeInTheDocument()
+  auth.role = 'admin'
+})
+
+it('shows cash links plus Pedidos to cashiers, without admin links', () => {
+  auth.role = 'cashier'
+  render(<MemoryRouter><Nav /></MemoryRouter>)
+  for (const name of ['Pedidos', 'Venta', 'Devoluciones', 'Corte de caja'])
+    expect(screen.getByRole('link', { name })).toBeInTheDocument()
+  expect(screen.queryByRole('link', { name: 'Productos' })).not.toBeInTheDocument()
+  auth.role = 'admin'
+})
+
+it('shows every link to admins', () => {
+  render(<MemoryRouter><Nav /></MemoryRouter>)
+  for (const name of ['Pedidos', 'Venta', 'Devoluciones', 'Corte de caja', 'Productos', 'Historial'])
+    expect(screen.getByRole('link', { name })).toBeInTheDocument()
+})
+
 it('disables pending logout, shows errors, preserves profile and permits retry', async () => {
   let reject!: (error: Error) => void
   logout.mockReturnValueOnce(new Promise<void>((_, no) => { reject = no }))

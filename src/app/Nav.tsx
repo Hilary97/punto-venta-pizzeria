@@ -33,15 +33,24 @@ export function Nav() {
   return (
     <nav className="flex h-16 items-center justify-between gap-2 border-b border-slate-200 bg-white px-4 shadow-sm">
       <div className="flex items-center gap-1 overflow-x-auto">
-        <NavLink to="/" end className={NAV_LINK_CLASS}>
-          Venta
+        {profile?.role !== 'waiter' && (
+          <NavLink to="/" end className={NAV_LINK_CLASS}>
+            Venta
+          </NavLink>
+        )}
+        <NavLink to="/pedidos" className={NAV_LINK_CLASS}>
+          Pedidos
         </NavLink>
-        <NavLink to="/devoluciones" className={NAV_LINK_CLASS}>
-          Devoluciones
-        </NavLink>
-        <NavLink to="/corte" className={NAV_LINK_CLASS}>
-          Corte de caja
-        </NavLink>
+        {profile?.role !== 'waiter' && (
+          <>
+            <NavLink to="/devoluciones" className={NAV_LINK_CLASS}>
+              Devoluciones
+            </NavLink>
+            <NavLink to="/corte" className={NAV_LINK_CLASS}>
+              Corte de caja
+            </NavLink>
+          </>
+        )}
         {profile?.role === 'admin' && (
           <>
             <NavLink to="/admin/productos" className={NAV_LINK_CLASS}>

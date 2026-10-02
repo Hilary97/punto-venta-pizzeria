@@ -11,7 +11,11 @@ import { CashSessionDetailPage } from './features/cash-register/ui/CashSessionDe
 import { OpenRegisterPage } from './features/cash-register/ui/OpenRegisterPage'
 import { RequireOpenSession } from './features/cash-register/ui/RequireOpenSession'
 import { AdminProductsPage } from './features/products/ui/AdminProductsPage'
+import { OrdersPage } from './features/orders/ui/OrdersPage'
 import { ReturnsPage } from './features/returns/ui/ReturnsPage'
+import type { UserRole } from './shared/supabase/database.types'
+
+const CASH_ROLES: UserRole[] = ['admin', 'cashier']
 
 function App() {
   return (
@@ -26,17 +30,41 @@ function App() {
               </RequireAuth>
             }
           >
-            <Route index element={<HomeRoute />} />
-            <Route path="abrir-caja" element={<OpenRegisterPage />} />
+            <Route path="pedidos" element={<OrdersPage />} />
+            <Route
+              index
+              element={
+                <RequireRole role={CASH_ROLES}>
+                  <HomeRoute />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="abrir-caja"
+              element={
+                <RequireRole role={CASH_ROLES}>
+                  <OpenRegisterPage />
+                </RequireRole>
+              }
+            />
             <Route
               path="devoluciones"
               element={
-                <RequireOpenSession>
-                  <ReturnsPage />
-                </RequireOpenSession>
+                <RequireRole role={CASH_ROLES}>
+                  <RequireOpenSession>
+                    <ReturnsPage />
+                  </RequireOpenSession>
+                </RequireRole>
               }
             />
-            <Route path="corte" element={<CashCutPage />} />
+            <Route
+              path="corte"
+              element={
+                <RequireRole role={CASH_ROLES}>
+                  <CashCutPage />
+                </RequireRole>
+              }
+            />
             <Route
               path="admin/productos"
               element={
