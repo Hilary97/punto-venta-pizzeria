@@ -34,6 +34,8 @@ order loaded and the cashier charges it as a regular sale in the open cash sessi
 - [x] 8. POS (Venta) lists open orders labeled by table and/or name, each with Cobrar.
 - [x] 9. Venta screen shows only pending orders (no product grid); charging an order
       shows its priced cart + checkout. Direct sales without an order are removed from the UI.
+- [x] 10. Venta pending orders filters: table buttons (Todas, M-1..M-9) + name search,
+      combined, case/accent-insensitive.
 - [x] 6. Harden cash RPCs server-side so `waiter` cannot open/sell/return/close.
 
 ## Evidence
@@ -50,6 +52,7 @@ order loaded and the cashier charges it as a regular sale in the open cash sessi
 - Task 7: `ea899ba` — RED 7 domain tests → GREEN 167; new migration 20261002140000 (not executed).
 - Task 8: `4a919b9` — RED 4 → GREEN 173; empty state keeps Actualizar reachable.
 - Task 9: `a13bc39` — RED 15 → GREEN 164; catalog and direct sales removed from Venta.
+- Task 10: `a0fbe46` — RED (missing module + 5 UI tests) → GREEN 179; tsc/lint clean.
 
 ## Pending (user)
 
