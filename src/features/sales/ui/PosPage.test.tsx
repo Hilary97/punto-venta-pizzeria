@@ -60,6 +60,12 @@ describe('Venta screen without direct sales', () => {
     expect(screen.queryByText(/cobrando pedido/i)).not.toBeInTheDocument()
   })
 
+  it('shows who served each pending order', async () => {
+    vi.mocked(listOpenOrders).mockResolvedValue([{ ...openOrder, waiterName: 'Carlos' }])
+    renderPos()
+    expect(await screen.findByText('Atendió: Carlos')).toBeVisible()
+  })
+
   it('shows an empty state with a link to Pedidos', async () => {
     renderPos()
     expect(await screen.findByText('Sin pedidos pendientes')).toBeVisible()
@@ -69,6 +75,12 @@ describe('Venta screen without direct sales', () => {
 })
 
 describe('order checkout mode', () => {
+  it('appends the waiter to the checkout banner', async () => {
+    vi.mocked(getOrder).mockResolvedValue({ ...openOrder, waiterName: 'Carlos' })
+    renderPos('/?pedido=o1')
+    expect(await screen.findByText('Cobrando pedido M-3 · Ana · Atendió Carlos')).toBeVisible()
+  })
+
   it('loads the order into a read-only cart priced with current products', async () => {
     renderPos('/?pedido=o1')
     expect(await screen.findByText('Cobrando pedido M-3 · Ana')).toBeVisible()

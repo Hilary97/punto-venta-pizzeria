@@ -139,6 +139,7 @@ export function PendingOrdersPanel({ onCharge }: PendingOrdersPanelProps) {
             return (
               <li key={order.id} className="flex min-w-0 flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4">
                 <span className="break-words text-lg font-bold text-slate-900">{label}</span>
+                {order.waiterName && <p className="text-sm text-slate-500">Atendió: {order.waiterName}</p>}
                 <ul className="flex flex-1 flex-col gap-1 text-slate-700">
                   {order.items.map((item) => (
                     <li key={item.id} className="break-words">{`${item.productName} × ${item.quantity}`}</li>

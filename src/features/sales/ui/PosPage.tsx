@@ -146,7 +146,7 @@ export function PosPage() {
   return (
     <div className="mx-auto flex w-full min-w-0 max-w-xl flex-col gap-4 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-        <p className="font-semibold">{`Cobrando pedido ${orderLabel(order)}`}</p>
+        <p className="font-semibold">{`Cobrando pedido ${orderLabel(order)}${order.waiterName ? ` · Atendió ${order.waiterName}` : ''}`}</p>
         <div className="flex items-center gap-4">
           <Link to="/pedidos" className={backToOrdersLinkClass}>
             Volver a pedidos

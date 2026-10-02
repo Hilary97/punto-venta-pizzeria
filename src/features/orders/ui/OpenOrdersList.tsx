@@ -25,6 +25,7 @@ export function OpenOrdersList({ orders, canCharge, disabled = false, onAddItems
             )}
             {order.customerName && <span className="min-w-0 break-words font-semibold text-slate-900">{order.customerName}</span>}
           </div>
+          {order.waiterName && <p className="text-sm text-slate-500">Atendió: {order.waiterName}</p>}
           <ul className="flex-1 text-slate-700">
             {order.items.map((item) => (
               <li key={item.id} className="break-words">
