@@ -16,11 +16,14 @@ Admins can permanently delete waiters and revoked order devices from `/admin/mes
 
 ## Tasks
 
-- [ ] 1. Migration `admin_delete_waiter`, `admin_delete_device` (revoked only) + types +
+- [x] 1. Migration `admin_delete_waiter`, `admin_delete_device` (revoked only) + types +
       repository functions.
-- [ ] 2. UI: "Eliminar" on waiter rows and revoked device rows with confirmation; tests.
+- [x] 2. UI: "Eliminar" on waiter rows and revoked device rows with confirmation; tests.
 
 ## Evidence
+
+- Task 1: `fb3b815` — tsc 0; vitest 245 green; SQL not executed.
+- Task 2: `804c6e5` — RED 8 → GREEN 253; tsc 0; build 0.
 
 ## Pending (user)
 
