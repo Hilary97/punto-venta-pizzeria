@@ -11,7 +11,14 @@ import type { AdminDevice } from '../domain/device'
 import { clearDevice, loadDevice, saveDevice } from '../domain/deviceStorage'
 import { clearShift } from '../domain/shiftStorage'
 import { MAX_WAITER_NAME_LENGTH, isValidWaiterName, normalizeWaiterName } from '../domain/waiter'
-import { adminListDevices, adminRegisterDevice, adminRevokeDevice } from '../infrastructure/waitersRepository'
+import {
+  adminDeleteDevice,
+  adminListDevices,
+  adminRegisterDevice,
+  adminRevokeDevice,
+} from '../infrastructure/waitersRepository'
+
+import { ConfirmDeleteModal } from './ConfirmDeleteModal'
 
 function formatLastSeen(lastSeenAt: string | null): string {
   if (lastSeenAt === null) return 'Nunca'
@@ -89,12 +96,14 @@ function AuthorizeDeviceModal({ onClose }: AuthorizeDeviceModalProps) {
 }
 
 type ModalState = { kind: 'none' } | { kind: 'authorize' } | { kind: 'revoke'; device: AdminDevice }
+  | { kind: 'delete'; device: AdminDevice }
 
 export function DevicesSection() {
   const [devices, setDevices] = useState<AdminDevice[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isPending, setIsPending] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const [modal, setModal] = useState<ModalState>({ kind: 'none' })
   const [thisDevice, setThisDevice] = useState(() => loadDevice())
 
@@ -116,6 +125,7 @@ export function DevicesSection() {
     if (isPending) return
     setIsPending(true)
     setErrorMessage(null)
+    setStatusMessage(null)
     try {
       await adminRevokeDevice(device.id)
       await reload()
@@ -125,6 +135,15 @@ export function DevicesSection() {
       setModal({ kind: 'none' })
       setIsPending(false)
     }
+  }
+
+  async function deleteDevice(device: AdminDevice) {
+    setStatusMessage(null)
+    await adminDeleteDevice(device.id)
+    setErrorMessage(null)
+    setStatusMessage('Dispositivo eliminado.')
+    await reload()
+    setModal({ kind: 'none' })
   }
 
   function removeThisDevice() {
@@ -164,6 +183,11 @@ export function DevicesSection() {
       )}
 
       {errorMessage && <ErrorBanner message={errorMessage} />}
+      {statusMessage && (
+        <p role="status" className="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
+          {statusMessage}
+        </p>
+      )}
 
       {isLoading ? (
         <Spinner label="Cargando dispositivos…" />
@@ -197,7 +221,15 @@ export function DevicesSection() {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    {!device.revoked && (
+                    {device.revoked ? (
+                      <Button
+                        variant="danger"
+                        disabled={isPending}
+                        onClick={() => setModal({ kind: 'delete', device })}
+                      >
+                        Eliminar
+                      </Button>
+                    ) : (
                       <Button variant="ghost" disabled={isPending} onClick={() => setModal({ kind: 'revoke', device })}>
                         Revocar
                       </Button>
@@ -228,6 +260,15 @@ export function DevicesSection() {
             </div>
           </div>
         </Modal>
+      )}
+
+      {modal.kind === 'delete' && (
+        <ConfirmDeleteModal
+          title="Eliminar dispositivo"
+          message={`Se eliminará ${modal.device.name} de la lista definitivamente. Esta acción es irreversible.`}
+          onConfirm={() => deleteDevice(modal.device)}
+          onClose={() => setModal({ kind: 'none' })}
+        />
       )}
     </section>
   )

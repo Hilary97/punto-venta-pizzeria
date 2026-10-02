@@ -11,6 +11,8 @@ const repo = vi.hoisted(() => ({
   adminUpdateWaiter: vi.fn(),
   adminResetWaiterPin: vi.fn(),
   adminUnlockWaiter: vi.fn(),
+  adminDeleteWaiter: vi.fn(),
+  adminDeleteDevice: vi.fn(),
   adminListDevices: vi.fn(),
   adminRegisterDevice: vi.fn(),
   adminRevokeDevice: vi.fn(),
@@ -30,6 +32,8 @@ beforeEach(() => {
   repo.adminUpdateWaiter.mockResolvedValue(undefined)
   repo.adminResetWaiterPin.mockResolvedValue(undefined)
   repo.adminUnlockWaiter.mockResolvedValue(undefined)
+  repo.adminDeleteWaiter.mockResolvedValue(undefined)
+  repo.adminDeleteDevice.mockResolvedValue(undefined)
   repo.adminListDevices.mockResolvedValue([])
 })
 
@@ -149,4 +153,45 @@ it('resets a PIN after validating the confirmation', async () => {
   expect(repo.adminResetWaiterPin).toHaveBeenCalledWith('w1', '9999')
   expect(await screen.findByRole('status')).toHaveTextContent('PIN actualizado')
   expect(screen.queryByText('9999')).not.toBeInTheDocument()
+})
+
+it('opens a confirmation with the waiter name and does not delete on Cancelar', async () => {
+  const user = await renderPage()
+  await user.click(within(row('Ana Pérez')).getByRole('button', { name: 'Eliminar' }))
+  const dialog = screen.getByRole('dialog')
+  expect(within(dialog).getByRole('heading', { name: 'Eliminar mesero' })).toBeInTheDocument()
+  expect(dialog).toHaveTextContent(
+    'Se eliminará a Ana Pérez definitivamente y ya no podrá ingresar con su PIN. Los pedidos que registró conservan su nombre. Esta acción es irreversible.',
+  )
+  await user.click(within(dialog).getByRole('button', { name: 'Cancelar' }))
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  expect(repo.adminDeleteWaiter).not.toHaveBeenCalled()
+})
+
+it('offers Eliminar on every waiter row', async () => {
+  await renderPage()
+  expect(within(row('Ana Pérez')).getByRole('button', { name: 'Eliminar' })).toBeInTheDocument()
+  expect(within(row('Luis Gómez')).getByRole('button', { name: 'Eliminar' })).toBeInTheDocument()
+})
+
+it('deletes a waiter after confirmation, reports success and reloads', async () => {
+  const user = await renderPage()
+  await user.click(within(row('Luis Gómez')).getByRole('button', { name: 'Eliminar' }))
+  await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Eliminar definitivamente' }))
+  expect(repo.adminDeleteWaiter).toHaveBeenCalledTimes(1)
+  expect(repo.adminDeleteWaiter).toHaveBeenCalledWith('w2')
+  expect(await screen.findByRole('status')).toHaveTextContent('Mesero eliminado.')
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  expect(repo.adminListWaiters).toHaveBeenCalledTimes(2)
+})
+
+it('keeps the delete modal open and shows the server error', async () => {
+  repo.adminDeleteWaiter.mockRejectedValueOnce(new Error('No se pudo eliminar el mesero.'))
+  const user = await renderPage()
+  await user.click(within(row('Ana Pérez')).getByRole('button', { name: 'Eliminar' }))
+  const dialog = screen.getByRole('dialog')
+  await user.click(within(dialog).getByRole('button', { name: 'Eliminar definitivamente' }))
+  expect(await within(dialog).findByRole('alert')).toHaveTextContent('No se pudo eliminar el mesero.')
+  expect(screen.getByRole('dialog')).toBeInTheDocument()
+  expect(repo.adminListWaiters).toHaveBeenCalledTimes(1)
 })

@@ -11,6 +11,7 @@ const repo = vi.hoisted(() => ({
   adminListDevices: vi.fn(),
   adminRegisterDevice: vi.fn(),
   adminRevokeDevice: vi.fn(),
+  adminDeleteDevice: vi.fn(),
 }))
 vi.mock('../infrastructure/waitersRepository', () => repo)
 
@@ -29,6 +30,7 @@ beforeEach(() => {
   localStorage.clear()
   repo.adminListDevices.mockResolvedValue(DEVICES)
   repo.adminRevokeDevice.mockResolvedValue(undefined)
+  repo.adminDeleteDevice.mockResolvedValue(undefined)
   repo.adminRegisterDevice.mockResolvedValue({ deviceId: 'new-1', name: 'Tablet nueva', secret: SECRET })
   auth.signOut.mockResolvedValue(undefined)
 })
@@ -139,4 +141,44 @@ it('notes an already authorized browser and removes it locally without revoking'
   expect(repo.adminRevokeDevice).not.toHaveBeenCalled()
   expect(screen.queryByText(/Este navegador ya está autorizado/)).not.toBeInTheDocument()
   clearDevice()
+})
+
+it('offers Eliminar only on revoked devices', async () => {
+  await renderSection()
+  expect(within(row('Tablet barra')).queryByRole('button', { name: 'Eliminar' })).not.toBeInTheDocument()
+  expect(within(row('Celular viejo')).getByRole('button', { name: 'Eliminar' })).toBeInTheDocument()
+})
+
+it('does not delete a device when the confirmation is cancelled', async () => {
+  const user = await renderSection()
+  await user.click(within(row('Celular viejo')).getByRole('button', { name: 'Eliminar' }))
+  const dialog = screen.getByRole('dialog')
+  expect(within(dialog).getByRole('heading', { name: 'Eliminar dispositivo' })).toBeInTheDocument()
+  expect(dialog).toHaveTextContent(
+    'Se eliminará Celular viejo de la lista definitivamente. Esta acción es irreversible.',
+  )
+  await user.click(within(dialog).getByRole('button', { name: 'Cancelar' }))
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  expect(repo.adminDeleteDevice).not.toHaveBeenCalled()
+})
+
+it('deletes a revoked device after confirmation, reports success and reloads', async () => {
+  const user = await renderSection()
+  await user.click(within(row('Celular viejo')).getByRole('button', { name: 'Eliminar' }))
+  await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Eliminar definitivamente' }))
+  await waitFor(() => expect(repo.adminDeleteDevice).toHaveBeenCalledWith('d2'))
+  expect(repo.adminDeleteDevice).toHaveBeenCalledTimes(1)
+  expect(await screen.findByRole('status')).toHaveTextContent('Dispositivo eliminado.')
+  expect(repo.adminListDevices).toHaveBeenCalledTimes(2)
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+})
+
+it('keeps the device delete modal open and shows the server error', async () => {
+  repo.adminDeleteDevice.mockRejectedValueOnce(new Error('No se pudo eliminar el dispositivo.'))
+  const user = await renderSection()
+  await user.click(within(row('Celular viejo')).getByRole('button', { name: 'Eliminar' }))
+  const dialog = screen.getByRole('dialog')
+  await user.click(within(dialog).getByRole('button', { name: 'Eliminar definitivamente' }))
+  expect(await within(dialog).findByRole('alert')).toHaveTextContent('No se pudo eliminar el dispositivo.')
+  expect(screen.getByRole('dialog')).toBeInTheDocument()
 })

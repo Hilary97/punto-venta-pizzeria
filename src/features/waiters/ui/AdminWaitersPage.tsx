@@ -6,11 +6,13 @@ import { toUserMessage } from '../../../shared/errors'
 import type { AdminWaiter } from '../domain/waiter'
 import {
   adminCreateWaiter,
+  adminDeleteWaiter,
   adminListWaiters,
   adminResetWaiterPin,
   adminUnlockWaiter,
   adminUpdateWaiter,
 } from '../infrastructure/waitersRepository'
+import { ConfirmDeleteModal } from './ConfirmDeleteModal'
 import { DevicesSection } from './DevicesSection'
 import { WaiterFormModal } from './WaiterFormModal'
 import { WaiterPinModal } from './WaiterPinModal'
@@ -21,6 +23,7 @@ type ModalState =
   | { kind: 'new' }
   | { kind: 'edit'; waiter: AdminWaiter }
   | { kind: 'pin'; waiter: AdminWaiter }
+  | { kind: 'delete'; waiter: AdminWaiter }
 
 export function AdminWaitersPage() {
   const [waiters, setWaiters] = useState<AdminWaiter[]>([])
@@ -108,6 +111,7 @@ export function AdminWaitersPage() {
           )
         }
         onUnlock={(waiter) => performFromRow(() => adminUnlockWaiter(waiter.id), 'Mesero desbloqueado.')}
+        onDelete={(waiter) => setModal({ kind: 'delete', waiter })}
       />
 
       <DevicesSection />
@@ -136,6 +140,19 @@ export function AdminWaitersPage() {
         <WaiterPinModal
           waiterName={modal.waiter.fullName}
           onSubmit={(pin) => runFromModal(() => adminResetWaiterPin(modal.waiter.id, pin), 'PIN actualizado.')}
+          onClose={() => setModal({ kind: 'none' })}
+        />
+      )}
+
+      {modal.kind === 'delete' && (
+        <ConfirmDeleteModal
+          title="Eliminar mesero"
+          message={`Se eliminará a ${modal.waiter.fullName} definitivamente y ya no podrá ingresar con su PIN. Los pedidos que registró conservan su nombre. Esta acción es irreversible.`}
+          onConfirm={() =>
+            runFromModal(() => adminDeleteWaiter(modal.waiter.id), 'Mesero eliminado.').then(() =>
+              setModal({ kind: 'none' }),
+            )
+          }
           onClose={() => setModal({ kind: 'none' })}
         />
       )}

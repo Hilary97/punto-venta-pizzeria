@@ -8,9 +8,10 @@ interface WaitersTableProps {
   onToggleActive: (waiter: AdminWaiter) => void
   onChangePin: (waiter: AdminWaiter) => void
   onUnlock: (waiter: AdminWaiter) => void
+  onDelete: (waiter: AdminWaiter) => void
 }
 
-export function WaitersTable({ waiters, disabled, onEdit, onToggleActive, onChangePin, onUnlock }: WaitersTableProps) {
+export function WaitersTable({ waiters, disabled, onEdit, onToggleActive, onChangePin, onUnlock, onDelete }: WaitersTableProps) {
   if (waiters.length === 0) {
     return <p className="p-4 text-center text-slate-500">Aún no hay meseros registrados.</p>
   }
@@ -63,6 +64,13 @@ export function WaitersTable({ waiters, disabled, onEdit, onToggleActive, onChan
                       Desbloquear
                     </Button>
                   )}
+                  <Button
+                    variant="danger"
+                    disabled={disabled}
+                    onClick={() => onDelete(waiter)}
+                  >
+                    Eliminar
+                  </Button>
                 </div>
               </td>
             </tr>
