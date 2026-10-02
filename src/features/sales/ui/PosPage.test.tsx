@@ -212,8 +212,9 @@ describe('pending orders panel', () => {
     vi.mocked(listOpenOrders).mockResolvedValueOnce([]).mockResolvedValue([nameOnly])
     const user = userEvent.setup()
     renderPos()
-    expect(await screen.findByText('Pedidos pendientes (0)')).toBeVisible()
-    expect(screen.getByText('Sin pedidos pendientes')).toBeVisible()
+    // The empty state only renders once loading finishes, which also enables Actualizar.
+    expect(await screen.findByText('Sin pedidos pendientes')).toBeVisible()
+    expect(screen.getByText('Pedidos pendientes (0)')).toBeVisible()
     await user.click(screen.getByRole('button', { name: /actualizar/i }))
     expect(await screen.findByText('Pedidos pendientes (1)')).toBeVisible()
     expect(screen.getByText('Juan')).toBeVisible()
