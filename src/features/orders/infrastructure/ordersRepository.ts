@@ -5,8 +5,8 @@ import type { Order, OrderItemPayload } from '../domain/order'
 
 const orderRowSchema = z.object({
   id: z.string(),
-  table_number: z.number().int(),
-  customer_name: z.string(),
+  table_number: z.number().int().nullable(),
+  customer_name: z.string().nullable(),
   status: z.enum(['open', 'paid', 'cancelled']),
   created_at: z.string(),
   order_items: z.array(
@@ -80,8 +80,8 @@ const orderIdResultSchema = z.object({
  * names and never stores prices. Returns the new order id.
  */
 export async function createOrder(
-  tableNumber: number,
-  customerName: string,
+  tableNumber: number | null,
+  customerName: string | null,
   items: OrderItemPayload[],
 ): Promise<string> {
   const { data, error } = await getSupabaseClient().rpc('create_order', {

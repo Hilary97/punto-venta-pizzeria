@@ -147,8 +147,8 @@ export interface Database {
       orders: EmptyRelationships & {
         Row: {
           id: string
-          table_number: number
-          customer_name: string
+          table_number: number | null
+          customer_name: string | null
           status: OrderStatus
           created_by: string
           created_at: string
@@ -198,7 +198,7 @@ export interface Database {
         Returns: unknown
       }
       create_order: {
-        Args: { p_table_number: number; p_customer_name: string; p_items: unknown }
+        Args: { p_table_number: number | null; p_customer_name: string | null; p_items: unknown }
         Returns: unknown
       }
       add_order_items: {

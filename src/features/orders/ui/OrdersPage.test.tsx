@@ -75,7 +75,7 @@ describe('OrdersPage', () => {
     expect(screen.queryByText(/150\.00/)).not.toBeInTheDocument()
   })
 
-  it('keeps register disabled until table, name and product are present, then sends the payload', async () => {
+  it('keeps register disabled until a product and table or name are present, then sends the payload', async () => {
     const user = userEvent.setup()
     renderPage()
     const submit = await screen.findByRole('button', { name: /registrar pedido/i })
@@ -96,6 +96,65 @@ describe('OrdersPage', () => {
     expect(screen.getByLabelText(/nombre del cliente/i)).toHaveValue('')
     expect(submit).toBeDisabled()
     expect(listOpenOrders).toHaveBeenCalledTimes(2)
+  })
+
+  it('enables register with only a table', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: /pizza queso/i }))
+    const submit = screen.getByRole('button', { name: /registrar pedido/i })
+    expect(submit).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: 'M-4' }))
+    expect(submit).toBeEnabled()
+    await user.click(submit)
+    expect(createOrder).toHaveBeenCalledWith(4, null, [{ productId: 'p', quantity: 1 }])
+  })
+
+  it('enables register with only a name', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: /pizza queso/i }))
+    const submit = screen.getByRole('button', { name: /registrar pedido/i })
+    await user.type(screen.getByLabelText(/nombre del cliente/i), ' Juan ')
+    expect(submit).toBeEnabled()
+    await user.click(submit)
+    expect(createOrder).toHaveBeenCalledWith(null, 'Juan', [{ productId: 'p', quantity: 1 }])
+  })
+
+  it('keeps register disabled with neither table nor a non-blank name', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: /pizza queso/i }))
+    await user.type(screen.getByLabelText(/nombre del cliente/i), '   ')
+    expect(screen.getByRole('button', { name: /registrar pedido/i })).toBeDisabled()
+  })
+
+  it('deselects the table when tapping it again', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: /pizza queso/i }))
+    await user.click(screen.getByRole('button', { name: 'M-5' }))
+    expect(screen.getByRole('button', { name: /registrar pedido/i })).toBeEnabled()
+    await user.click(screen.getByRole('button', { name: 'M-5' }))
+    expect(screen.getByRole('button', { name: 'M-5' })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('button', { name: /registrar pedido/i })).toBeDisabled()
+  })
+
+  it('shows orders without a table only under Todas', async () => {
+    vi.mocked(listOpenOrders).mockResolvedValue([
+      openOrder,
+      { ...openOrder, id: 'order-2', tableNumber: null, customerName: 'Beto' },
+      { ...openOrder, id: 'order-3', tableNumber: 7, customerName: null },
+    ])
+    const user = userEvent.setup()
+    renderPage()
+    expect(await screen.findByText('Beto')).toBeVisible()
+    const cardCount = () => screen.getAllByText(/pizza queso × 2/i).length
+    expect(cardCount()).toBe(3)
+    await user.selectOptions(screen.getByLabelText(/filtrar por mesa/i), '3')
+    expect(screen.queryByText('Beto')).not.toBeInTheDocument()
+    expect(cardCount()).toBe(1)
+    expect(screen.getByText('Ana')).toBeVisible()
   })
 
   it('shows an error banner and keeps the draft when creation fails', async () => {

@@ -20,8 +20,10 @@ export function OpenOrdersList({ orders, canCharge, disabled = false, onAddItems
       {orders.map((order) => (
         <li key={order.id} className="flex min-w-0 flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4">
           <div className="flex items-center justify-between gap-2">
-            <span className="rounded-lg bg-red-700 px-3 py-1 text-lg font-bold text-white">{tableLabel(order.tableNumber)}</span>
-            <span className="min-w-0 break-words font-semibold text-slate-900">{order.customerName}</span>
+            {order.tableNumber !== null && (
+              <span className="rounded-lg bg-red-700 px-3 py-1 text-lg font-bold text-white">{tableLabel(order.tableNumber)}</span>
+            )}
+            {order.customerName && <span className="min-w-0 break-words font-semibold text-slate-900">{order.customerName}</span>}
           </div>
           <ul className="flex-1 text-slate-700">
             {order.items.map((item) => (

@@ -186,7 +186,7 @@ describe('order checkout mode', () => {
     expect(payOrder).toHaveBeenCalledWith('o1', 40000)
     expect(createSale).not.toHaveBeenCalled()
     const status = await screen.findByRole('status')
-    expect(status).toHaveTextContent('Pedido M-3 cobrado.')
+    expect(status).toHaveTextContent('Pedido M-3 · Ana cobrado.')
     expect(status).toHaveTextContent('Total cobrado: $320.00')
     expect(status).toHaveTextContent('Cambio: $80.00')
     expect(screen.getByTestId('search')).toHaveTextContent('')

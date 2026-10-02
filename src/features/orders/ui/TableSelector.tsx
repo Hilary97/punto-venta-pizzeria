@@ -3,7 +3,7 @@ import { TABLE_NUMBERS, tableLabel } from '../domain/order'
 
 interface TableSelectorProps {
   selected: number | null
-  onSelect: (tableNumber: number) => void
+  onSelect: (tableNumber: number | null) => void
   disabled?: boolean
 }
 
@@ -18,7 +18,7 @@ export function TableSelector({ selected, onSelect, disabled = false }: TableSel
             type="button"
             aria-pressed={isSelected}
             disabled={disabled}
-            onClick={() => onSelect(tableNumber)}
+            onClick={() => onSelect(isSelected ? null : tableNumber)}
             className={cn(
               'min-h-14 rounded-xl text-lg font-bold transition-colors disabled:opacity-50',
               isSelected ? 'bg-red-700 text-white' : 'bg-slate-200 text-slate-700 hover:bg-slate-300',

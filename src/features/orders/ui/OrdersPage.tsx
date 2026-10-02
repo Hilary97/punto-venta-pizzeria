@@ -12,8 +12,9 @@ import { ProductGrid } from '../../sales/ui/ProductGrid'
 import {
   MAX_CUSTOMER_NAME_LENGTH,
   TABLE_NUMBERS,
-  isValidCustomerName,
+  canRegisterOrder,
   normalizeCustomerName,
+  orderLabel,
   tableLabel,
   type Order,
 } from '../domain/order'
@@ -113,7 +114,7 @@ export function OrdersPage() {
     updateDraft((current) => addToDraft(current, { productId: product.id, name: product.name }))
   }
 
-  const canSubmit = draft.length > 0 && (addingToOrder !== null || (tableNumber !== null && isValidCustomerName(customerName)))
+  const canSubmit = draft.length > 0 && (addingToOrder !== null || canRegisterOrder(tableNumber, customerName))
 
   async function handleSubmit(event: { preventDefault: () => void }) {
     event.preventDefault()
@@ -122,8 +123,8 @@ export function OrdersPage() {
     const succeeded = await runGuarded(async () => {
       if (addingToOrder) {
         await addOrderItems(addingToOrder.id, items)
-      } else if (tableNumber !== null) {
-        await createOrder(tableNumber, normalizeCustomerName(customerName), items)
+      } else {
+        await createOrder(tableNumber, normalizeCustomerName(customerName) || null, items)
       }
     })
     if (!succeeded) return
@@ -184,7 +185,7 @@ export function OrdersPage() {
     <form onSubmit={handleSubmit} className="flex min-w-0 flex-col gap-4 rounded-xl border border-slate-200 bg-white p-4">
       <h2 className="text-lg font-bold text-slate-900">
         {addingToOrder
-          ? `Agregar al pedido de ${addingToOrder.customerName} (${tableLabel(addingToOrder.tableNumber)})`
+          ? `Agregar al pedido ${orderLabel(addingToOrder)}`
           : 'Nuevo pedido'}
       </h2>
       <OrderDraftPanel
@@ -297,7 +298,7 @@ export function OrdersPage() {
         <Modal title="Cancelar pedido" onClose={() => setOrderToCancel(null)}>
           <div className="flex flex-col gap-4">
             <p className="text-slate-700">
-              ¿Cancelar el pedido de {orderToCancel.customerName} ({tableLabel(orderToCancel.tableNumber)})?
+              ¿Cancelar el pedido {orderLabel(orderToCancel)}?
             </p>
             <Button variant="danger" onClick={() => void handleConfirmCancel()}>
               Sí, cancelar pedido

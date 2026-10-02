@@ -5,7 +5,7 @@ import { Modal } from '../../../shared/ui/Modal'
 import { Spinner } from '../../../shared/ui/Spinner'
 import { toUserMessage } from '../../../shared/errors'
 import { formatMoney } from '../../../shared/money'
-import { tableLabel, type Order } from '../../orders/domain/order'
+import { orderLabel, type Order } from '../../orders/domain/order'
 import { getOrder, payOrder } from '../../orders/infrastructure/ordersRepository'
 import type { Category, Product } from '../../products/domain/product'
 import { listCategories, listProducts } from '../../products/infrastructure/productsRepository'
@@ -115,7 +115,7 @@ export function PosPage() {
       if (order) {
         const result = await payOrder(order.id, receivedCents)
         setIsCartOpen(false)
-        setLastSaleMessage(`Pedido ${tableLabel(order.tableNumber)} cobrado. Total cobrado: ${formatMoney(result.totalCents)}. Cambio: ${formatMoney(result.changeCents)}.`)
+        setLastSaleMessage(`Pedido ${orderLabel(order)} cobrado. Total cobrado: ${formatMoney(result.totalCents)}. Cambio: ${formatMoney(result.changeCents)}.`)
         clearOrderParam()
         return
       }
@@ -163,7 +163,7 @@ export function PosPage() {
         <div className="min-w-0">
           {order && (
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-              <p className="font-semibold">{`Cobrando pedido ${tableLabel(order.tableNumber)} · ${order.customerName}`}</p>
+              <p className="font-semibold">{`Cobrando pedido ${orderLabel(order)}`}</p>
               <div className="flex items-center gap-4">
                 <Link to="/pedidos" className={backToOrdersLinkClass}>
                   Volver a pedidos
