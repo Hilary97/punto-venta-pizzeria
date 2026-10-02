@@ -3,7 +3,7 @@ import type { Order } from './order'
 import { filterOrders } from './orderFilter'
 
 function order(id: string, tableNumber: number | null, customerName: string | null): Order {
-  return { id, tableNumber, customerName, status: 'open', createdAt: '2026-01-01T00:00:00Z', items: [] }
+  return { id, tableNumber, customerName, status: 'open', createdAt: '2026-01-01T00:00:00Z', items: [], waiterName: null }
 }
 
 const orders = [order('a', 3, 'José'), order('b', 5, null), order('c', null, 'Juan'), order('d', 3, 'Ana')]

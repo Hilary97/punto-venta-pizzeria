@@ -14,6 +14,7 @@ export interface Order {
   customerName: string | null
   status: OrderStatus
   createdAt: string
+  waiterName: string | null
   items: OrderItem[]
 }
 

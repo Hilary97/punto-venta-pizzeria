@@ -19,6 +19,7 @@ vi.mock('../infrastructure/ordersRepository', () => ({
 
 const openOrder: Order = {
   id: 'order-1',
+  waiterName: null,
   tableNumber: 3,
   customerName: 'Ana',
   status: 'open',

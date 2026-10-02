@@ -9,6 +9,7 @@ const orderRowSchema = z.object({
   customer_name: z.string().nullable(),
   status: z.enum(['open', 'paid', 'cancelled']),
   created_at: z.string(),
+  waiter_name: z.string().nullable(),
   order_items: z.array(
     z.object({
       id: z.string(),
@@ -19,7 +20,7 @@ const orderRowSchema = z.object({
   ),
 })
 
-const ORDER_SELECT = 'id, table_number, customer_name, status, created_at, order_items(id, product_id, product_name, quantity)'
+const ORDER_SELECT = 'id, table_number, customer_name, status, created_at, waiter_name, order_items(id, product_id, product_name, quantity)'
 
 function mapRow(row: z.infer<typeof orderRowSchema>): Order {
   return {
@@ -28,6 +29,7 @@ function mapRow(row: z.infer<typeof orderRowSchema>): Order {
     customerName: row.customer_name,
     status: row.status,
     createdAt: row.created_at,
+    waiterName: row.waiter_name,
     items: row.order_items.map((item) => ({
       id: item.id,
       productId: item.product_id,
@@ -77,17 +79,20 @@ const orderIdResultSchema = z.object({
 /**
  * Creates an open order through the `create_order` security-definer RPC.
  * Only product ids and quantities are sent; the server snapshots product
- * names and never stores prices. Returns the new order id.
+ * names and never stores prices. The waiter shift token, when given, lets the
+ * server record who registered the order. Returns the new order id.
  */
 export async function createOrder(
   tableNumber: number | null,
   customerName: string | null,
   items: OrderItemPayload[],
+  waiterToken: string | null = null,
 ): Promise<string> {
   const { data, error } = await getSupabaseClient().rpc('create_order', {
     p_table_number: tableNumber,
     p_customer_name: customerName,
     p_items: toRpcItems(items),
+    p_waiter_token: waiterToken,
   })
   return parseRpcResult(orderIdResultSchema, data, error, 'No se pudo crear el pedido.').order_id
 }

@@ -25,6 +25,7 @@ function renderPos(entry = '/') {
 
 const openOrder: Order = {
   id: 'o1',
+  waiterName: null,
   tableNumber: 3,
   customerName: 'Ana',
   status: 'open',
