@@ -218,6 +218,8 @@ export interface Database {
       admin_register_device: { Args: { p_name: string }; Returns: unknown }
       admin_list_devices: { Args: Record<string, never>; Returns: unknown }
       admin_revoke_device: { Args: { p_device_id: string }; Returns: unknown }
+      admin_delete_waiter: { Args: { p_waiter_id: string }; Returns: unknown }
+      admin_delete_device: { Args: { p_device_id: string }; Returns: unknown }
       device_info: { Args: { p_device_secret: string }; Returns: unknown }
       device_list_waiters: { Args: { p_device_secret: string }; Returns: unknown }
       device_start_shift: {

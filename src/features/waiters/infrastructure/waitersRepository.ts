@@ -54,6 +54,10 @@ const registerDeviceResultSchema = z.object({
 
 const deviceIdResultSchema = z.object({ device_id: z.string() })
 
+const deletedWaiterResultSchema = z.object({ deleted_waiter_id: z.string() })
+
+const deletedDeviceResultSchema = z.object({ deleted_device_id: z.string() })
+
 /** Identity of the device behind a secret; throws when the secret is unknown or revoked. */
 export async function deviceInfo(secret: string): Promise<{ deviceId: string; name: string }> {
   const { data, error } = await getSupabaseClient().rpc('device_info', { p_device_secret: secret })
@@ -150,6 +154,12 @@ export async function adminRevokeDevice(id: string): Promise<void> {
   parseRpcResult(deviceIdResultSchema, data, error, 'No se pudo revocar el dispositivo.')
 }
 
+/** Permanently deletes a revoked device; the server rejects devices that are still active. */
+export async function adminDeleteDevice(id: string): Promise<void> {
+  const { data, error } = await getSupabaseClient().rpc('admin_delete_device', { p_device_id: id })
+  parseRpcResult(deletedDeviceResultSchema, data, error, 'No se pudo eliminar el dispositivo.')
+}
+
 export async function adminListWaiters(): Promise<AdminWaiter[]> {
   const { data, error } = await getSupabaseClient().rpc('admin_list_waiters')
   const rows = parseRpcResult(adminWaiterListSchema, data, error, 'No se pudieron cargar los meseros.')
@@ -185,6 +195,12 @@ export async function adminResetWaiterPin(id: string, pin: string): Promise<void
     p_pin: pin,
   })
   parseRpcResult(waiterIdResultSchema, data, error, 'No se pudo cambiar el PIN.')
+}
+
+/** Permanently deletes a waiter; orders keep the waiter name snapshot. */
+export async function adminDeleteWaiter(id: string): Promise<void> {
+  const { data, error } = await getSupabaseClient().rpc('admin_delete_waiter', { p_waiter_id: id })
+  parseRpcResult(deletedWaiterResultSchema, data, error, 'No se pudo eliminar el mesero.')
 }
 
 export async function adminUnlockWaiter(id: string): Promise<void> {
