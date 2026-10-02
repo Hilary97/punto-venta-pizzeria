@@ -12,6 +12,7 @@ import { OpenRegisterPage } from './features/cash-register/ui/OpenRegisterPage'
 import { RequireOpenSession } from './features/cash-register/ui/RequireOpenSession'
 import { AdminProductsPage } from './features/products/ui/AdminProductsPage'
 import { OrdersPage } from './features/orders/ui/OrdersPage'
+import { AdminWaitersPage } from './features/waiters/ui/AdminWaitersPage'
 import { ReturnsPage } from './features/returns/ui/ReturnsPage'
 import type { UserRole } from './shared/supabase/database.types'
 
@@ -78,6 +79,14 @@ function App() {
               element={
                 <RequireRole role="admin">
                   <CashHistoryPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="admin/meseros"
+              element={
+                <RequireRole role="admin">
+                  <AdminWaitersPage />
                 </RequireRole>
               }
             />

@@ -15,7 +15,7 @@ it('shows only Pedidos to waiters', () => {
   auth.role = 'waiter'
   render(<MemoryRouter><Nav /></MemoryRouter>)
   expect(screen.getByRole('link', { name: 'Pedidos' })).toHaveAttribute('href', '/pedidos')
-  for (const name of ['Venta', 'Devoluciones', 'Corte de caja', 'Productos', 'Historial'])
+  for (const name of ['Venta', 'Devoluciones', 'Corte de caja', 'Productos', 'Historial', 'Meseros'])
     expect(screen.queryByRole('link', { name })).not.toBeInTheDocument()
   auth.role = 'admin'
 })
@@ -26,12 +26,13 @@ it('shows cash links plus Pedidos to cashiers, without admin links', () => {
   for (const name of ['Pedidos', 'Venta', 'Devoluciones', 'Corte de caja'])
     expect(screen.getByRole('link', { name })).toBeInTheDocument()
   expect(screen.queryByRole('link', { name: 'Productos' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('link', { name: 'Meseros' })).not.toBeInTheDocument()
   auth.role = 'admin'
 })
 
 it('shows every link to admins', () => {
   render(<MemoryRouter><Nav /></MemoryRouter>)
-  for (const name of ['Pedidos', 'Venta', 'Devoluciones', 'Corte de caja', 'Productos', 'Historial'])
+  for (const name of ['Pedidos', 'Venta', 'Devoluciones', 'Corte de caja', 'Productos', 'Historial', 'Meseros'])
     expect(screen.getByRole('link', { name })).toBeInTheDocument()
 })
 
