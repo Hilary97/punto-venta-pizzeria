@@ -29,6 +29,9 @@ order loaded and the cashier charges it as a regular sale in the open cash sessi
 - [x] 4. `/pedidos` UI: table buttons, name input, price-less product grid, open
       orders list with add products / cancel / Cobrar.
 - [x] 5. POS: load order via `?pedido=<id>`, read-only cart, checkout through `pay_order`.
+- [x] 7. Table OR customer name is enough to register an order (new migration relaxing
+      constraints + `create_order`; nullable types; `orderLabel` helper; UI enable rule).
+- [x] 8. POS (Venta) lists open orders labeled by table and/or name, each with Cobrar.
 - [x] 6. Harden cash RPCs server-side so `waiter` cannot open/sell/return/close.
 
 ## Evidence
@@ -42,8 +45,11 @@ order loaded and the cashier charges it as a regular sale in the open cash sessi
 - Task 5: `29d47c0` — RED 7 order-mode tests → GREEN 155 tests; tests caught a double-charge window (fixed); tsc/lint clean.
 - Task 6: `e89db5d` — rename-to-`_unchecked` + role-checking wrappers; verified no internal cross-calls; SQL not executed.
 
+- Task 7: `ea899ba` — RED 7 domain tests → GREEN 167; new migration 20261002140000 (not executed).
+- Task 8: `4a919b9` — RED 4 → GREEN 173; empty state keeps Actualizar reachable.
+
 ## Pending (user)
 
-- Apply both migrations in Supabase (none were executed here).
+- Apply the three migrations in order (20261002120000, 20261002130000, 20261002140000) in Supabase (none were executed here).
 - Set `role = 'waiter'` on waiter profiles.
 - Manual smoke test: create order → add items → Cobrar → corte includes the sale.
