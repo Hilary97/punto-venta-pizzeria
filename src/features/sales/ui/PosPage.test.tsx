@@ -3,14 +3,14 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, useLocation } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Order } from '../../orders/domain/order'
-import { getOrder, payOrder } from '../../orders/infrastructure/ordersRepository'
+import { getOrder, listOpenOrders, payOrder } from '../../orders/infrastructure/ordersRepository'
 import { listCategories, listProducts } from '../../products/infrastructure/productsRepository'
 import { createSale } from '../infrastructure/salesRepository'
 import { PosPage } from './PosPage'
 
 vi.mock('../../products/infrastructure/productsRepository', () => ({ listCategories: vi.fn(), listProducts: vi.fn() }))
 vi.mock('../infrastructure/salesRepository', () => ({ createSale: vi.fn() }))
-vi.mock('../../orders/infrastructure/ordersRepository', () => ({ getOrder: vi.fn(), payOrder: vi.fn() }))
+vi.mock('../../orders/infrastructure/ordersRepository', () => ({ getOrder: vi.fn(), listOpenOrders: vi.fn(), payOrder: vi.fn() }))
 
 function LocationProbe() {
   return <span data-testid="search">{useLocation().search}</span>
@@ -46,6 +46,7 @@ beforeEach(() => {
   ])
   vi.mocked(createSale).mockResolvedValue({ saleId: 'sale', totalCents: 16000, changeCents: 4000 })
   vi.mocked(getOrder).mockResolvedValue(openOrder)
+  vi.mocked(listOpenOrders).mockResolvedValue([])
   vi.mocked(payOrder).mockResolvedValue({ saleId: 'sale', totalCents: 32000, changeCents: 8000, orderId: 'o1' })
 })
 
@@ -237,5 +238,77 @@ describe('order checkout mode', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(/pedido/i)
     expect(screen.getByRole('link', { name: /volver a pedidos/i })).toBeVisible()
     expect(screen.queryByRole('button', { name: /registrar venta/i })).not.toBeInTheDocument()
+  })
+})
+
+describe('pending orders bar', () => {
+  const tableOnly: Order = { ...openOrder, id: 'o2', tableNumber: 5, customerName: null, items: openOrder.items.slice(0, 1) }
+  const nameOnly: Order = { ...openOrder, id: 'o3', tableNumber: null, customerName: 'Juan', items: [] }
+
+  it('lists open orders by table and/or name with item counts', async () => {
+    vi.mocked(listOpenOrders).mockResolvedValue([openOrder, tableOnly, nameOnly])
+    renderPos()
+    expect(await screen.findByText('Pedidos pendientes (3)')).toBeVisible()
+    expect(screen.getByText('M-3 · Ana')).toBeVisible()
+    expect(screen.getByText('M-5')).toBeVisible()
+    expect(screen.getByText('Juan')).toBeVisible()
+    expect(screen.getAllByRole('button', { name: /^cobrar/i })).toHaveLength(3)
+  })
+
+  it('enters order checkout when clicking Cobrar', async () => {
+    vi.mocked(listOpenOrders).mockResolvedValue([openOrder, tableOnly])
+    const user = userEvent.setup()
+    renderPos()
+    await screen.findByText('Pedidos pendientes (2)')
+    await user.click(screen.getByRole('button', { name: /cobrar pedido m-3/i }))
+    expect(await screen.findByText('Cobrando pedido M-3 · Ana')).toBeVisible()
+    expect(screen.getByTestId('search')).toHaveTextContent('?pedido=o1')
+  })
+
+  it('is not shown or loaded in order mode', async () => {
+    vi.mocked(listOpenOrders).mockResolvedValue([openOrder])
+    renderPos('/?pedido=o1')
+    await screen.findByText('Cobrando pedido M-3 · Ana')
+    expect(screen.queryByText(/pedidos pendientes/i)).not.toBeInTheDocument()
+    expect(listOpenOrders).not.toHaveBeenCalled()
+  })
+
+  it('reloads after a successful payOrder so the paid order disappears', async () => {
+    vi.mocked(listOpenOrders).mockResolvedValueOnce([openOrder]).mockResolvedValue([])
+    const user = userEvent.setup()
+    renderPos()
+    await screen.findByText('Pedidos pendientes (1)')
+    await user.click(screen.getByRole('button', { name: /cobrar pedido m-3/i }))
+    await screen.findByText('Cobrando pedido M-3 · Ana')
+    await user.type(screen.getByLabelText(/monto recibido/i), '400')
+    await user.click(screen.getByRole('button', { name: /registrar venta/i }))
+    await screen.findByText(/cobrado\./i)
+    await screen.findByRole('button', { name: /pizza queso/i })
+    expect(listOpenOrders).toHaveBeenCalledTimes(2)
+    expect(await screen.findByText('Pedidos pendientes (0)')).toBeVisible()
+    expect(screen.queryByText('M-3 · Ana')).not.toBeInTheDocument()
+  })
+
+  it('reloads on Actualizar and shows load errors without breaking the POS', async () => {
+    vi.mocked(listOpenOrders).mockRejectedValueOnce(new Error('No se pudieron cargar los pedidos.')).mockResolvedValue([nameOnly])
+    const user = userEvent.setup()
+    renderPos()
+    expect(await screen.findByRole('alert')).toHaveTextContent('No se pudieron cargar los pedidos.')
+    expect(screen.getByRole('button', { name: /pizza queso/i })).toBeVisible()
+    await user.click(screen.getByRole('button', { name: /actualizar/i }))
+    expect(await screen.findByText('Pedidos pendientes (1)')).toBeVisible()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('always offers Actualizar, even with zero orders, to fetch new ones', async () => {
+    vi.mocked(listOpenOrders).mockResolvedValueOnce([]).mockResolvedValue([nameOnly])
+    const user = userEvent.setup()
+    renderPos()
+    expect(await screen.findByText('Pedidos pendientes (0)')).toBeVisible()
+    expect(screen.getByText('Sin pedidos pendientes')).toBeVisible()
+    await user.click(screen.getByRole('button', { name: /actualizar/i }))
+    expect(await screen.findByText('Pedidos pendientes (1)')).toBeVisible()
+    expect(screen.getByText('Juan')).toBeVisible()
+    expect(screen.queryByText('Sin pedidos pendientes')).not.toBeInTheDocument()
   })
 })

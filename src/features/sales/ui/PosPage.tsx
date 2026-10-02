@@ -16,6 +16,7 @@ import { createSale } from '../infrastructure/salesRepository'
 import { CartFab } from './CartFab'
 import { CartPanel } from './CartPanel'
 import { CheckoutForm } from './CheckoutForm'
+import { PendingOrdersBar } from './PendingOrdersBar'
 import { ProductGrid } from './ProductGrid'
 
 const ORDER_PARAM = 'pedido'
@@ -88,6 +89,15 @@ export function PosPage() {
     setSearchParams((current) => {
       const next = new URLSearchParams(current)
       next.delete(ORDER_PARAM)
+      return next
+    })
+  }
+
+  function chargeOrder(id: string) {
+    setLastSaleMessage(null)
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current)
+      next.set(ORDER_PARAM, id)
       return next
     })
   }
@@ -182,6 +192,7 @@ export function PosPage() {
               {lastSaleMessage}
             </div>
           )}
+          {!isOrderMode && <PendingOrdersBar onCharge={chargeOrder} />}
           <ProductGrid
             categories={categories}
             products={products}
