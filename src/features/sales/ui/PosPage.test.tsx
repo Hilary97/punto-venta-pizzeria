@@ -157,7 +157,7 @@ describe('pending orders panel', () => {
     renderPos()
     expect(await screen.findByText('Pedidos pendientes (3)')).toBeVisible()
     expect(screen.getByText('M-3 · Ana')).toBeVisible()
-    expect(screen.getByText('M-5')).toBeVisible()
+    expect(screen.getByText('M-5', { selector: 'span' })).toBeVisible()
     expect(screen.getByText('Juan')).toBeVisible()
     expect(screen.getAllByRole('button', { name: /^cobrar/i })).toHaveLength(3)
     const card = screen.getByText('M-3 · Ana').closest('li')!
@@ -218,5 +218,83 @@ describe('pending orders panel', () => {
     expect(await screen.findByText('Pedidos pendientes (1)')).toBeVisible()
     expect(screen.getByText('Juan')).toBeVisible()
     expect(screen.queryByText('Sin pedidos pendientes')).not.toBeInTheDocument()
+  })
+})
+
+describe('pending orders filters', () => {
+  const jose: Order = { ...openOrder, id: 'f1', tableNumber: 3, customerName: 'José', items: [] }
+  const juan: Order = { ...openOrder, id: 'f2', tableNumber: 5, customerName: 'Juan', items: [] }
+  const ana: Order = { ...openOrder, id: 'f3', tableNumber: 3, customerName: 'Ana', items: [] }
+  const noName: Order = { ...openOrder, id: 'f4', tableNumber: 7, customerName: null, items: [] }
+  const all = [jose, juan, ana, noName]
+
+  async function renderWithOrders() {
+    vi.mocked(listOpenOrders).mockResolvedValue(all)
+    const user = userEvent.setup()
+    renderPos()
+    await screen.findByText('Pedidos pendientes (4)')
+    return user
+  }
+
+  it('hides the filter bar when there are no orders at all', async () => {
+    renderPos()
+    await screen.findByText('Sin pedidos pendientes')
+    expect(screen.queryByRole('button', { name: 'Todas' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('searchbox', { name: 'Buscar por nombre' })).not.toBeInTheDocument()
+  })
+
+  it('filters cards by table and toggles back on a second click', async () => {
+    const user = await renderWithOrders()
+    expect(screen.getByRole('button', { name: 'Todas' })).toHaveAttribute('aria-pressed', 'true')
+    await user.click(screen.getByRole('button', { name: 'M-3' }))
+    expect(screen.getByRole('button', { name: 'M-3' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByText('M-3 · José')).toBeVisible()
+    expect(screen.getByText('M-3 · Ana')).toBeVisible()
+    expect(screen.queryByText('M-5 · Juan')).not.toBeInTheDocument()
+    expect(screen.getByText('Pedidos pendientes (2 de 4)')).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'M-3' }))
+    expect(screen.getByText('Pedidos pendientes (4)')).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'M-5' }))
+    await user.click(screen.getByRole('button', { name: 'Todas' }))
+    expect(screen.getByText('Pedidos pendientes (4)')).toBeVisible()
+  })
+
+  it('filters by name ignoring case and accents', async () => {
+    const user = await renderWithOrders()
+    await user.type(screen.getByRole('searchbox', { name: 'Buscar por nombre' }), 'jose')
+    expect(screen.getByText('M-3 · José')).toBeVisible()
+    expect(screen.queryByText('M-3 · Ana')).not.toBeInTheDocument()
+    expect(screen.queryByText('M-7', { selector: 'span' })).not.toBeInTheDocument()
+    expect(screen.getByText('Pedidos pendientes (1 de 4)')).toBeVisible()
+  })
+
+  it('combines table and name filters and shows the filtered empty state', async () => {
+    const user = await renderWithOrders()
+    await user.click(screen.getByRole('button', { name: 'M-3' }))
+    await user.type(screen.getByRole('searchbox', { name: 'Buscar por nombre' }), 'ana')
+    expect(screen.getByText('M-3 · Ana')).toBeVisible()
+    expect(screen.getByText('Pedidos pendientes (1 de 4)')).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'M-5' }))
+    expect(screen.getByText('No hay pedidos que coincidan.')).toBeVisible()
+    expect(screen.queryByText('Sin pedidos pendientes')).not.toBeInTheDocument()
+  })
+
+  it('restores everything with Limpiar filtros', async () => {
+    const user = await renderWithOrders()
+    await user.click(screen.getByRole('button', { name: 'M-7' }))
+    await user.type(screen.getByRole('searchbox', { name: 'Buscar por nombre' }), 'zzz')
+    await user.click(screen.getByRole('button', { name: 'Limpiar filtros' }))
+    expect(screen.getByText('Pedidos pendientes (4)')).toBeVisible()
+    expect(screen.getByRole('searchbox', { name: 'Buscar por nombre' })).toHaveValue('')
+    expect(screen.getByRole('button', { name: 'Todas' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getAllByRole('button', { name: /^cobrar/i })).toHaveLength(4)
+  })
+
+  it('keeps filters after Actualizar', async () => {
+    const user = await renderWithOrders()
+    await user.click(screen.getByRole('button', { name: 'M-3' }))
+    await user.click(screen.getByRole('button', { name: /actualizar/i }))
+    await screen.findByText('Pedidos pendientes (2 de 4)')
+    expect(screen.getByRole('button', { name: 'M-3' })).toHaveAttribute('aria-pressed', 'true')
   })
 })
