@@ -61,5 +61,5 @@ try PINs. Admins list and revoke devices in `/admin/meseros`.
 ## Pending (user)
 
 - Merge/deploy, then apply migrations 20261003120000 and 20261003130000 in Supabase right after the deploy finishes (old UI cannot create orders once applied).
-- Create waiters with PINs in .
+- Create waiters with PINs in `/admin/meseros`.
 - On each waiter device: sign in as admin, "Usar este dispositivo para pedidos".
