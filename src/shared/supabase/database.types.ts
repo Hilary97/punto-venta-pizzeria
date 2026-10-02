@@ -13,7 +13,8 @@
  * fails loudly instead of silently.
  */
 
-export type UserRole = 'admin' | 'cashier'
+export type UserRole = 'admin' | 'cashier' | 'waiter'
+export type OrderStatus = 'open' | 'paid' | 'cancelled'
 
 interface EmptyRelationships {
   Relationships: []
@@ -143,6 +144,32 @@ export interface Database {
         Insert: never
         Update: never
       }
+      orders: EmptyRelationships & {
+        Row: {
+          id: string
+          table_number: number
+          customer_name: string
+          status: OrderStatus
+          created_by: string
+          created_at: string
+          paid_sale_id: string | null
+          paid_at: string | null
+          cancelled_at: string | null
+        }
+        Insert: never
+        Update: never
+      }
+      order_items: EmptyRelationships & {
+        Row: {
+          id: string
+          order_id: string
+          product_id: string | null
+          product_name: string
+          quantity: number
+        }
+        Insert: never
+        Update: never
+      }
     }
     Views: Record<string, never>
     Functions: {
@@ -168,6 +195,22 @@ export interface Database {
       }
       close_cash_session: {
         Args: { p_counted_cents: number }
+        Returns: unknown
+      }
+      create_order: {
+        Args: { p_table_number: number; p_customer_name: string; p_items: unknown }
+        Returns: unknown
+      }
+      add_order_items: {
+        Args: { p_order_id: string; p_items: unknown }
+        Returns: unknown
+      }
+      cancel_order: {
+        Args: { p_order_id: string }
+        Returns: unknown
+      }
+      pay_order: {
+        Args: { p_order_id: string; p_received_cents: number }
         Returns: unknown
       }
     }
