@@ -43,8 +43,8 @@ export function Nav() {
         </NavLink>
         {profile?.role !== 'waiter' && (
           <>
-            <NavLink to="/devoluciones" className={NAV_LINK_CLASS}>
-              Devoluciones
+            <NavLink to="/historial-ventas" className={NAV_LINK_CLASS}>
+              Historial de Ventas
             </NavLink>
             <NavLink to="/corte" className={NAV_LINK_CLASS}>
               Corte de caja

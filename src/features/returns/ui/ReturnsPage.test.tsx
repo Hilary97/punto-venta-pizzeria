@@ -47,26 +47,51 @@ describe('ReturnsPage', () => {
     vi.mocked(returnsRepository.listSessionSalesWithItems).mockResolvedValue(sales)
   })
 
-  it('renders a card with customer, table, products, received and change', async () => {
+  it('shows the Historial de Ventas heading', async () => {
+    render(<ReturnsPage />)
+    expect(await screen.findByRole('heading', { level: 1, name: 'Historial de Ventas' })).toBeInTheDocument()
+  })
+
+  it('renders a summary card without products until details are opened', async () => {
     render(<ReturnsPage />)
     const card = (await screen.findByText('María López')).closest('article') as HTMLElement
-    expect(card).not.toBeNull()
     const scope = within(card)
     expect(scope.getByText('Mesa 7')).toBeInTheDocument()
-    expect(scope.getByText(/Carlos/)).toBeInTheDocument()
+    expect(scope.getByText(formatMoney(30000))).toBeInTheDocument()
+    expect(scope.queryByText(/Pizza Hawaiana/)).not.toBeInTheDocument()
+    expect(scope.queryByText(/Recibido/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('opens a modal with all sale details and closes it', async () => {
+    const user = userEvent.setup()
+    render(<ReturnsPage />)
+    const card = (await screen.findByText('María López')).closest('article') as HTMLElement
+    await user.click(within(card).getByRole('button', { name: 'Ver detalles' }))
+
+    const dialog = screen.getByRole('dialog')
+    const scope = within(dialog)
+    expect(scope.getByText('María López')).toBeInTheDocument()
+    expect(scope.getByText('Mesa 7')).toBeInTheDocument()
+    expect(scope.getByText(/Atendió: Carlos/)).toBeInTheDocument()
     expect(scope.getByText(/Folio aaaaaaaa/)).toBeInTheDocument()
     expect(scope.getByText(/2 × Pizza Hawaiana/)).toBeInTheDocument()
     expect(scope.getByText(/1 × Refresco/)).toBeInTheDocument()
     expect(scope.getByText(/1 devuelto/)).toBeInTheDocument()
+    expect(scope.getByText('Recibido')).toBeInTheDocument()
     expect(scope.getByText(formatMoney(50000))).toBeInTheDocument()
+    expect(scope.getByText('Cambio')).toBeInTheDocument()
     expect(scope.getByText(formatMoney(20000))).toBeInTheDocument()
     expect(scope.getAllByText(formatMoney(30000))).toHaveLength(2) // line amount + total
+
+    await user.click(scope.getByRole('button', { name: 'Cerrar' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
-  it('shows a fallback for POS sales and disables return when fully returned', async () => {
+  it('shows a fallback for POS sales and offers no return button', async () => {
     render(<ReturnsPage />)
-    const card = (await screen.findByText('Venta en mostrador')).closest('article') as HTMLElement
-    expect(within(card).getByRole('button', { name: /devolver/i })).toBeDisabled()
+    await screen.findByText('Venta en mostrador')
+    expect(screen.queryByRole('button', { name: /devolver/i })).not.toBeInTheDocument()
   })
 
   it('filters by customer name and table number', async () => {
@@ -82,13 +107,5 @@ describe('ReturnsPage', () => {
     await user.type(screen.getByLabelText('Buscar venta'), 'mesa 7')
     expect(screen.getByText('María López')).toBeInTheDocument()
     expect(screen.queryByText('Venta en mostrador')).not.toBeInTheDocument()
-  })
-
-  it('opens the return form from a card', async () => {
-    const user = userEvent.setup()
-    render(<ReturnsPage />)
-    const card = (await screen.findByText('María López')).closest('article') as HTMLElement
-    await user.click(within(card).getByRole('button', { name: /devolver/i }))
-    expect(screen.getByLabelText('Cantidad a devolver de Pizza Hawaiana')).toBeInTheDocument()
   })
 })

@@ -85,7 +85,7 @@ describe('OrdersEntry', () => {
     mockAuth('cashier')
     renderAt('/pedidos')
     expect(await screen.findByRole('heading', { name: /pedidos abiertos/i })).toBeVisible()
-    expect(screen.getByRole('link', { name: /venta/i })).toBeVisible()
+    expect(screen.getByRole('link', { name: /^venta$/i })).toBeVisible()
     expect(deviceListWaiters).not.toHaveBeenCalled()
   })
 

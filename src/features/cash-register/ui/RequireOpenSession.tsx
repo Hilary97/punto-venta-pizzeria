@@ -4,7 +4,7 @@ import { ErrorBanner } from '../../../shared/ui/ErrorBanner'
 import { Spinner } from '../../../shared/ui/Spinner'
 import { useCashSession } from './CashSessionContext'
 
-/** Blocks a screen that requires an open cash session (Venta, Devoluciones, Corte). */
+/** Blocks a screen that requires an open cash session (Venta, Historial de Ventas, Corte). */
 export function RequireOpenSession({ children }: { children: ReactNode }) {
   const { state } = useCashSession()
 

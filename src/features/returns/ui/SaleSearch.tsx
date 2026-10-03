@@ -1,12 +1,11 @@
 import { useState } from 'react'
 import { Button } from '../../../shared/ui/Button'
+import { Modal } from '../../../shared/ui/Modal'
 import { MoneyText } from '../../../shared/ui/MoneyText'
 import type { SaleWithItems } from '../../sales/domain/sale'
-import { calculateReturnableQuantity } from '../domain/returnable'
 
 interface SaleSearchProps {
   sales: SaleWithItems[]
-  onSelectSale: (sale: SaleWithItems) => void
 }
 
 function formatTime(createdAt: string): string {
@@ -33,12 +32,68 @@ function matchesQuery(sale: SaleWithItems, query: string): boolean {
   )
 }
 
-function hasReturnableItems(sale: SaleWithItems): boolean {
-  return sale.items.some((item) => calculateReturnableQuantity(item.quantity, item.returnedQuantity) > 0)
+function customerLabel(sale: SaleWithItems): string {
+  return sale.customerName || (sale.tableNumber != null ? 'Sin nombre' : 'Venta en mostrador')
 }
 
-export function SaleSearch({ sales, onSelectSale }: SaleSearchProps) {
+function SaleDetailsModal({ sale, onClose }: { sale: SaleWithItems; onClose: () => void }) {
+  return (
+    <Modal title="Detalle de la venta" onClose={onClose}>
+      <div className="flex flex-col gap-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className="font-semibold text-slate-900">{customerLabel(sale)}</p>
+            {sale.tableNumber != null && <p className="text-sm text-slate-600">{formatTable(sale.tableNumber)}</p>}
+            {sale.waiterName && <p className="text-sm text-slate-500">Atendió: {sale.waiterName}</p>}
+          </div>
+          <div className="shrink-0 text-right text-sm text-slate-500">
+            <p>Folio {sale.id.slice(0, 8)}</p>
+            <p>{formatTime(sale.createdAt)}</p>
+          </div>
+        </div>
+
+        <ul className="divide-y divide-slate-100 text-sm">
+          {sale.items.map((item) => (
+            <li key={item.id} className="flex items-start justify-between gap-2 py-1.5">
+              <div className="min-w-0">
+                <p className="text-slate-800">
+                  {item.quantity} × {item.productName}
+                </p>
+                {item.returnedQuantity > 0 && <p className="text-xs text-red-700">{item.returnedQuantity} devuelto(s)</p>}
+              </div>
+              <MoneyText cents={item.unitPriceCents * item.quantity} className="shrink-0 text-slate-700" />
+            </li>
+          ))}
+        </ul>
+
+        <dl className="flex flex-col gap-1 rounded-lg bg-slate-50 p-3 text-sm">
+          <div className="flex justify-between">
+            <dt className="text-slate-600">Total</dt>
+            <dd>
+              <MoneyText cents={sale.totalCents} className="font-bold text-slate-900" />
+            </dd>
+          </div>
+          <div className="flex justify-between">
+            <dt className="text-slate-600">Recibido</dt>
+            <dd>
+              <MoneyText cents={sale.receivedCents} />
+            </dd>
+          </div>
+          <div className="flex justify-between">
+            <dt className="text-slate-600">Cambio</dt>
+            <dd>
+              <MoneyText cents={sale.changeCents} />
+            </dd>
+          </div>
+        </dl>
+      </div>
+    </Modal>
+  )
+}
+
+export function SaleSearch({ sales }: SaleSearchProps) {
   const [query, setQuery] = useState('')
+  const [detailSale, setDetailSale] = useState<SaleWithItems | null>(null)
   const filteredSales = sales.filter((sale) => matchesQuery(sale, query))
 
   return (
@@ -60,67 +115,24 @@ export function SaleSearch({ sales, onSelectSale }: SaleSearchProps) {
             <article key={sale.id} className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4">
               <header className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="truncate font-semibold text-slate-900">{sale.customerName || (sale.tableNumber != null ? 'Sin nombre' : 'Venta en mostrador')}</p>
-                  {sale.tableNumber != null && (
-                    <p className="text-sm text-slate-600">{formatTable(sale.tableNumber)}</p>
-                  )}
-                  {sale.waiterName && <p className="text-sm text-slate-500">Atendió: {sale.waiterName}</p>}
+                  <p className="truncate font-semibold text-slate-900">{customerLabel(sale)}</p>
+                  {sale.tableNumber != null && <p className="text-sm text-slate-600">{formatTable(sale.tableNumber)}</p>}
                 </div>
                 <div className="shrink-0 text-right text-sm text-slate-500">
-                  <p>Folio {sale.id.slice(0, 8)}</p>
                   <p>{formatTime(sale.createdAt)}</p>
+                  <MoneyText cents={sale.totalCents} className="font-bold text-slate-900" />
                 </div>
               </header>
 
-              <ul className="divide-y divide-slate-100 text-sm">
-                {sale.items.map((item) => (
-                  <li key={item.id} className="flex items-start justify-between gap-2 py-1.5">
-                    <div className="min-w-0">
-                      <p className="text-slate-800">
-                        {item.quantity} × {item.productName}
-                      </p>
-                      {item.returnedQuantity > 0 && (
-                        <p className="text-xs text-red-700">{item.returnedQuantity} devuelto(s)</p>
-                      )}
-                    </div>
-                    <MoneyText cents={item.unitPriceCents * item.quantity} className="shrink-0 text-slate-700" />
-                  </li>
-                ))}
-              </ul>
-
-              <dl className="flex flex-col gap-1 rounded-lg bg-slate-50 p-3 text-sm">
-                <div className="flex justify-between">
-                  <dt className="text-slate-600">Total</dt>
-                  <dd>
-                    <MoneyText cents={sale.totalCents} className="font-bold text-slate-900" />
-                  </dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-slate-600">Recibido</dt>
-                  <dd>
-                    <MoneyText cents={sale.receivedCents} />
-                  </dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-slate-600">Cambio</dt>
-                  <dd>
-                    <MoneyText cents={sale.changeCents} />
-                  </dd>
-                </div>
-              </dl>
-
-              <Button
-                type="button"
-                variant="secondary"
-                disabled={!hasReturnableItems(sale)}
-                onClick={() => onSelectSale(sale)}
-              >
-                {hasReturnableItems(sale) ? 'Devolver' : 'Devolver (todo devuelto)'}
+              <Button type="button" variant="secondary" onClick={() => setDetailSale(sale)}>
+                Ver detalles
               </Button>
             </article>
           ))}
         </div>
       )}
+
+      {detailSale && <SaleDetailsModal sale={detailSale} onClose={() => setDetailSale(null)} />}
     </div>
   )
 }
