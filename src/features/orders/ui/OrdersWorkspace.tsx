@@ -4,28 +4,36 @@ import { Button } from '../../../shared/ui/Button'
 import { ErrorBanner } from '../../../shared/ui/ErrorBanner'
 import { Input } from '../../../shared/ui/Input'
 import { Modal } from '../../../shared/ui/Modal'
+import { Textarea } from '../../../shared/ui/Textarea'
 import { Spinner } from '../../../shared/ui/Spinner'
+import type { PizzaCatalog } from '../../pizza/domain/pizza'
+import { PizzaBuilderModal, type BuiltPizza } from '../../pizza/ui/PizzaBuilderModal'
 import type { Category, Product } from '../../products/domain/product'
 import { ProductGrid } from '../../sales/ui/ProductGrid'
 import type { WaiterShift } from '../../waiters/domain/waiter'
 import {
   MAX_CUSTOMER_NAME_LENGTH,
+  MAX_ORDER_NOTES_LENGTH,
   TABLE_NUMBERS,
   canRegisterOrder,
   normalizeCustomerName,
+  normalizeNotes,
   orderLabel,
   tableLabel,
   type Order,
 } from '../domain/order'
 import {
+  addPizzaToDraft,
   addToDraft,
   decrementDraftLine,
   draftItemCount,
   draftToPayload,
   incrementDraftLine,
   removeDraftLine,
+  setDraftLineNotes,
   type DraftLine,
 } from '../domain/orderDraft'
+import { hideLegacyPizza } from '../domain/legacyPizza'
 import type { OrdersSource } from '../domain/ordersSource'
 import { OpenOrdersList } from './OpenOrdersList'
 import { OrderFab } from './OrderFab'
@@ -52,6 +60,7 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
   const filterId = useId()
   const [categories, setCategories] = useState<Category[]>([])
   const [products, setProducts] = useState<Product[]>([])
+  const [pizzaCatalog, setPizzaCatalog] = useState<PizzaCatalog | null>(null)
   const [orders, setOrders] = useState<Order[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -59,6 +68,12 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
   const [message, setMessage] = useState<string | null>(null)
   const [tableNumber, setTableNumber] = useState<number | null>(null)
   const [customerName, setCustomerName] = useState('')
+  const [orderNotes, setOrderNotes] = useState('')
+  const [isBuilderOpen, setIsBuilderOpen] = useState(false)
+  const [notesOrder, setNotesOrder] = useState<Order | null>(null)
+  const [notesText, setNotesText] = useState('')
+  const [notesError, setNotesError] = useState<string | null>(null)
+  const lineSeq = useRef(0)
   const [draft, setDraft] = useState<DraftLine[]>([])
   const [addingToOrder, setAddingToOrder] = useState<Order | null>(null)
   const [orderToCancel, setOrderToCancel] = useState<Order | null>(null)
@@ -84,6 +99,7 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
         const [catalog, loadedOrders] = await Promise.all([source.loadCatalog(), source.listOpenOrders()])
         setCategories(catalog.categories)
         setProducts(catalog.products)
+        setPizzaCatalog(catalog.pizza)
         setOrders(loadedOrders)
       } catch (error) {
         setLoadError(toUserMessage(error))
@@ -95,7 +111,7 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
   }, [source])
 
   /** Runs a server action behind the pending guard; returns whether it succeeded. */
-  async function runGuarded(action: () => Promise<void>): Promise<boolean> {
+  async function runGuarded(action: () => Promise<void>, onError?: (message: string) => void): Promise<boolean> {
     if (pending.current) return false
     pending.current = true
     setIsSubmitting(true)
@@ -109,7 +125,9 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
         onShiftExpired?.()
         return false
       }
-      setActionError(toUserMessage(error))
+      const text = toUserMessage(error)
+      if (onError) onError(text)
+      else setActionError(text)
       return false
     } finally {
       pending.current = false
@@ -123,8 +141,40 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
     setDraft(update)
   }
 
+  function nextLineId(): string {
+    lineSeq.current += 1
+    return `line-${lineSeq.current}`
+  }
+
   function handleSelectProduct(product: Product) {
-    updateDraft((current) => addToDraft(current, { productId: product.id, name: product.name }))
+    const lineId = nextLineId()
+    updateDraft((current) => addToDraft(current, { lineId, productId: product.id, name: product.name }))
+  }
+
+  function handleAddPizza(pizza: BuiltPizza) {
+    const lineId = nextLineId()
+    updateDraft((current) => addPizzaToDraft(current, { lineId, pizza: pizza.config, name: pizza.name, notes: pizza.notes }))
+    setIsBuilderOpen(false)
+  }
+
+  function handleEditNotes(order: Order) {
+    if (pending.current) return
+    setNotesOrder(order)
+    setNotesText(order.notes ?? '')
+    setNotesError(null)
+  }
+
+  async function handleSaveNotes() {
+    if (!notesOrder) return
+    const order = notesOrder
+    setNotesError(null)
+    const succeeded = await runGuarded(async () => {
+      await source.setOrderNotes(order.id, normalizeNotes(notesText))
+    }, setNotesError)
+    if (!succeeded) return
+    setNotesOrder(null)
+    setMessage('Nota actualizada.')
+    await reloadOrders()
   }
 
   const canSubmit = draft.length > 0 && (addingToOrder !== null || canRegisterOrder(tableNumber, customerName))
@@ -137,7 +187,7 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
       if (addingToOrder) {
         await source.addOrderItems(addingToOrder.id, items)
       } else {
-        await source.createOrder(tableNumber, normalizeCustomerName(customerName) || null, items)
+        await source.createOrder(tableNumber, normalizeCustomerName(customerName) || null, items, normalizeNotes(orderNotes))
       }
     })
     if (!succeeded) return
@@ -147,6 +197,7 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
     setAddingToOrder(null)
     if (!addingToOrder) {
       setCustomerName('')
+      setOrderNotes('')
       setTableNumber(null)
     }
     await reloadOrders()
@@ -207,7 +258,19 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
         onIncrement={(id) => updateDraft((c) => incrementDraftLine(c, id))}
         onDecrement={(id) => updateDraft((c) => decrementDraftLine(c, id))}
         onRemove={(id) => updateDraft((c) => removeDraftLine(c, id))}
+        onNotesChange={(id, notes) => updateDraft((c) => setDraftLineNotes(c, id, notes))}
       />
+      {!addingToOrder && (
+        <label className="flex flex-col gap-1 text-sm font-medium text-slate-700">
+          Nota del pedido (opcional)
+          <Textarea
+            value={orderNotes}
+            maxLength={MAX_ORDER_NOTES_LENGTH}
+            disabled={isSubmitting}
+            onChange={(event) => setOrderNotes(event.target.value)}
+          />
+        </label>
+      )}
       {actionError && <ErrorBanner message={actionError} />}
       <Button type="submit" size="lg" disabled={!canSubmit || isSubmitting}>
         {isSubmitting ? 'Procesando…' : addingToOrder ? 'Agregar al pedido' : 'Registrar pedido'}
@@ -220,6 +283,8 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
     </form>
   )
 
+  const legacyHidden = hideLegacyPizza(categories, products)
+  const hasPizzaBuilder = pizzaCatalog !== null && pizzaCatalog.sizes.length > 0
   const visibleOrders = filterTable === null ? orders : orders.filter((order) => order.tableNumber === filterTable)
 
   return (
@@ -255,10 +320,15 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
               />
             </>
           )}
+          {hasPizzaBuilder && (
+            <Button size="lg" disabled={isSubmitting} onClick={() => setIsBuilderOpen(true)}>
+              Armar pizza
+            </Button>
+          )}
           <ProductGrid
-            categories={categories}
-            products={products}
-            cartProductIds={new Set(draft.map((line) => line.productId))}
+            categories={legacyHidden.categories}
+            products={legacyHidden.products}
+            cartProductIds={new Set(draft.flatMap((line) => (line.kind === 'product' ? [line.productId] : [])))}
             onSelectProduct={handleSelectProduct}
             disabled={isSubmitting}
             showPrices={false}
@@ -303,6 +373,7 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
           disabled={isSubmitting}
           onAddItems={handleStartAdding}
           onCancel={setOrderToCancel}
+          onEditNotes={handleEditNotes}
         />
       </section>
 
@@ -312,6 +383,30 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
       {isDraftOpen && (
         <Modal title="Pedido" onClose={() => setIsDraftOpen(false)}>
           {draftForm}
+        </Modal>
+      )}
+
+      {isBuilderOpen && pizzaCatalog && (
+        <PizzaBuilderModal catalog={pizzaCatalog} onAdd={handleAddPizza} onClose={() => setIsBuilderOpen(false)} />
+      )}
+
+      {notesOrder && (
+        <Modal title={`Nota del pedido ${orderLabel(notesOrder)}`} onClose={() => setNotesOrder(null)}>
+          <div className="flex flex-col gap-4">
+            <Textarea
+              aria-label="Nota del pedido"
+              value={notesText}
+              maxLength={MAX_ORDER_NOTES_LENGTH}
+              onChange={(event) => setNotesText(event.target.value)}
+            />
+            {notesError && <ErrorBanner message={notesError} />}
+            <Button disabled={isSubmitting} onClick={() => void handleSaveNotes()}>
+              Guardar nota
+            </Button>
+            <Button variant="secondary" onClick={() => setNotesOrder(null)}>
+              Volver
+            </Button>
+          </div>
         </Modal>
       )}
 

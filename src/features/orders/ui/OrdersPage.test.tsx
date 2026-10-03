@@ -5,7 +5,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { listPizzaCatalog } from '../../pizza/infrastructure/pizzaRepository'
 import { listCategories, listProducts } from '../../products/infrastructure/productsRepository'
 import type { Order } from '../domain/order'
-import { addOrderItems, cancelOrder, createOrder, listOpenOrders } from '../infrastructure/ordersRepository'
+import { addOrderItems, cancelOrder, createOrder, listOpenOrders, setOrderNotes } from '../infrastructure/ordersRepository'
+import { pizzaCatalogFixture } from '../../pizza/ui/pizzaCatalogFixture'
 import { OrdersPage } from './OrdersPage'
 
 vi.mock('../../pizza/infrastructure/pizzaRepository', async (importOriginal) => ({
@@ -19,6 +20,7 @@ vi.mock('../infrastructure/ordersRepository', async (importOriginal) => ({
   createOrder: vi.fn(),
   addOrderItems: vi.fn(),
   cancelOrder: vi.fn(),
+  setOrderNotes: vi.fn(),
 }))
 
 const openOrder: Order = {
@@ -51,7 +53,7 @@ function renderPage() {
 beforeEach(() => {
   vi.resetAllMocks()
   vi.mocked(listPizzaCatalog).mockResolvedValue({ sizes: [], styles: [], ingredients: [] })
-  vi.mocked(listCategories).mockResolvedValue([{ id: 'pizza', name: 'Pizzas', sortOrder: 0 }])
+  vi.mocked(listCategories).mockResolvedValue([{ id: 'pizza', name: 'Botanas', sortOrder: 0 }])
   vi.mocked(listProducts).mockResolvedValue([
     { id: 'p', categoryId: 'pizza', name: 'Pizza queso', priceCents: 15000, active: true },
   ])
@@ -59,6 +61,7 @@ beforeEach(() => {
   vi.mocked(createOrder).mockResolvedValue('new-order')
   vi.mocked(addOrderItems).mockResolvedValue('order-1')
   vi.mocked(cancelOrder).mockResolvedValue('order-1')
+  vi.mocked(setOrderNotes).mockResolvedValue('order-1')
 })
 
 describe('OrdersPage', () => {
@@ -89,7 +92,7 @@ describe('OrdersPage', () => {
     expect(submit).toBeEnabled()
 
     await user.click(submit)
-    expect(createOrder).toHaveBeenCalledWith(5, 'Luis Perez', [{ type: 'product', productId: 'p', quantity: 2 }])
+    expect(createOrder).toHaveBeenCalledWith(5, 'Luis Perez', [{ type: 'product', productId: 'p', quantity: 2 }], null)
     expect(await screen.findByRole('status')).toHaveTextContent(/pedido registrado/i)
     expect(screen.getByLabelText(/nombre del cliente/i)).toHaveValue('')
     expect(submit).toBeDisabled()
@@ -105,7 +108,7 @@ describe('OrdersPage', () => {
     await user.click(screen.getByRole('button', { name: 'M-4' }))
     expect(submit).toBeEnabled()
     await user.click(submit)
-    expect(createOrder).toHaveBeenCalledWith(4, null, [{ type: 'product', productId: 'p', quantity: 1 }])
+    expect(createOrder).toHaveBeenCalledWith(4, null, [{ type: 'product', productId: 'p', quantity: 1 }], null)
   })
 
   it('enables register with only a name', async () => {
@@ -116,7 +119,7 @@ describe('OrdersPage', () => {
     await user.type(screen.getByLabelText(/nombre del cliente/i), ' Juan ')
     expect(submit).toBeEnabled()
     await user.click(submit)
-    expect(createOrder).toHaveBeenCalledWith(null, 'Juan', [{ type: 'product', productId: 'p', quantity: 1 }])
+    expect(createOrder).toHaveBeenCalledWith(null, 'Juan', [{ type: 'product', productId: 'p', quantity: 1 }], null)
   })
 
   it('keeps register disabled with neither table nor a non-blank name', async () => {
@@ -250,7 +253,7 @@ describe('OrdersPage', () => {
     const dialog = screen.getByRole('dialog')
     expect(within(dialog).getByText('Pizza queso')).toBeVisible()
     await user.click(within(dialog).getByRole('button', { name: /registrar pedido/i }))
-    expect(createOrder).toHaveBeenCalledWith(2, 'Mara', [{ type: 'product', productId: 'p', quantity: 2 }])
+    expect(createOrder).toHaveBeenCalledWith(2, 'Mara', [{ type: 'product', productId: 'p', quantity: 2 }], null)
     expect(await screen.findByRole('status')).toHaveTextContent(/pedido registrado/i)
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /ver pedido/i })).not.toBeInTheDocument()
@@ -273,7 +276,7 @@ describe('OrdersPage', () => {
     await user.click(await screen.findByRole('button', { name: 'M-4' }))
     await user.click(screen.getByRole('button', { name: /pizza queso/i }))
     await user.click(screen.getByRole('button', { name: /registrar pedido/i }))
-    expect(createOrder).toHaveBeenCalledWith(4, null, [{ type: 'product', productId: 'p', quantity: 1 }])
+    expect(createOrder).toHaveBeenCalledWith(4, null, [{ type: 'product', productId: 'p', quantity: 1 }], null)
     expect(screen.queryByText(/^Mesero:/)).not.toBeInTheDocument()
   })
 
@@ -283,5 +286,164 @@ describe('OrdersPage', () => {
     renderPage()
     const card = (await screen.findByText('Ana')).closest('li')!
     expect(within(card).getByText('Atendió: Carlos')).toBeVisible()
+  })
+})
+
+describe('OrdersPage pizza builder and notes', () => {
+  it('hides products of the legacy Pizzas category and its chip', async () => {
+    vi.mocked(listCategories).mockResolvedValue([
+      { id: 'pizza', name: ' pizzas ', sortOrder: 0 },
+      { id: 'snacks', name: 'Botanas', sortOrder: 1 },
+    ])
+    vi.mocked(listProducts).mockResolvedValue([
+      { id: 'p', categoryId: 'pizza', name: 'Pizza queso', priceCents: 0, active: true },
+      { id: 'a', categoryId: 'snacks', name: 'Alitas', priceCents: 0, active: true },
+    ])
+    renderPage()
+    expect(await screen.findByRole('button', { name: /alitas/i })).toBeVisible()
+    expect(screen.queryByRole('button', { name: /pizza queso/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^pizzas$/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Botanas' })).toBeVisible()
+  })
+
+  it('does not offer the builder when the pizza catalog has no sizes', async () => {
+    renderPage()
+    await screen.findByText('Ana')
+    expect(screen.queryByRole('button', { name: /armar pizza/i })).not.toBeInTheDocument()
+  })
+
+  it('builds a pizza and sends it as a pizza line with its note', async () => {
+    vi.mocked(listPizzaCatalog).mockResolvedValue(pizzaCatalogFixture)
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: /armar pizza/i }))
+    const builder = screen.getByRole('dialog', { name: /armar pizza/i })
+    await user.click(within(builder).getByRole('button', { name: 'Agregar pizza' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+
+    expect(screen.getByText('Pizza Chica: Estilo Varas')).toBeVisible()
+    await user.type(screen.getByLabelText('Nota para Pizza Chica: Estilo Varas'), '  sin orilla ')
+    await user.click(screen.getByRole('button', { name: 'M-6' }))
+    await user.click(screen.getByRole('button', { name: /registrar pedido/i }))
+    expect(createOrder).toHaveBeenCalledWith(
+      6,
+      null,
+      [
+        {
+          type: 'pizza',
+          pizza: { size: 'chica', portions: [{ styleId: 'varas', ingredientIds: [], extraIngredientIds: [], extraCheese: false }] },
+          quantity: 1,
+          notes: 'sin orilla',
+        },
+      ],
+      null,
+    )
+  })
+
+  it('keeps identical pizzas as separate lines', async () => {
+    vi.mocked(listPizzaCatalog).mockResolvedValue(pizzaCatalogFixture)
+    const user = userEvent.setup()
+    renderPage()
+    for (let i = 0; i < 2; i++) {
+      await user.click(await screen.findByRole('button', { name: /armar pizza/i }))
+      await user.click(screen.getByRole('button', { name: 'Agregar pizza' }))
+    }
+    expect(screen.getAllByText('Pizza Chica: Estilo Varas')).toHaveLength(2)
+  })
+
+  it('adds a built pizza to an existing order', async () => {
+    vi.mocked(listPizzaCatalog).mockResolvedValue(pizzaCatalogFixture)
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: /agregar productos/i }))
+    await user.click(screen.getByRole('button', { name: /armar pizza/i }))
+    await user.click(screen.getByRole('button', { name: 'Agregar pizza' }))
+    await user.click(screen.getByRole('button', { name: /agregar al pedido/i }))
+    expect(addOrderItems).toHaveBeenCalledWith('order-1', [expect.objectContaining({ type: 'pizza', quantity: 1 })])
+  })
+
+  it('sends a product line note and keeps noted lines separate from plain ones', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: 'Pizza queso' }))
+    await user.type(screen.getByLabelText('Nota para Pizza queso'), 'sin cebolla')
+    await user.click(screen.getByRole('button', { name: 'Pizza queso' }))
+    expect(screen.getAllByLabelText('Nota para Pizza queso')).toHaveLength(2)
+    await user.click(screen.getByRole('button', { name: 'M-1' }))
+    await user.click(screen.getByRole('button', { name: /registrar pedido/i }))
+    expect(createOrder).toHaveBeenCalledWith(
+      1,
+      null,
+      [
+        { type: 'product', productId: 'p', quantity: 1, notes: 'sin cebolla' },
+        { type: 'product', productId: 'p', quantity: 1 },
+      ],
+      null,
+    )
+  })
+
+  it('sends the order note as the fourth createOrder argument and clears it afterwards', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: /pizza queso/i }))
+    await user.type(screen.getByLabelText(/nota del pedido/i), '  cliente alérgico ')
+    await user.click(screen.getByRole('button', { name: 'M-2' }))
+    await user.click(screen.getByRole('button', { name: /registrar pedido/i }))
+    expect(createOrder).toHaveBeenCalledWith(2, null, [{ type: 'product', productId: 'p', quantity: 1 }], 'cliente alérgico')
+    await screen.findByRole('status')
+    expect(screen.getByLabelText(/nota del pedido/i)).toHaveValue('')
+  })
+
+  it('does not ask for an order note when adding to an existing order', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: /agregar productos/i }))
+    expect(screen.queryByLabelText(/nota del pedido/i)).not.toBeInTheDocument()
+  })
+
+  it('shows item and order notes on open orders', async () => {
+    vi.mocked(listOpenOrders).mockResolvedValue([
+      {
+        ...openOrder,
+        notes: 'Mesa con niños',
+        items: [{ ...openOrder.items[0]!, notes: 'bien cocida' }],
+      },
+    ])
+    renderPage()
+    const card = (await screen.findByText('Ana')).closest('li')!
+    expect(within(card).getByText('Nota: bien cocida')).toBeVisible()
+    expect(within(card).getByText('Nota del pedido: Mesa con niños')).toBeVisible()
+  })
+
+  it('edits the note of an open order and refreshes the list', async () => {
+    vi.mocked(listOpenOrders).mockResolvedValue([{ ...openOrder, notes: 'vieja' }])
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: /editar nota/i }))
+    const dialog = screen.getByRole('dialog')
+    const field = within(dialog).getByLabelText('Nota del pedido')
+    expect(field).toHaveValue('vieja')
+    await user.clear(field)
+    await user.type(field, ' nueva ')
+    await user.click(within(dialog).getByRole('button', { name: /guardar nota/i }))
+    expect(setOrderNotes).toHaveBeenCalledWith('order-1', 'nueva')
+    expect(await screen.findByRole('status')).toHaveTextContent(/nota actualizada/i)
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(listOpenOrders).toHaveBeenCalledTimes(2)
+  })
+
+  it('clears the note when saved blank and shows an error when saving fails', async () => {
+    vi.mocked(listOpenOrders).mockResolvedValue([{ ...openOrder, notes: 'vieja' }])
+    vi.mocked(setOrderNotes).mockRejectedValueOnce(new Error('No se pudo guardar la nota.'))
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: /editar nota/i }))
+    const dialog = screen.getByRole('dialog')
+    await user.clear(within(dialog).getByLabelText('Nota del pedido'))
+    await user.click(within(dialog).getByRole('button', { name: /guardar nota/i }))
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('No se pudo guardar la nota.')
+    await user.click(within(dialog).getByRole('button', { name: /guardar nota/i }))
+    expect(setOrderNotes).toHaveBeenLastCalledWith('order-1', null)
+    expect(setOrderNotes).toHaveBeenCalledTimes(2)
   })
 })

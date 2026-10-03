@@ -8,9 +8,10 @@ interface OpenOrdersListProps {
   disabled?: boolean
   onAddItems: (order: Order) => void
   onCancel: (order: Order) => void
+  onEditNotes: (order: Order) => void
 }
 
-export function OpenOrdersList({ orders, canCharge, disabled = false, onAddItems, onCancel }: OpenOrdersListProps) {
+export function OpenOrdersList({ orders, canCharge, disabled = false, onAddItems, onCancel, onEditNotes }: OpenOrdersListProps) {
   if (orders.length === 0) {
     return <p className="p-4 text-center text-slate-500">No hay pedidos abiertos.</p>
   }
@@ -30,12 +31,17 @@ export function OpenOrdersList({ orders, canCharge, disabled = false, onAddItems
             {order.items.map((item) => (
               <li key={item.id} className="break-words">
                 {item.productName} × {item.quantity}
+                {item.notes && <span className="block text-sm text-slate-500">Nota: {item.notes}</span>}
               </li>
             ))}
           </ul>
+          {order.notes && <p className="break-words rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">Nota del pedido: {order.notes}</p>}
           <div className="flex flex-wrap gap-2">
             <Button variant="secondary" disabled={disabled} onClick={() => onAddItems(order)}>
               Agregar productos
+            </Button>
+            <Button variant="secondary" disabled={disabled} onClick={() => onEditNotes(order)}>
+              Editar nota
             </Button>
             {canCharge && (
               <Link
