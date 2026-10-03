@@ -46,8 +46,19 @@ export async function listSessionSalesWithItems(sessionId: string): Promise<Sale
     }
   }
 
+  const { data: orderInfo, error: orderInfoError } = await supabase.rpc('list_session_sale_orders', {
+    p_session_id: sessionId,
+  })
+
+  if (orderInfoError) throw new Error('No se pudo cargar la información de los pedidos.')
+
+  const orderBySale = new Map((orderInfo ?? []).map((row) => [row.sale_id, row]))
+
   return sales.map((sale) => ({
     id: sale.id,
+    customerName: orderBySale.get(sale.id)?.customer_name ?? null,
+    tableNumber: orderBySale.get(sale.id)?.table_number ?? null,
+    waiterName: orderBySale.get(sale.id)?.waiter_name ?? null,
     createdAt: sale.created_at,
     totalCents: sale.total_cents,
     receivedCents: sale.received_cents,

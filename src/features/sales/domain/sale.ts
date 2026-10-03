@@ -22,4 +22,8 @@ export interface SaleItemRecord {
 
 export interface SaleWithItems extends SaleSummary {
   items: SaleItemRecord[]
+  /** Order info; null for POS sales that have no linked order. */
+  customerName?: string | null
+  tableNumber?: number | null
+  waiterName?: string | null
 }

@@ -395,6 +395,15 @@ export interface Database {
         Args: { p_order_id: string; p_received_cents: number }
         Returns: unknown
       }
+      list_session_sale_orders: {
+        Args: { p_session_id: string }
+        Returns: {
+          sale_id: string
+          customer_name: string | null
+          table_number: number | null
+          waiter_name: string | null
+        }[]
+      }
     }
   }
 }
