@@ -36,7 +36,7 @@ charges server-computed prices.
 - [x] 3. Domain + repositories: pizza config types, description formatter, catalog
       loaders, order lines with pizza payload and notes, quote.
 - [x] 4. Waiter UI: pizza builder + item/order notes; hide legacy pizza products.
-- [ ] 5. Cash register UI: server-quoted lines with pizza descriptions and notes.
+- [x] 5. Cash register UI: server-quoted lines with pizza descriptions and notes.
 
 ## Evidence
 
@@ -44,6 +44,7 @@ charges server-computed prices.
 - Task 2: `e76550c` — pizza catalog migration on PGlite; 41 pricing/quote/pay tests green; 303 tests (32 files); tsc 0; build 0; lint 0 errors (9 pre-existing warnings).
 - Task 3: `6f43e88` — pizza domain (validate/describe mirroring SQL), catalog loaders (tables + device RPC), order notes, pizza line payloads, quoteOrder; RED observed (missing pizza.ts/normalizeNotes); 321 tests (34 files); tsc 0; lint 0 errors.
 - Task 4: `4d06a3e` — PizzaBuilderModal (size, division, per-portion style/ingredients/extras/cheese, note, live description), draft lines keyed by lineId with notes, order note on create + edit from open-order card, legacy `Pizzas` category hidden; RED observed (3 files/11 tests); 357 tests (37 files); tsc 0; lint 0 errors; build 0. Follow-up: OrdersWorkspace.tsx is 430 lines, worth splitting.
+- Task 5: `0093d8b` — PosPage charges from `quoteOrder` (QuoteLinesPanel with pizza descriptions, item/order notes, server total); unpayable quotes list unavailable lines; PendingOrdersPanel shows notes; removed dead client cart code (orderCart, cart, CartPanel); RED observed (10/24 PosPage tests); 345 tests (35 files); tsc 0; lint 0 errors; build 0. Not exercised in a real browser.
 
 ## Pending (user)
 
