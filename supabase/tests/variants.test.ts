@@ -195,6 +195,38 @@ describe('burger seed', () => {
   })
 })
 
+describe('wings seed', () => {
+  it('sets sauce flavors on Botanas "Alitas 5 pzas" only when it has no variants', async () => {
+    await asSuperuser(db)
+    const cat = await db.query<{ id: string }>(
+      `insert into public.categories (name, sort_order) values ('Botanas', 3) returning id`,
+    )
+    await db.query(
+      `insert into public.products (category_id, name, price_cents) values ($1, 'Alitas 5 pzas', 6000), ($1, 'Nuggets', 7000)`,
+      [cat.rows[0].id],
+    )
+    await db.query(
+      `insert into public.products (category_id, name, price_cents, variants) values ($1, 'Alitas 5 pzas', 6000, '{Solo}')`,
+      [fx.categoryId],
+    )
+
+    const { readFileSync } = await import('node:fs')
+    const { join } = await import('node:path')
+    const sql = readFileSync(join(import.meta.dirname, '..', 'migrations', '20261008120000_wings_flavors.sql'), 'utf8')
+    await db.exec(sql)
+
+    const res = await db.query<{ category_id: string; name: string; variants: string[] }>(
+      `select category_id, name, variants from public.products where name in ('Alitas 5 pzas', 'Nuggets') order by name, category_id = $1 desc`,
+      [cat.rows[0].id],
+    )
+    expect(res.rows.map(({ name, variants }) => ({ name, variants }))).toEqual([
+      { name: 'Alitas 5 pzas', variants: ['Búfalo', 'BBQ', 'Mango-Habanero'] },
+      { name: 'Alitas 5 pzas', variants: ['Solo'] },
+      { name: 'Nuggets', variants: [] },
+    ])
+  })
+})
+
 describe('device RPCs', () => {
   it('exposes variants in the catalog and variant in open orders', async () => {
     const admin = await createProfile(db, { role: 'admin', fullName: 'Admin' })
