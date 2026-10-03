@@ -40,6 +40,17 @@ const sales = [
     waiterName: null,
     items: [{ id: 'i3', productId: 'p3', productName: 'Calzone', unitPriceCents: 9900, quantity: 1, returnedQuantity: 1 }],
   },
+  {
+    id: 'cccccccc-3333-4000-8000-000000000003',
+    createdAt: '2026-09-01T11:00:00Z',
+    totalCents: 5000,
+    receivedCents: 5000,
+    changeCents: 0,
+    customerName: null,
+    tableNumber: 3,
+    waiterName: null,
+    items: [{ id: 'i4', productId: 'p4', productName: 'Agua', unitPriceCents: 5000, quantity: 1, returnedQuantity: 0 }],
+  },
 ]
 
 describe('ReturnsPage', () => {
@@ -92,6 +103,19 @@ describe('ReturnsPage', () => {
     render(<ReturnsPage />)
     await screen.findByText('Venta en mostrador')
     expect(screen.queryByRole('button', { name: /devolver/i })).not.toBeInTheDocument()
+  })
+
+  it('shows only the table number for table sales without a customer name', async () => {
+    const user = userEvent.setup()
+    render(<ReturnsPage />)
+    const card = (await screen.findByText('Mesa 3')).closest('article') as HTMLElement
+    expect(within(card).getAllByText('Mesa 3')).toHaveLength(1)
+    expect(screen.queryByText('Sin nombre')).not.toBeInTheDocument()
+
+    await user.click(within(card).getByRole('button', { name: 'Ver detalles' }))
+    const dialog = within(screen.getByRole('dialog'))
+    expect(dialog.getAllByText('Mesa 3')).toHaveLength(1)
+    expect(dialog.queryByText('Sin nombre')).not.toBeInTheDocument()
   })
 
   it('filters by customer name and table number', async () => {

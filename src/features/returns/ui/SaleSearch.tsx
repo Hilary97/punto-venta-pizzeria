@@ -33,7 +33,13 @@ function matchesQuery(sale: SaleWithItems, query: string): boolean {
 }
 
 function customerLabel(sale: SaleWithItems): string {
-  return sale.customerName || (sale.tableNumber != null ? 'Sin nombre' : 'Venta en mostrador')
+  if (sale.customerName) return sale.customerName
+  return sale.tableNumber != null ? formatTable(sale.tableNumber) : 'Venta en mostrador'
+}
+
+/** The table line is redundant when the title already is the table. */
+function showsTableLine(sale: SaleWithItems): boolean {
+  return Boolean(sale.customerName) && sale.tableNumber != null
 }
 
 function SaleDetailsModal({ sale, onClose }: { sale: SaleWithItems; onClose: () => void }) {
@@ -43,7 +49,7 @@ function SaleDetailsModal({ sale, onClose }: { sale: SaleWithItems; onClose: () 
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <p className="font-semibold text-slate-900">{customerLabel(sale)}</p>
-            {sale.tableNumber != null && <p className="text-sm text-slate-600">{formatTable(sale.tableNumber)}</p>}
+            {showsTableLine(sale) && <p className="text-sm text-slate-600">{formatTable(sale.tableNumber!)}</p>}
             {sale.waiterName && <p className="text-sm text-slate-500">Atendió: {sale.waiterName}</p>}
           </div>
           <div className="shrink-0 text-right text-sm text-slate-500">
@@ -116,7 +122,7 @@ export function SaleSearch({ sales }: SaleSearchProps) {
               <header className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className="truncate font-semibold text-slate-900">{customerLabel(sale)}</p>
-                  {sale.tableNumber != null && <p className="text-sm text-slate-600">{formatTable(sale.tableNumber)}</p>}
+                  {showsTableLine(sale) && <p className="text-sm text-slate-600">{formatTable(sale.tableNumber!)}</p>}
                 </div>
                 <div className="shrink-0 text-right text-sm text-slate-500">
                   <p>{formatTime(sale.createdAt)}</p>
