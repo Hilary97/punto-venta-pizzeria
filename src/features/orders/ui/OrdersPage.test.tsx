@@ -92,7 +92,10 @@ describe('OrdersPage', () => {
     expect(screen.getByRole('button', { name: /pizza queso/i })).toBeVisible()
     expect(screen.queryByRole('region', { name: /pedidos abiertos/i })).not.toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: 'Todos' }))
+    expect(screen.queryByRole('button', { name: 'Todos' })).not.toBeInTheDocument()
+    const openOrdersButton = screen.getByRole('button', { name: 'Pedidos abiertos' })
+    expect(screen.getByRole('group', { name: /categor/i })).not.toContainElement(openOrdersButton)
+    await user.click(openOrdersButton)
     expect(screen.getByRole('region', { name: /pedidos abiertos/i })).toBeVisible()
   })
 

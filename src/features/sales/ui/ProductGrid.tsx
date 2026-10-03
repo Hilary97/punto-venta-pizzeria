@@ -13,6 +13,8 @@ interface ProductGridProps {
   showPrices?: boolean;
   /** Rendered instead of every product while "all" is selected and the search is empty. */
   allContent?: ReactNode;
+  /** When set with allContent, "all" moves out of the category pills into a fixed bottom button. */
+  allContentLabel?: string;
 }
 
 export function ProductGrid({
@@ -23,7 +25,10 @@ export function ProductGrid({
   disabled = false,
   showPrices = true,
   allContent,
+  allContentLabel,
 }: ProductGridProps) {
+  const hasBottomAllButton =
+    allContent !== undefined && allContentLabel !== undefined;
   const searchId = useId();
   const [query, setQuery] = useState("");
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | "all">(
@@ -49,19 +54,25 @@ export function ProductGrid({
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
-        <div className="flex gap-2 overflow-x-auto pb-1">
-          <button
-            type="button"
-            onClick={() => setSelectedCategoryId("all")}
-            className={cn(
-              "shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition-colors",
-              selectedCategoryId === "all"
-                ? "bg-red-700 text-white"
-                : "bg-slate-200 text-slate-700",
-            )}
-          >
-            Pedidos-Abiertos
-          </button>
+        <div
+          role="group"
+          aria-label="Categorías"
+          className="flex gap-2 overflow-x-auto pb-1"
+        >
+          {!hasBottomAllButton && (
+            <button
+              type="button"
+              onClick={() => setSelectedCategoryId("all")}
+              className={cn(
+                "shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition-colors",
+                selectedCategoryId === "all"
+                  ? "bg-red-700 text-white"
+                  : "bg-slate-200 text-slate-700",
+              )}
+            >
+              Todos
+            </button>
+          )}
           {categories.map((category) => (
             <button
               key={category.id}
@@ -79,6 +90,25 @@ export function ProductGrid({
           ))}
         </div>
       </div>
+
+      {hasBottomAllButton && (
+        <button
+          type="button"
+          aria-pressed={selectedCategoryId === "all"}
+          onClick={() => {
+            setSelectedCategoryId("all");
+            setQuery("");
+          }}
+          className={cn(
+            "fixed inset-x-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-30 rounded-2xl px-5 py-4 font-semibold text-white shadow-lg transition-colors lg:left-auto lg:w-80",
+            selectedCategoryId === "all" && query.trim() === ""
+              ? "bg-emerald-800"
+              : "bg-emerald-600 hover:bg-emerald-700",
+          )}
+        >
+          {allContentLabel}
+        </button>
+      )}
 
       {allContent !== undefined &&
       selectedCategoryId === "all" &&

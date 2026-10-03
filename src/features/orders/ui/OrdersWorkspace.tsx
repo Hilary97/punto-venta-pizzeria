@@ -339,7 +339,7 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
   )
 
   return (
-    <div className="flex min-w-0 flex-col gap-8 p-4">
+    <div className="flex min-w-0 flex-col gap-8 p-4 pb-28">
       {shift && onChangeWaiter && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3">
           <p className="break-words font-semibold text-slate-900">Mesero: {shift.fullName}</p>
@@ -384,6 +384,7 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
             disabled={isSubmitting}
             showPrices={false}
             allContent={openOrdersSection}
+            allContentLabel="Pedidos abiertos"
           />
         </div>
 
