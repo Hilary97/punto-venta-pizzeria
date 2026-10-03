@@ -39,6 +39,7 @@ import { OpenOrdersList } from './OpenOrdersList'
 import { OrderFab } from './OrderFab'
 import { OrderDraftPanel } from './OrderDraftPanel'
 import { TableSelector } from './TableSelector'
+import { VariantPickerModal } from './VariantPickerModal'
 
 interface OrdersWorkspaceProps {
   source: OrdersSource
@@ -81,6 +82,7 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
   const pending = useRef(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isDraftOpen, setIsDraftOpen] = useState(false)
+  const [variantProduct, setVariantProduct] = useState<Product | null>(null)
 
   const reloadOrders = useCallback(async () => {
     try {
@@ -147,8 +149,16 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
   }
 
   function handleSelectProduct(product: Product) {
+    if (product.variants.length > 0) {
+      setVariantProduct(product)
+      return
+    }
+    addProduct(product, null)
+  }
+
+  function addProduct(product: Product, variant: string | null) {
     const lineId = nextLineId()
-    updateDraft((current) => addToDraft(current, { lineId, productId: product.id, name: product.name }))
+    updateDraft((current) => addToDraft(current, { lineId, productId: product.id, name: product.name, variant }))
   }
 
   function handleAddPizza(pizza: BuiltPizza) {
@@ -384,6 +394,18 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
         <Modal title="Pedido" onClose={() => setIsDraftOpen(false)}>
           {draftForm}
         </Modal>
+      )}
+
+      {variantProduct && (
+        <VariantPickerModal
+          productName={variantProduct.name}
+          variants={variantProduct.variants}
+          onPick={(variant) => {
+            addProduct(variantProduct, variant)
+            setVariantProduct(null)
+          }}
+          onClose={() => setVariantProduct(null)}
+        />
       )}
 
       {isBuilderOpen && pizzaCatalog && (

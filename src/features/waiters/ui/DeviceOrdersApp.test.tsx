@@ -55,7 +55,7 @@ beforeEach(() => {
   source = {
     loadCatalog: vi.fn().mockResolvedValue({
       categories: [{ id: 'pizza', name: 'Botanas', sortOrder: 0 }],
-      products: [{ id: 'p', categoryId: 'pizza', name: 'Pizza queso', priceCents: 0, active: true }],
+      products: [{ id: 'p', categoryId: 'pizza', name: 'Pizza queso', priceCents: 0, active: true, variants: [] }],
       pizza: { sizes: [], styles: [], ingredients: [] },
     }),
     listOpenOrders: vi.fn().mockResolvedValue([]),

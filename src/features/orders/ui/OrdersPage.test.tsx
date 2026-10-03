@@ -446,4 +446,80 @@ describe('OrdersPage pizza builder and notes', () => {
     expect(setOrderNotes).toHaveBeenLastCalledWith('order-1', null)
     expect(setOrderNotes).toHaveBeenCalledTimes(2)
   })
+
+  describe('products with variants', () => {
+    beforeEach(() => {
+      vi.mocked(listCategories).mockResolvedValue([{ id: 'burgers', name: 'Hamburguesas', sortOrder: 0 }])
+      vi.mocked(listProducts).mockResolvedValue([
+        { id: 'b', categoryId: 'burgers', name: 'Hamburguesa', priceCents: 9000, active: true, variants: ['Res', 'Pollo'] },
+        { id: 'p', categoryId: 'burgers', name: 'Papas', priceCents: 4000, active: true, variants: [] },
+      ])
+    })
+
+    async function openPicker(user: ReturnType<typeof userEvent.setup>) {
+      await user.click(await screen.findByRole('button', { name: 'Hamburguesa' }))
+      return screen.getByRole('dialog', { name: 'Hamburguesa' })
+    }
+
+    it('opens the picker, adds the chosen variant and sends it in the payload', async () => {
+      const user = userEvent.setup()
+      renderPage()
+      const picker = await openPicker(user)
+      await user.click(within(picker).getByRole('button', { name: 'Pollo' }))
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      expect(screen.getByText('Hamburguesa (Pollo)')).toBeInTheDocument()
+
+      await user.click(screen.getByRole('button', { name: 'M-2' }))
+      await user.click(screen.getByRole('button', { name: /registrar pedido/i }))
+      expect(createOrder).toHaveBeenCalledWith(2, null, [{ type: 'product', productId: 'b', quantity: 1, variant: 'Pollo' }], null)
+    })
+
+    it('keeps different variants as separate lines', async () => {
+      const user = userEvent.setup()
+      renderPage()
+      await user.click(within(await openPicker(user)).getByRole('button', { name: 'Res' }))
+      await user.click(within(await openPicker(user)).getByRole('button', { name: 'Pollo' }))
+      expect(screen.getByText('Hamburguesa (Res)')).toBeInTheDocument()
+      expect(screen.getByText('Hamburguesa (Pollo)')).toBeInTheDocument()
+    })
+
+    it('merges the same variant into one line', async () => {
+      const user = userEvent.setup()
+      renderPage()
+      await user.click(within(await openPicker(user)).getByRole('button', { name: 'Pollo' }))
+      await user.click(within(await openPicker(user)).getByRole('button', { name: 'Pollo' }))
+      expect(screen.getAllByText('Hamburguesa (Pollo)')).toHaveLength(1)
+      await user.click(screen.getByRole('button', { name: 'M-1' }))
+      await user.click(screen.getByRole('button', { name: /registrar pedido/i }))
+      expect(createOrder).toHaveBeenCalledWith(1, null, [{ type: 'product', productId: 'b', quantity: 2, variant: 'Pollo' }], null)
+    })
+
+    it('adds nothing when the picker is cancelled', async () => {
+      const user = userEvent.setup()
+      renderPage()
+      const picker = await openPicker(user)
+      await user.click(within(picker).getByRole('button', { name: /cancelar/i }))
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      expect(screen.getByText(/agrega productos al pedido/i)).toBeInTheDocument()
+    })
+
+    it('adds a product without variants directly', async () => {
+      const user = userEvent.setup()
+      renderPage()
+      await user.click(await screen.findByRole('button', { name: 'Papas' }))
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Quitar una unidad de Papas' })).toBeInTheDocument()
+    })
+
+    it('shows the variant on open orders', async () => {
+      vi.mocked(listOpenOrders).mockResolvedValue([
+        {
+          ...openOrder,
+          items: [{ id: 'i2', productId: 'b', productName: 'Hamburguesa', quantity: 2, type: 'product', pizza: null, notes: null, variant: 'Pollo' }],
+        },
+      ])
+      renderPage()
+      expect(await screen.findByText(/Hamburguesa \(Pollo\) × 2/)).toBeInTheDocument()
+    })
+  })
 })

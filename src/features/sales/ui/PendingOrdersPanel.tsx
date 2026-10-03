@@ -3,7 +3,7 @@ import { Link } from 'react-router'
 import { ErrorBanner } from '../../../shared/ui/ErrorBanner'
 import { toUserMessage } from '../../../shared/errors'
 import { cn } from '../../../shared/ui/cn'
-import { orderLabel, TABLE_NUMBERS, tableLabel, type Order } from '../../orders/domain/order'
+import { orderLabel, productLineLabel, TABLE_NUMBERS, tableLabel, type Order } from '../../orders/domain/order'
 import { filterOrders } from '../../orders/domain/orderFilter'
 import { listOpenOrders } from '../../orders/infrastructure/ordersRepository'
 
@@ -144,7 +144,7 @@ export function PendingOrdersPanel({ onCharge }: PendingOrdersPanelProps) {
                 <ul className="flex flex-1 flex-col gap-1 text-slate-700">
                   {order.items.map((item) => (
                     <li key={item.id} className="break-words">
-                      {`${item.productName} × ${item.quantity}`}
+                      {`${productLineLabel(item.productName, item.variant)} × ${item.quantity}`}
                       {item.notes && <span className="block text-sm text-slate-600">{`Nota: ${item.notes}`}</span>}
                     </li>
                   ))}

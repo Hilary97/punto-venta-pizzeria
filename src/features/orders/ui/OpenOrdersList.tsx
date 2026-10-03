@@ -1,6 +1,6 @@
 import { Link } from 'react-router'
 import { Button } from '../../../shared/ui/Button'
-import { tableLabel, type Order } from '../domain/order'
+import { productLineLabel, tableLabel, type Order } from '../domain/order'
 
 interface OpenOrdersListProps {
   orders: Order[]
@@ -30,7 +30,7 @@ export function OpenOrdersList({ orders, canCharge, disabled = false, onAddItems
           <ul className="flex-1 text-slate-700">
             {order.items.map((item) => (
               <li key={item.id} className="break-words">
-                {item.productName} × {item.quantity}
+                {productLineLabel(item.productName, item.variant)} × {item.quantity}
                 {item.notes && <span className="block text-sm text-slate-500">Nota: {item.notes}</span>}
               </li>
             ))}
