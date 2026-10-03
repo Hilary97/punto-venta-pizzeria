@@ -60,7 +60,7 @@ export function ProductGrid({
                 : "bg-slate-200 text-slate-700",
             )}
           >
-            Todos
+            Pedidos-Abiertos
           </button>
           {categories.map((category) => (
             <button
