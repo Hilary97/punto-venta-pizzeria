@@ -99,6 +99,21 @@ describe('OrdersPage', () => {
     expect(screen.getByRole('region', { name: /pedidos abiertos/i })).toBeVisible()
   })
 
+  it('scrolls to the open orders section when the bottom button is pressed', async () => {
+    const scrollIntoView = vi.spyOn(Element.prototype, 'scrollIntoView')
+    const user = userEvent.setup()
+    renderPage()
+    await showCategory(user)
+
+    await user.click(screen.getByRole('button', { name: 'Pedidos abiertos' }))
+
+    const section = screen.getByRole('region', { name: /pedidos abiertos/i })
+    expect(scrollIntoView).toHaveBeenCalledTimes(1)
+    expect(scrollIntoView.mock.contexts[0]).toContainElement(section)
+    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' })
+    scrollIntoView.mockRestore()
+  })
+
   it('keeps register disabled until a product and table or name are present, then sends the payload', async () => {
     const user = userEvent.setup()
     renderPage()

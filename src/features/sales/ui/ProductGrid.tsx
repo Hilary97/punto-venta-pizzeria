@@ -1,4 +1,4 @@
-import { useId, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Input } from "../../../shared/ui/Input";
 import { cn } from "../../../shared/ui/cn";
 import { MoneyText } from "../../../shared/ui/MoneyText";
@@ -29,6 +29,14 @@ export function ProductGrid({
 }: ProductGridProps) {
   const hasBottomAllButton =
     allContent !== undefined && allContentLabel !== undefined;
+  const allContentRef = useRef<HTMLDivElement>(null);
+  // Bumped on every bottom-button press; the effect scrolls once the content is rendered.
+  const [allScrollRequest, setAllScrollRequest] = useState(0);
+
+  useEffect(() => {
+    if (allScrollRequest === 0) return;
+    allContentRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [allScrollRequest]);
   const searchId = useId();
   const [query, setQuery] = useState("");
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | "all">(
@@ -98,6 +106,7 @@ export function ProductGrid({
           onClick={() => {
             setSelectedCategoryId("all");
             setQuery("");
+            setAllScrollRequest((count) => count + 1);
           }}
           className={cn(
             "fixed inset-x-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-30 rounded-2xl px-5 py-4 font-semibold text-white shadow-lg transition-colors lg:left-auto lg:w-80",
@@ -113,7 +122,9 @@ export function ProductGrid({
       {allContent !== undefined &&
       selectedCategoryId === "all" &&
       query.trim() === "" ? (
-        allContent
+        <div ref={allContentRef} className="min-w-0 scroll-mt-40">
+          {allContent}
+        </div>
       ) : visibleProducts.length === 0 ? (
         <p className="p-4 text-center text-slate-500">
           {products.length === 0
