@@ -30,7 +30,7 @@ and returns as `Hamburguesa Monster sencilla (Pollo)`.
 
 - [x] 1. Migration + PGlite tests: columns, merge index, insert_order_lines,
       order_lines_priced, device catalog/open orders, burger seed.
-- [ ] 2. Domain + repositories + types: product variants, order line variant, draft
+- [x] 2. Domain + repositories + types: product variants, order line variant, draft
       merge rule, payloads, device mapping.
 - [ ] 3. Waiter UI: variant picker on product tap; show variant in draft, open
       orders and pending orders.
@@ -39,6 +39,7 @@ and returns as `Hamburguesa Monster sencilla (Pollo)`.
 ## Evidence
 
 - Task 1: `9a32b98` — migration `20261006120000_product_variants.sql` (columns + checks, coalesce merge index, insert_order_lines, order_lines_priced suffix, device RPCs, burger seed); RED observed (14/14 failing on missing column); 14 variants tests green; 359 tests (36 files); tsc 0. `create_sale` has no UI caller (dead path), so it cannot bypass variants.
+- Task 2: `906ee5a` — Product.variants + form schema + parseVariantsInput, OrderItem.variant, productLineLabel, draft merge by variant, payload/row/device mapping; RED observed (12 tests); 371 tests (37 files); tsc 0; lint 0 errors. Until task 4, admin product saves write `variants: []`.
 
 ## Pending (user)
 
