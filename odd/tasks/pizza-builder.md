@@ -25,9 +25,9 @@ charges server-computed prices.
 
 ## Tasks
 
-- [ ] 1. PGlite harness: dev dependency, auth/extensions stubs, apply all migrations,
+- [x] 1. PGlite harness: dev dependency, auth/extensions stubs, apply all migrations,
       smoke tests of existing order/pay/device flows.
-- [ ] 2. Migration: pizza catalog (sizes, styles + prices, ingredients, settings) seeded
+- [x] 2. Migration: pizza catalog (sizes, styles + prices, ingredients, settings) seeded
       from the menu; order item type/pizza config/notes; order notes; server pricing,
       quote and pay; device/catalog RPC updates; PGlite pricing tests.
 - [ ] 3. Domain + repositories: pizza config types, description formatter, catalog
@@ -36,6 +36,9 @@ charges server-computed prices.
 - [ ] 5. Cash register UI: server-quoted lines with pizza descriptions and notes.
 
 ## Evidence
+
+- Task 1: `beade83` — all 10 existing migrations apply on PGlite; 9 smoke tests green (first real SQL execution); 262 tests; tsc 0 (supabase/tests type-checked); build 0.
+- Task 2: `e76550c` — pizza catalog migration on PGlite; 41 pricing/quote/pay tests green; 303 tests (32 files); tsc 0; build 0; lint 0 errors (9 pre-existing warnings).
 
 ## Pending (user)
 
