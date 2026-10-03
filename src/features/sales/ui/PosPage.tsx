@@ -5,13 +5,11 @@ import { Spinner } from '../../../shared/ui/Spinner'
 import { toUserMessage } from '../../../shared/errors'
 import { formatMoney } from '../../../shared/money'
 import { orderLabel, type Order } from '../../orders/domain/order'
-import { getOrder, payOrder } from '../../orders/infrastructure/ordersRepository'
-import { listProducts } from '../../products/infrastructure/productsRepository'
-import { cartTotalCents, type CartItem } from '../domain/cart'
-import { buildOrderCart } from '../domain/orderCart'
-import { CartPanel } from './CartPanel'
+import type { OrderQuote } from '../../orders/domain/orderQuote'
+import { getOrder, payOrder, quoteOrder } from '../../orders/infrastructure/ordersRepository'
 import { CheckoutForm } from './CheckoutForm'
 import { PendingOrdersPanel } from './PendingOrdersPanel'
+import { QuoteLinesPanel } from './QuoteLinesPanel'
 
 const ORDER_PARAM = 'pedido'
 
@@ -21,7 +19,7 @@ export function PosPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const orderId = searchParams.get(ORDER_PARAM)
   const [loadedOrder, setOrder] = useState<Order | null>(null)
-  const [orderCart, setOrderCart] = useState<CartItem[]>([])
+  const [quote, setQuote] = useState<OrderQuote | null>(null)
   const [orderError, setOrderError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -34,25 +32,26 @@ export function PosPage() {
       setIsLoading(true)
       setLoadError(null)
       try {
-        const [loadedProducts, fetchedOrder] = await Promise.all([
-          orderId ? listProducts(true) : Promise.resolve([]),
-          orderId ? getOrder(orderId) : Promise.resolve(null),
-        ])
+        const fetchedOrder = orderId ? await getOrder(orderId) : null
+        // Quote only open orders: the RPC is meant for payable ones and a missing order has nothing to quote.
+        const fetchedQuote = orderId && fetchedOrder?.status === 'open' ? await quoteOrder(orderId) : null
         if (cancelled) return
         setOrder(null)
-        setOrderCart([])
+        setQuote(null)
         setOrderError(null)
         if (orderId) {
-          const built = fetchedOrder ? buildOrderCart(fetchedOrder.items, loadedProducts) : null
           if (!fetchedOrder) {
             setOrderError('No se encontró el pedido.')
-          } else if (fetchedOrder.status !== 'open') {
+          } else if (fetchedOrder.status !== 'open' || !fetchedQuote || fetchedQuote.status !== 'open') {
             setOrderError('El pedido ya no está abierto, por lo que no se puede cobrar.')
-          } else if (built && built.unavailable.length > 0) {
-            setOrderError(`No se puede cobrar: productos no disponibles en el pedido (${built.unavailable.join(', ')}). Edita el pedido en Pedidos.`)
-          } else if (built) {
+          } else if (!fetchedQuote.payable) {
+            const unavailable = fetchedQuote.lines
+              .filter((line) => !line.available)
+              .map((line) => (line.reason ? `${line.name}: ${line.reason}` : line.name))
+            setOrderError(`No se puede cobrar: productos no disponibles en el pedido (${unavailable.join(', ')}). Edita el pedido en Pedidos.`)
+          } else {
             setOrder(fetchedOrder)
-            setOrderCart(built.items)
+            setQuote(fetchedQuote)
           }
         }
       } catch (error) {
@@ -89,7 +88,7 @@ export function PosPage() {
   }
 
   async function handleConfirmSale(receivedCents: number) {
-    if (pending.current || !order || orderCart.length === 0 || !Number.isSafeInteger(receivedCents) || receivedCents < cartTotalCents(orderCart)) return
+    if (pending.current || !order || !quote || quote.lines.length === 0 || !Number.isSafeInteger(receivedCents) || receivedCents < quote.totalCents) return
     pending.current = true
     setIsSubmitting(true)
     try {
@@ -134,7 +133,7 @@ export function PosPage() {
     </div>
   )
 
-  if (!order) {
+  if (!order || !quote) {
     return (
       <div className="flex min-w-0 flex-col gap-4 p-4">
         {successMessage}
@@ -157,8 +156,8 @@ export function PosPage() {
         </div>
       </div>
       <div className="flex min-w-0 flex-col gap-4 rounded-xl border border-slate-200 bg-white p-4">
-        <CartPanel cart={orderCart} readOnly disabled={isSubmitting} />
-        <CheckoutForm totalCents={cartTotalCents(orderCart)} isEmpty={orderCart.length === 0} isSubmitting={isSubmitting} onConfirm={handleConfirmSale} />
+        <QuoteLinesPanel quote={quote} orderNotes={order.notes} />
+        <CheckoutForm totalCents={quote.totalCents} isEmpty={quote.lines.length === 0} isSubmitting={isSubmitting} onConfirm={handleConfirmSale} />
       </div>
     </div>
   )

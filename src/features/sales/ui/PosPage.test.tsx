@@ -3,12 +3,11 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, useLocation } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Order } from '../../orders/domain/order'
-import { getOrder, listOpenOrders, payOrder } from '../../orders/infrastructure/ordersRepository'
-import { listProducts } from '../../products/infrastructure/productsRepository'
+import type { OrderQuote } from '../../orders/domain/orderQuote'
+import { getOrder, listOpenOrders, payOrder, quoteOrder } from '../../orders/infrastructure/ordersRepository'
 import { PosPage } from './PosPage'
 
-vi.mock('../../products/infrastructure/productsRepository', () => ({ listProducts: vi.fn() }))
-vi.mock('../../orders/infrastructure/ordersRepository', () => ({ getOrder: vi.fn(), listOpenOrders: vi.fn(), payOrder: vi.fn() }))
+vi.mock('../../orders/infrastructure/ordersRepository', () => ({ getOrder: vi.fn(), listOpenOrders: vi.fn(), payOrder: vi.fn(), quoteOrder: vi.fn() }))
 
 function LocationProbe() {
   return <span data-testid="search">{useLocation().search}</span>
@@ -37,12 +36,20 @@ const openOrder: Order = {
   ],
 }
 
+const openQuote: OrderQuote = {
+  orderId: 'o1',
+  status: 'open',
+  totalCents: 32000,
+  payable: true,
+  lines: [
+    { orderItemId: 'i1', itemType: 'product', name: 'Pizza queso', notes: null, quantity: 2, unitPriceCents: 15000, lineTotalCents: 30000, available: true, reason: null },
+    { orderItemId: 'i2', itemType: 'product', name: 'Agua', notes: null, quantity: 1, unitPriceCents: 2000, lineTotalCents: 2000, available: true, reason: null },
+  ],
+}
+
 beforeEach(() => {
   vi.resetAllMocks()
-  vi.mocked(listProducts).mockResolvedValue([
-    { id: 'p', categoryId: 'pizza', name: 'Pizza queso', priceCents: 15000, active: true },
-    { id: 'd', categoryId: 'drink', name: 'Agua', priceCents: 2000, active: true },
-  ])
+  vi.mocked(quoteOrder).mockResolvedValue(openQuote)
   vi.mocked(getOrder).mockResolvedValue(openOrder)
   vi.mocked(listOpenOrders).mockResolvedValue([])
   vi.mocked(payOrder).mockResolvedValue({ saleId: 'sale', totalCents: 32000, changeCents: 8000, orderId: 'o1' })
@@ -82,10 +89,11 @@ describe('order checkout mode', () => {
     expect(await screen.findByText('Cobrando pedido M-3 · Ana · Atendió Carlos')).toBeVisible()
   })
 
-  it('loads the order into a read-only cart priced with current products', async () => {
+  it('loads the order into a read-only list priced by the server quote', async () => {
     renderPos('/?pedido=o1')
     expect(await screen.findByText('Cobrando pedido M-3 · Ana')).toBeVisible()
     expect(getOrder).toHaveBeenCalledWith('o1')
+    expect(quoteOrder).toHaveBeenCalledWith('o1')
     expect(within(screen.getByRole('list')).getByText('Pizza queso')).toBeVisible()
     expect(screen.getAllByText('$320.00').length).toBeGreaterThan(0)
     expect(screen.queryByRole('button', { name: /agregar una unidad/i })).not.toBeInTheDocument()
@@ -138,16 +146,47 @@ describe('order checkout mode', () => {
     expect(screen.queryByText(/cobrando pedido/i)).not.toBeInTheDocument()
   })
 
-  it('blocks charging when an item product is inactive or missing', async () => {
-    vi.mocked(getOrder).mockResolvedValue({
-      ...openOrder,
-      items: [...openOrder.items, { id: 'i3', productId: null, productName: 'Calzone', quantity: 1, type: 'product' as const, pizza: null, notes: null }],
+  it('blocks charging when the quote has unavailable lines', async () => {
+    vi.mocked(quoteOrder).mockResolvedValue({
+      ...openQuote,
+      payable: false,
+      lines: [
+        ...openQuote.lines,
+        { orderItemId: 'i3', itemType: 'product', name: 'Calzone', notes: null, quantity: 1, unitPriceCents: null, lineTotalCents: null, available: false, reason: 'Producto inactivo' },
+      ],
     })
     renderPos('/?pedido=o1')
-    expect(await screen.findByRole('alert')).toHaveTextContent(/calzone/i)
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(/calzone/i)
+    expect(alert).toHaveTextContent(/producto inactivo/i)
     expect(screen.getByRole('link', { name: /volver a pedidos/i })).toHaveAttribute('href', '/pedidos')
     expect(screen.queryByRole('button', { name: /registrar venta/i })).not.toBeInTheDocument()
     expect(payOrder).not.toHaveBeenCalled()
+  })
+
+  it('charges a pizza-only order showing description, notes and the server total', async () => {
+    const description = 'Pizza grande mitad Hawaiana / mitad Pepperoni con orilla de queso'
+    vi.mocked(getOrder).mockResolvedValue({
+      ...openOrder,
+      notes: 'Sin cebolla en toda la orden',
+      items: [{ id: 'i1', productId: null, productName: description, quantity: 1, type: 'pizza' as const, pizza: null, notes: 'Bien cocida' }],
+    })
+    vi.mocked(quoteOrder).mockResolvedValue({
+      ...openQuote,
+      totalCents: 21000,
+      lines: [{ orderItemId: 'i1', itemType: 'pizza', name: description, notes: 'Bien cocida', quantity: 1, unitPriceCents: 21000, lineTotalCents: 21000, available: true, reason: null }],
+    })
+    vi.mocked(payOrder).mockResolvedValue({ saleId: 'sale', totalCents: 21000, changeCents: 4000, orderId: 'o1' })
+    const user = userEvent.setup()
+    renderPos('/?pedido=o1')
+    expect(await screen.findByText(description)).toBeVisible()
+    expect(screen.getByText('Nota: Bien cocida')).toBeVisible()
+    expect(screen.getByText('Nota del pedido: Sin cebolla en toda la orden')).toBeVisible()
+    expect(screen.getAllByText('$210.00').length).toBeGreaterThan(0)
+    await user.type(screen.getByLabelText(/monto recibido/i), '250')
+    await user.click(screen.getByRole('button', { name: /registrar venta/i }))
+    expect(payOrder).toHaveBeenCalledWith('o1', 25000)
+    expect(await screen.findByRole('status')).toHaveTextContent('Total cobrado: $210.00')
   })
 
   it.each([
