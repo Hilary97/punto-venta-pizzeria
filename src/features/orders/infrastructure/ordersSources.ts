@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { getSupabaseClient } from '../../../shared/supabase/client'
 import { parseRpcResult } from '../../../shared/supabase/rpc'
 import { listCategories, listProducts } from '../../products/infrastructure/productsRepository'
+import { listPizzaCatalog, pizzaCatalogSchema } from '../../pizza/infrastructure/pizzaRepository'
 import type { OrderItemPayload } from '../domain/order'
 import type { OrdersCatalog, OrdersSource } from '../domain/ordersSource'
 import {
@@ -12,23 +13,30 @@ import {
   mapOrderRow,
   orderIdResultSchema,
   orderRowSchema,
+  setOrderNotes,
   toRpcItems,
 } from './ordersRepository'
 
 export const authenticatedOrdersSource: OrdersSource = {
   async loadCatalog() {
-    const [categories, products] = await Promise.all([listCategories(), listProducts(true)])
-    return { categories, products }
+    const [categories, products, pizza] = await Promise.all([
+      listCategories(),
+      listProducts(true),
+      listPizzaCatalog(),
+    ])
+    return { categories, products, pizza }
   },
   listOpenOrders,
   createOrder,
   addOrderItems,
   cancelOrder,
+  setOrderNotes,
 }
 
 const catalogSchema = z.object({
   categories: z.array(z.object({ id: z.string(), name: z.string(), sort_order: z.number() })),
   products: z.array(z.object({ id: z.string(), name: z.string(), category_id: z.string() })),
+  pizza: pizzaCatalogSchema,
 })
 
 const openOrdersSchema = z.array(orderRowSchema)
@@ -65,6 +73,7 @@ export function createDeviceOrdersSource(
           priceCents: 0,
           active: true,
         })),
+        pizza: result.pizza,
       }
     },
 
@@ -77,7 +86,7 @@ export function createDeviceOrdersSource(
       )
     },
 
-    async createOrder(tableNumber, customerName, items: OrderItemPayload[]) {
+    async createOrder(tableNumber, customerName, items: OrderItemPayload[], notes = null) {
       const shiftToken = requireShiftToken()
       const { data, error } = await getSupabaseClient().rpc('device_create_order', {
         p_device_secret: secret,
@@ -85,6 +94,7 @@ export function createDeviceOrdersSource(
         p_table_number: tableNumber,
         p_customer_name: customerName,
         p_items: toRpcItems(items),
+        p_notes: notes,
       })
       return parseRpcResult(orderIdResultSchema, data, error, 'No se pudo crear el pedido.').order_id
     },
@@ -108,6 +118,17 @@ export function createDeviceOrdersSource(
         p_order_id: orderId,
       })
       return parseRpcResult(orderIdResultSchema, data, error, 'No se pudo cancelar el pedido.').order_id
+    },
+
+    async setOrderNotes(orderId, notes) {
+      const shiftToken = requireShiftToken()
+      const { data, error } = await getSupabaseClient().rpc('device_set_order_notes', {
+        p_device_secret: secret,
+        p_shift_token: shiftToken,
+        p_order_id: orderId,
+        p_notes: notes,
+      })
+      return parseRpcResult(orderIdResultSchema, data, error, 'No se pudo guardar la nota.').order_id
     },
   }
 }

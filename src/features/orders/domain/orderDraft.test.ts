@@ -59,8 +59,8 @@ describe('draftItemCount', () => {
 describe('draftToPayload', () => {
   it('keeps only product ids and quantities', () => {
     expect(draftToPayload([{ ...pizza, quantity: 2 }, soda])).toEqual([
-      { productId: 'p1', quantity: 2 },
-      { productId: 'p2', quantity: 1 },
+      { type: 'product', productId: 'p1', quantity: 2 },
+      { type: 'product', productId: 'p2', quantity: 1 },
     ])
   })
 })

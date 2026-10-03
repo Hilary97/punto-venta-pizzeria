@@ -44,5 +44,5 @@ export function draftItemCount(draft: DraftLine[]): number {
 
 /** Maps the draft to the payload sent to the server (ids and quantities only). */
 export function draftToPayload(draft: DraftLine[]): OrderItemPayload[] {
-  return draft.map((line) => ({ productId: line.productId, quantity: line.quantity }))
+  return draft.map((line) => ({ type: 'product' as const, productId: line.productId, quantity: line.quantity }))
 }

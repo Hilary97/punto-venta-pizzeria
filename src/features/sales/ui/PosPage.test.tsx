@@ -26,13 +26,14 @@ function renderPos(entry = '/') {
 const openOrder: Order = {
   id: 'o1',
   waiterName: null,
+  notes: null,
   tableNumber: 3,
   customerName: 'Ana',
   status: 'open',
   createdAt: '2026-01-01T00:00:00Z',
   items: [
-    { id: 'i1', productId: 'p', productName: 'Pizza queso', quantity: 2 },
-    { id: 'i2', productId: 'd', productName: 'Agua', quantity: 1 },
+    { id: 'i1', productId: 'p', productName: 'Pizza queso', quantity: 2, type: 'product' as const, pizza: null, notes: null },
+    { id: 'i2', productId: 'd', productName: 'Agua', quantity: 1, type: 'product' as const, pizza: null, notes: null },
   ],
 }
 
@@ -140,7 +141,7 @@ describe('order checkout mode', () => {
   it('blocks charging when an item product is inactive or missing', async () => {
     vi.mocked(getOrder).mockResolvedValue({
       ...openOrder,
-      items: [...openOrder.items, { id: 'i3', productId: null, productName: 'Calzone', quantity: 1 }],
+      items: [...openOrder.items, { id: 'i3', productId: null, productName: 'Calzone', quantity: 1, type: 'product' as const, pizza: null, notes: null }],
     })
     renderPos('/?pedido=o1')
     expect(await screen.findByRole('alert')).toHaveTextContent(/calzone/i)

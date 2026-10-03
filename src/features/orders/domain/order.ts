@@ -1,3 +1,5 @@
+import type { PizzaConfig } from '../../pizza/domain/pizza'
+
 export type OrderStatus = 'open' | 'paid' | 'cancelled'
 
 /** A line of an order. Orders never store prices; they are resolved at payment. */
@@ -6,6 +8,10 @@ export interface OrderItem {
   productId: string | null
   productName: string
   quantity: number
+  type: 'product' | 'pizza'
+  /** Canonical configuration for pizza lines; `null` for products. */
+  pizza: PizzaConfig | null
+  notes: string | null
 }
 
 export interface Order {
@@ -15,17 +21,21 @@ export interface Order {
   status: OrderStatus
   createdAt: string
   waiterName: string | null
+  notes: string | null
   items: OrderItem[]
 }
 
-export interface OrderItemPayload {
-  productId: string
-  quantity: number
-}
+export type OrderItemPayload =
+  | { type: 'product'; productId: string; quantity: number; notes?: string | null }
+  | { type: 'pizza'; pizza: PizzaConfig; quantity: number; notes?: string | null }
 
 export const TABLE_NUMBERS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9]
 
 export const MAX_CUSTOMER_NAME_LENGTH = 80
+
+export const MAX_ORDER_NOTES_LENGTH = 300
+
+export const MAX_ITEM_NOTES_LENGTH = 200
 
 /** Display label for a table, e.g. `M-3`. */
 export function tableLabel(tableNumber: number): string {
@@ -58,4 +68,10 @@ export function orderLabel(order: { tableNumber: number | null; customerName: st
 export function canRegisterOrder(tableNumber: number | null, rawName: string): boolean {
   if (normalizeCustomerName(rawName).length === 0) return tableNumber !== null
   return isValidCustomerName(rawName)
+}
+
+/** Trims a note; blank or missing becomes `null`, as the server stores it. */
+export function normalizeNotes(raw: string | null | undefined): string | null {
+  const trimmed = raw?.trim() ?? ''
+  return trimmed === '' ? null : trimmed
 }

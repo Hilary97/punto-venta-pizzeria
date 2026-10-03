@@ -2,11 +2,16 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { listPizzaCatalog } from '../../pizza/infrastructure/pizzaRepository'
 import { listCategories, listProducts } from '../../products/infrastructure/productsRepository'
 import type { Order } from '../domain/order'
 import { addOrderItems, cancelOrder, createOrder, listOpenOrders } from '../infrastructure/ordersRepository'
 import { OrdersPage } from './OrdersPage'
 
+vi.mock('../../pizza/infrastructure/pizzaRepository', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../pizza/infrastructure/pizzaRepository')>()),
+  listPizzaCatalog: vi.fn(),
+}))
 vi.mock('../../products/infrastructure/productsRepository', () => ({ listCategories: vi.fn(), listProducts: vi.fn() }))
 vi.mock('../infrastructure/ordersRepository', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../infrastructure/ordersRepository')>()),
@@ -19,11 +24,12 @@ vi.mock('../infrastructure/ordersRepository', async (importOriginal) => ({
 const openOrder: Order = {
   id: 'order-1',
   waiterName: null,
+  notes: null,
   tableNumber: 3,
   customerName: 'Ana',
   status: 'open',
   createdAt: '2026-01-01T10:00:00Z',
-  items: [{ id: 'i1', productId: 'p', productName: 'Pizza queso', quantity: 2 }],
+  items: [{ id: 'i1', productId: 'p', productName: 'Pizza queso', quantity: 2, type: 'product' as const, pizza: null, notes: null }],
 }
 
 function LocationProbe() {
@@ -44,6 +50,7 @@ function renderPage() {
 
 beforeEach(() => {
   vi.resetAllMocks()
+  vi.mocked(listPizzaCatalog).mockResolvedValue({ sizes: [], styles: [], ingredients: [] })
   vi.mocked(listCategories).mockResolvedValue([{ id: 'pizza', name: 'Pizzas', sortOrder: 0 }])
   vi.mocked(listProducts).mockResolvedValue([
     { id: 'p', categoryId: 'pizza', name: 'Pizza queso', priceCents: 15000, active: true },
@@ -82,7 +89,7 @@ describe('OrdersPage', () => {
     expect(submit).toBeEnabled()
 
     await user.click(submit)
-    expect(createOrder).toHaveBeenCalledWith(5, 'Luis Perez', [{ productId: 'p', quantity: 2 }])
+    expect(createOrder).toHaveBeenCalledWith(5, 'Luis Perez', [{ type: 'product', productId: 'p', quantity: 2 }])
     expect(await screen.findByRole('status')).toHaveTextContent(/pedido registrado/i)
     expect(screen.getByLabelText(/nombre del cliente/i)).toHaveValue('')
     expect(submit).toBeDisabled()
@@ -98,7 +105,7 @@ describe('OrdersPage', () => {
     await user.click(screen.getByRole('button', { name: 'M-4' }))
     expect(submit).toBeEnabled()
     await user.click(submit)
-    expect(createOrder).toHaveBeenCalledWith(4, null, [{ productId: 'p', quantity: 1 }])
+    expect(createOrder).toHaveBeenCalledWith(4, null, [{ type: 'product', productId: 'p', quantity: 1 }])
   })
 
   it('enables register with only a name', async () => {
@@ -109,7 +116,7 @@ describe('OrdersPage', () => {
     await user.type(screen.getByLabelText(/nombre del cliente/i), ' Juan ')
     expect(submit).toBeEnabled()
     await user.click(submit)
-    expect(createOrder).toHaveBeenCalledWith(null, 'Juan', [{ productId: 'p', quantity: 1 }])
+    expect(createOrder).toHaveBeenCalledWith(null, 'Juan', [{ type: 'product', productId: 'p', quantity: 1 }])
   })
 
   it('keeps register disabled with neither table nor a non-blank name', async () => {
@@ -185,7 +192,7 @@ describe('OrdersPage', () => {
     expect(screen.queryByRole('group', { name: /mesa/i })).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /pizza queso/i }))
     await user.click(screen.getByRole('button', { name: /agregar al pedido/i }))
-    expect(addOrderItems).toHaveBeenCalledWith('order-1', [{ productId: 'p', quantity: 1 }])
+    expect(addOrderItems).toHaveBeenCalledWith('order-1', [{ type: 'product', productId: 'p', quantity: 1 }])
     expect(createOrder).not.toHaveBeenCalled()
     expect(await screen.findByRole('status')).toHaveTextContent(/productos agregados/i)
     expect(screen.getByLabelText(/nombre del cliente/i)).toBeVisible()
@@ -243,7 +250,7 @@ describe('OrdersPage', () => {
     const dialog = screen.getByRole('dialog')
     expect(within(dialog).getByText('Pizza queso')).toBeVisible()
     await user.click(within(dialog).getByRole('button', { name: /registrar pedido/i }))
-    expect(createOrder).toHaveBeenCalledWith(2, 'Mara', [{ productId: 'p', quantity: 2 }])
+    expect(createOrder).toHaveBeenCalledWith(2, 'Mara', [{ type: 'product', productId: 'p', quantity: 2 }])
     expect(await screen.findByRole('status')).toHaveTextContent(/pedido registrado/i)
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /ver pedido/i })).not.toBeInTheDocument()
@@ -266,7 +273,7 @@ describe('OrdersPage', () => {
     await user.click(await screen.findByRole('button', { name: 'M-4' }))
     await user.click(screen.getByRole('button', { name: /pizza queso/i }))
     await user.click(screen.getByRole('button', { name: /registrar pedido/i }))
-    expect(createOrder).toHaveBeenCalledWith(4, null, [{ productId: 'p', quantity: 1 }])
+    expect(createOrder).toHaveBeenCalledWith(4, null, [{ type: 'product', productId: 'p', quantity: 1 }])
     expect(screen.queryByText(/^Mesero:/)).not.toBeInTheDocument()
   })
 

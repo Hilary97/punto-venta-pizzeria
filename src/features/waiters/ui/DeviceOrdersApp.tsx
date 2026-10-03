@@ -58,6 +58,7 @@ export function DeviceOrdersApp({ device }: { device: AuthorizedDevice }) {
       createOrder: guard(base.createOrder),
       addOrderItems: guard(base.addOrderItems),
       cancelOrder: guard(base.cancelOrder),
+      setOrderNotes: guard(base.setOrderNotes),
     }
   }, [device.secret, handleRevoked])
 

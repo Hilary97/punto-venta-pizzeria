@@ -9,7 +9,7 @@ const products: Product[] = [
 ]
 
 function item(productId: string | null, quantity: number, productName = 'Snapshot'): OrderItem {
-  return { id: `${productId}-${quantity}`, productId, productName, quantity }
+  return { id: `${productId}-${quantity}`, productId, productName, quantity, type: 'product', pizza: null, notes: null }
 }
 
 describe('buildOrderCart', () => {

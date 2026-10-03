@@ -3,6 +3,7 @@ import { MemoryRouter, Route, Routes } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAuth } from '../../auth/ui/AuthContext'
 import { RequireAuth } from '../../auth/ui/RequireAuth'
+import { listPizzaCatalog } from '../../pizza/infrastructure/pizzaRepository'
 import { listCategories, listProducts } from '../../products/infrastructure/productsRepository'
 import { saveDevice } from '../../waiters/domain/deviceStorage'
 import { deviceListWaiters } from '../../waiters/infrastructure/waitersRepository'
@@ -11,6 +12,10 @@ import { OrdersEntry } from './OrdersEntry'
 
 vi.mock('../../auth/ui/AuthContext', () => ({ useAuth: vi.fn() }))
 vi.mock('../../auth/infrastructure/authRepository', () => ({ signOut: vi.fn() }))
+vi.mock('../../pizza/infrastructure/pizzaRepository', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../pizza/infrastructure/pizzaRepository')>()),
+  listPizzaCatalog: vi.fn(),
+}))
 vi.mock('../../products/infrastructure/productsRepository', () => ({ listCategories: vi.fn(), listProducts: vi.fn() }))
 vi.mock('../infrastructure/ordersRepository', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../infrastructure/ordersRepository')>()),
@@ -59,6 +64,7 @@ function renderAt(path: string) {
 beforeEach(() => {
   vi.resetAllMocks()
   localStorage.clear()
+  vi.mocked(listPizzaCatalog).mockResolvedValue({ sizes: [], styles: [], ingredients: [] })
   vi.mocked(listCategories).mockResolvedValue([{ id: 'pizza', name: 'Pizzas', sortOrder: 0 }])
   vi.mocked(listProducts).mockResolvedValue([])
   vi.mocked(listOpenOrders).mockResolvedValue([])

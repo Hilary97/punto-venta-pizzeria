@@ -56,11 +56,13 @@ beforeEach(() => {
     loadCatalog: vi.fn().mockResolvedValue({
       categories: [{ id: 'pizza', name: 'Pizzas', sortOrder: 0 }],
       products: [{ id: 'p', categoryId: 'pizza', name: 'Pizza queso', priceCents: 0, active: true }],
+      pizza: { sizes: [], styles: [], ingredients: [] },
     }),
     listOpenOrders: vi.fn().mockResolvedValue([]),
     createOrder: vi.fn().mockResolvedValue('new-order'),
     addOrderItems: vi.fn().mockResolvedValue('o'),
     cancelOrder: vi.fn().mockResolvedValue('o'),
+    setOrderNotes: vi.fn().mockResolvedValue('o'),
   }
   vi.mocked(createDeviceOrdersSource).mockReturnValue(source)
   vi.mocked(deviceListWaiters).mockResolvedValue([{ id: 'w1', fullName: 'Carlos' }])
@@ -95,7 +97,7 @@ describe('DeviceOrdersApp', () => {
     await user.click(await screen.findByRole('button', { name: 'M-4' }))
     await user.click(screen.getByRole('button', { name: /pizza queso/i }))
     await user.click(screen.getByRole('button', { name: /registrar pedido/i }))
-    expect(source.createOrder).toHaveBeenCalledWith(4, null, [{ productId: 'p', quantity: 1 }])
+    expect(source.createOrder).toHaveBeenCalledWith(4, null, [{ type: 'product', productId: 'p', quantity: 1 }])
     expect(screen.queryByRole('link', { name: /cobrar/i })).not.toBeInTheDocument()
   })
 

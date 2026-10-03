@@ -3,7 +3,10 @@ import {
   canRegisterOrder,
   isValidCustomerName,
   MAX_CUSTOMER_NAME_LENGTH,
+  MAX_ITEM_NOTES_LENGTH,
+  MAX_ORDER_NOTES_LENGTH,
   normalizeCustomerName,
+  normalizeNotes,
   orderLabel,
   TABLE_NUMBERS,
   tableLabel,
@@ -87,5 +90,23 @@ describe('canRegisterOrder', () => {
   it('rejects an over-long name even with a table', () => {
     expect(canRegisterOrder(3, 'a'.repeat(MAX_CUSTOMER_NAME_LENGTH + 1))).toBe(false)
     expect(canRegisterOrder(null, 'a'.repeat(MAX_CUSTOMER_NAME_LENGTH + 1))).toBe(false)
+  })
+})
+
+describe('normalizeNotes', () => {
+  it('trims the note', () => {
+    expect(normalizeNotes('  sin cebolla  ')).toBe('sin cebolla')
+  })
+
+  it('turns blank or missing notes into null', () => {
+    expect(normalizeNotes('   ')).toBeNull()
+    expect(normalizeNotes('')).toBeNull()
+    expect(normalizeNotes(null)).toBeNull()
+    expect(normalizeNotes(undefined)).toBeNull()
+  })
+
+  it('exposes the SQL length limits', () => {
+    expect(MAX_ORDER_NOTES_LENGTH).toBe(300)
+    expect(MAX_ITEM_NOTES_LENGTH).toBe(200)
   })
 })
