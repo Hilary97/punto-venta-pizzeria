@@ -227,6 +227,41 @@ describe('wings seed', () => {
   })
 })
 
+describe('wings natural flavor', () => {
+  it('appends Naturales to already-seeded wings and leaves other variants untouched', async () => {
+    await asSuperuser(db)
+    const cat = await db.query<{ id: string }>(
+      `insert into public.categories (name, sort_order) values ('Botanas', 3) returning id`,
+    )
+    await db.query(
+      `insert into public.products (category_id, name, price_cents, variants) values
+         ($1, 'Alitas 5 pzas', 6000, '{Búfalo,BBQ,Mango-Habanero}'),
+         ($1, 'Alitas 5 pzas', 6000, '{Bufalo,BQ,Mango-Abanero}'),
+         ($1, 'Alitas 5 pzas', 6000, '{Solo}')`,
+      [cat.rows[0].id],
+    )
+
+    const { readFileSync } = await import('node:fs')
+    const { join } = await import('node:path')
+    const sql = readFileSync(
+      join(import.meta.dirname, '..', 'migrations', '20261009120000_wings_natural_flavor.sql'),
+      'utf8',
+    )
+    await db.exec(sql)
+    await db.exec(sql)
+
+    const res = await db.query<{ variants: string[] }>(
+      `select variants from public.products where category_id = $1 order by array_length(variants, 1), variants`,
+      [cat.rows[0].id],
+    )
+    expect(res.rows.map((r) => r.variants)).toEqual([
+      ['Solo'],
+      ['Búfalo', 'BBQ', 'Mango-Habanero', 'Naturales'],
+      ['Búfalo', 'BBQ', 'Mango-Habanero', 'Naturales'],
+    ])
+  })
+})
+
 describe('device RPCs', () => {
   it('exposes variants in the catalog and variant in open orders', async () => {
     const admin = await createProfile(db, { role: 'admin', fullName: 'Admin' })
