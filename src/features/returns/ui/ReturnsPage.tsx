@@ -58,7 +58,7 @@ export function ReturnsPage() {
   }
 
   return (
-    <div className="mx-auto flex max-w-2xl flex-col gap-6 p-4 sm:p-6">
+    <div className="mx-auto flex max-w-6xl flex-col gap-6 p-4 sm:p-6">
       <h1 className="text-2xl font-bold text-slate-900">Devoluciones</h1>
 
       {successMessage && (
