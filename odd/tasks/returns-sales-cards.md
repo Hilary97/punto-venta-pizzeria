@@ -10,6 +10,7 @@ The Devoluciones screen lists every sale of the open cash session as a detailed 
 - S3: "en este hisotrial necsito que aparescan toda la informacin de la venta el nombre a quien se le atendio, la mesa que se atendio, todos los productos el dinero que se recibio y el cambio que se le dio" — each sale shows: customer name ("a quien se le atendió"), table (mesa), all products (name, quantity), amount received, and change given.
 - S4: "Puedes distruibrlos por targetas con todo esa información" — sales are rendered as cards. Revised by L4: each card shows a summary (customer, table, time, total) and a "Ver detalles" button opens a modal with all the S3 information (all products, received, change, waiter, folio).
 - S5: "ya el boton devoluciones va a cambiar por nombre Hisotrial de Ventas" — the nav button and screen title read "Historial de Ventas" instead of "Devoluciones".
+- S7: "Solo cambia que cuando este registrada la venta por el numer de mesa solo aparesca el numero de mesa y quita el Sin nombre." — a table sale without customer name shows only "Mesa N" as its title (card and modal); the "Sin nombre" label is removed.
 - S6: "el boton no hara devoluciones solo sera para ver detalles de la venta" — the screen no longer creates returns; the card button only shows the sale details.
 
 ## Design notes
@@ -23,6 +24,7 @@ The Devoluciones screen lists every sale of the open cash session as a detailed 
 - T1 (S1, S3) — new migration + repository: session sales include customer name, table, waiter, items, received, change. Route: worker. Commit: e01b92a (done; PGlite RED->GREEN, 77 tests, tsc clean).
 - T2 (S1, S2, S3, S4) — Devoluciones UI renders sale cards with all info; return flow still reachable from each card. Route: worker. Commit: 15d2897 (done; RTL RED->GREEN, 13 tests, tsc/oxlint clean).
 - T4 (S4, S5, S6) — rename to Historial de Ventas, summary cards + details modal, remove return flow from the screen. Route: worker. Commit: ca660db (done; RED->GREEN, 400 tests, tsc clean, lint 0 errors).
+- T5 (S7) — table-only title for unnamed table sales. Route: inline. Commit: 639b999 (done; RED->GREEN, 15 returns tests, tsc clean).
 - T3 (S1-S4) — verify: tests, tsc, lint. Route: verify. Done: PASS S1-S4, 399 tests, tsc and lint clean.
 
 ## Log
@@ -31,3 +33,4 @@ The Devoluciones screen lists every sale of the open cash session as a detailed 
 - L2: User chose "Ocultarlas de Devoluciones (recomendado)" — sales are hidden after the cut, not deleted.
 - L3: "Va muy bien pero ya el boton devoluciones va a cambiar por nombre Hisotrial de Ventas, y el boton no hara devoluciones solo sera para ver detalles de la venta."
 - L4: User chose "Tarjeta resumida + botón \"Ver detalles\" (recomendado)" — card shows customer, table, time and total; the button opens a modal with all products, received, change, waiter and folio.
+- L5: "Solo cambia que cuando este registrada la venta por el numer de mesa solo aparesca el numero de mesa y quita el Sin nombre."
