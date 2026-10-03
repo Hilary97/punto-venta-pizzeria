@@ -1,6 +1,7 @@
+import { useSyncExternalStore, type ReactNode } from 'react'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter, Route, Routes } from 'react-router'
+import { MemoryRouter, Navigate, Route, Routes } from 'react-router'
 import { beforeEach, expect, it, vi } from 'vitest'
 import type { AdminDevice, AuthorizedDevice } from '../domain/device'
 import { clearDevice, loadDevice, saveDevice } from '../domain/deviceStorage'
@@ -88,6 +89,44 @@ it('authorizes this device: stores it, clears shift, signs out and goes to /pedi
   expect(localStorage.getItem(SHIFT_STORAGE_KEY)).toBeNull()
   expect(auth.signOut).toHaveBeenCalledTimes(1)
   expect(document.body.innerHTML).not.toContain(SECRET)
+})
+
+it('lands on /pedidos even when the admin route redirects to login as soon as the session ends', async () => {
+  // Mimics RequireAuth: the auth listener flips to signed-out while signOut runs.
+  let signedOut = false
+  const listeners = new Set<() => void>()
+  const subscribe = (listener: () => void) => {
+    listeners.add(listener)
+    return () => listeners.delete(listener)
+  }
+  function Guard({ children }: { children: ReactNode }) {
+    const out = useSyncExternalStore(subscribe, () => signedOut)
+    return out ? <Navigate to="/login" replace /> : <>{children}</>
+  }
+  auth.signOut.mockImplementation(async () => {
+    signedOut = true
+    listeners.forEach((listener) => listener())
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  })
+
+  render(
+    <MemoryRouter initialEntries={['/admin/meseros']}>
+      <Routes>
+        <Route path="/admin/meseros" element={<Guard><DevicesSection /></Guard>} />
+        <Route path="/login" element={<p>Pantalla de login</p>} />
+        <Route path="/pedidos" element={<p>Pantalla de pedidos</p>} />
+      </Routes>
+    </MemoryRouter>,
+  )
+  await screen.findByText('Tablet barra')
+  const user = userEvent.setup()
+  await user.click(screen.getByRole('button', { name: 'Usar este dispositivo para pedidos' }))
+  await user.type(screen.getByLabelText('Nombre del dispositivo'), 'Tablet nueva')
+  await user.click(screen.getByRole('button', { name: 'Autorizar' }))
+
+  await waitFor(() => expect(auth.signOut).toHaveBeenCalledTimes(1))
+  expect(await screen.findByText('Pantalla de pedidos')).toBeInTheDocument()
+  expect(screen.queryByText('Pantalla de login')).not.toBeInTheDocument()
 })
 
 it('still goes to /pedidos when signOut fails after storing the device', async () => {

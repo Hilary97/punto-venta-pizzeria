@@ -72,10 +72,11 @@ beforeEach(() => {
 })
 
 describe('DeviceOrdersApp', () => {
-  it('shows the device name and no app navigation', async () => {
+  it('shows the device name, no app navigation and only an admin login link', async () => {
     renderApp()
     expect(await screen.findByText('Pedidos · Tablet barra')).toBeVisible()
-    expect(screen.queryByRole('link')).not.toBeInTheDocument()
+    expect(screen.getAllByRole('link')).toHaveLength(1)
+    expect(screen.getByRole('link', { name: 'Administrador' })).toHaveAttribute('href', '/login')
     expect(screen.queryByText(/venta|corte/i)).not.toBeInTheDocument()
   })
 

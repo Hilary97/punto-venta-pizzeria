@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router'
+import { MemoryRouter, Route, Routes } from 'react-router'
+import { saveDevice } from '../../waiters/domain/deviceStorage'
 import { RequireAuth } from './RequireAuth'
 import { useAuth } from './AuthContext'
 import { signOut } from '../infrastructure/authRepository'
@@ -20,6 +21,32 @@ const mockedSignOut = vi.mocked(signOut)
 describe('RequireAuth', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    localStorage.clear()
+  })
+
+  function renderSignedOutAtCash() {
+    mockedUseAuth.mockReturnValue({ status: 'signed-out', profile: null, errorMessage: null })
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <Routes>
+          <Route path="/" element={<RequireAuth>Protected content</RequireAuth>} />
+          <Route path="/login" element={<p>Login page</p>} />
+          <Route path="/pedidos" element={<p>Orders page</p>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+  }
+
+  it('sends a signed-out browser without an authorized device to login', () => {
+    renderSignedOutAtCash()
+    expect(screen.getByText('Login page')).toBeInTheDocument()
+  })
+
+  it('sends a signed-out authorized order device to orders instead of login', () => {
+    saveDevice({ deviceId: 'device-1', name: 'Tablet barra', secret: 'a'.repeat(64) })
+    renderSignedOutAtCash()
+    expect(screen.getByText('Orders page')).toBeInTheDocument()
+    expect(screen.queryByText('Protected content')).not.toBeInTheDocument()
   })
 
   it('shows logout failures and permits retry on a protected route', async () => {

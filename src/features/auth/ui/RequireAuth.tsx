@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Navigate } from 'react-router'
 import { Spinner } from '../../../shared/ui/Spinner'
+import { loadDevice } from '../../waiters/domain/deviceStorage'
 import { signOut } from '../infrastructure/authRepository'
 import { useAuth } from './AuthContext'
 import { AuthErrorNotice } from './AuthErrorNotice'
@@ -27,7 +28,8 @@ export function RequireAuth({ children }: { children: ReactNode }) {
   }
 
   if (status === 'signed-out') {
-    return <Navigate to="/login" replace />
+    // An authorized order device works without a session, so it lands on orders instead of login.
+    return <Navigate to={loadDevice() ? '/pedidos' : '/login'} replace />
   }
 
   return <>{children}</>

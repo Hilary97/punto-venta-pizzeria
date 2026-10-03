@@ -105,11 +105,12 @@ describe('OrdersEntry', () => {
     ).toBeVisible()
   })
 
-  it('keeps the cash screens protected on an authorized device without a session', async () => {
+  it('sends an authorized device without a session from the cash screens to orders', async () => {
     saveDevice({ deviceId: 'd1', name: 'Tablet barra', secret: 'a1'.repeat(32) })
     mockAuth(null)
     renderAt('/')
-    expect(await screen.findByText('Login page')).toBeVisible()
+    expect(await screen.findByRole('heading', { name: 'Pedidos · Tablet barra' })).toBeVisible()
+    expect(screen.queryByText('Login page')).not.toBeInTheDocument()
     expect(screen.queryByText('Cash screen')).not.toBeInTheDocument()
   })
 })

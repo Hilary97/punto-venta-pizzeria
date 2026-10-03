@@ -77,8 +77,11 @@ export function DeviceOrdersApp({ device }: { device: AuthorizedDevice }) {
 
   return (
     <div className="flex min-h-dvh flex-col bg-slate-50">
-      <header className="flex h-16 items-center border-b border-slate-200 bg-white px-4 shadow-sm">
+      <header className="flex h-16 items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 shadow-sm">
         <h1 className="break-words text-lg font-bold text-slate-900">Pedidos · {device.name}</h1>
+        <Link to="/login" className="shrink-0 text-sm text-slate-500 underline hover:text-slate-700">
+          Administrador
+        </Link>
       </header>
       <main className="flex-1">
         <WaiterShiftGate api={api}>
