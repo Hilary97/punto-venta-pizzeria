@@ -50,6 +50,10 @@ function renderPage() {
   )
 }
 
+async function showCategory(user: ReturnType<typeof userEvent.setup>, name = 'Botanas') {
+  await user.click(await screen.findByRole('button', { name }))
+}
+
 beforeEach(() => {
   vi.resetAllMocks()
   vi.mocked(listPizzaCatalog).mockResolvedValue({ sizes: [], styles: [], ingredients: [] })
@@ -66,7 +70,9 @@ beforeEach(() => {
 
 describe('OrdersPage', () => {
   it('renders the nine table buttons and hides product prices', async () => {
+    const user = userEvent.setup()
     renderPage()
+    await showCategory(user)
     const productButton = await screen.findByRole('button', { name: /pizza queso/i })
     const tables = screen.getByRole('group', { name: /mesa/i })
     for (let n = 1; n <= 9; n++) {
@@ -74,6 +80,20 @@ describe('OrdersPage', () => {
     }
     expect(productButton).not.toHaveTextContent(/\$|150/)
     expect(screen.queryByText(/150\.00/)).not.toBeInTheDocument()
+  })
+
+  it('renders open orders under the all tab and products under a category', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    expect(await screen.findByRole('region', { name: /pedidos abiertos/i })).toBeVisible()
+    expect(screen.queryByRole('button', { name: /pizza queso/i })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Botanas' }))
+    expect(screen.getByRole('button', { name: /pizza queso/i })).toBeVisible()
+    expect(screen.queryByRole('region', { name: /pedidos abiertos/i })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Todos' }))
+    expect(screen.getByRole('region', { name: /pedidos abiertos/i })).toBeVisible()
   })
 
   it('keeps register disabled until a product and table or name are present, then sends the payload', async () => {
@@ -87,6 +107,7 @@ describe('OrdersPage', () => {
     expect(submit).toBeDisabled()
     await user.type(screen.getByLabelText(/nombre del cliente/i), '  Luis   Perez  ')
     expect(submit).toBeDisabled()
+    await showCategory(user)
     await user.click(screen.getByRole('button', { name: /pizza queso/i }))
     await user.click(screen.getByRole('button', { name: /agregar una unidad de pizza queso/i }))
     expect(submit).toBeEnabled()
@@ -102,6 +123,7 @@ describe('OrdersPage', () => {
   it('enables register with only a table', async () => {
     const user = userEvent.setup()
     renderPage()
+    await showCategory(user)
     await user.click(await screen.findByRole('button', { name: /pizza queso/i }))
     const submit = screen.getByRole('button', { name: /registrar pedido/i })
     expect(submit).toBeDisabled()
@@ -114,6 +136,7 @@ describe('OrdersPage', () => {
   it('enables register with only a name', async () => {
     const user = userEvent.setup()
     renderPage()
+    await showCategory(user)
     await user.click(await screen.findByRole('button', { name: /pizza queso/i }))
     const submit = screen.getByRole('button', { name: /registrar pedido/i })
     await user.type(screen.getByLabelText(/nombre del cliente/i), ' Juan ')
@@ -125,6 +148,7 @@ describe('OrdersPage', () => {
   it('keeps register disabled with neither table nor a non-blank name', async () => {
     const user = userEvent.setup()
     renderPage()
+    await showCategory(user)
     await user.click(await screen.findByRole('button', { name: /pizza queso/i }))
     await user.type(screen.getByLabelText(/nombre del cliente/i), '   ')
     expect(screen.getByRole('button', { name: /registrar pedido/i })).toBeDisabled()
@@ -133,6 +157,7 @@ describe('OrdersPage', () => {
   it('deselects the table when tapping it again', async () => {
     const user = userEvent.setup()
     renderPage()
+    await showCategory(user)
     await user.click(await screen.findByRole('button', { name: /pizza queso/i }))
     await user.click(screen.getByRole('button', { name: 'M-5' }))
     expect(screen.getByRole('button', { name: /registrar pedido/i })).toBeEnabled()
@@ -164,6 +189,7 @@ describe('OrdersPage', () => {
     renderPage()
     await user.click(await screen.findByRole('button', { name: 'M-1' }))
     await user.type(screen.getByLabelText(/nombre del cliente/i), 'Eva')
+    await showCategory(user)
     await user.click(screen.getByRole('button', { name: /pizza queso/i }))
     await user.click(screen.getByRole('button', { name: /registrar pedido/i }))
     expect(await screen.findByRole('alert')).toHaveTextContent('No se pudo crear el pedido.')
@@ -193,6 +219,7 @@ describe('OrdersPage', () => {
     await user.click(await screen.findByRole('button', { name: /agregar productos/i }))
     expect(screen.queryByLabelText(/nombre del cliente/i)).not.toBeInTheDocument()
     expect(screen.queryByRole('group', { name: /mesa/i })).not.toBeInTheDocument()
+    await showCategory(user)
     await user.click(screen.getByRole('button', { name: /pizza queso/i }))
     await user.click(screen.getByRole('button', { name: /agregar al pedido/i }))
     expect(addOrderItems).toHaveBeenCalledWith('order-1', [{ type: 'product', productId: 'p', quantity: 1 }])
@@ -247,6 +274,7 @@ describe('OrdersPage', () => {
     expect(screen.queryByRole('button', { name: /ver pedido/i })).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'M-2' }))
     await user.type(screen.getByLabelText(/nombre del cliente/i), 'Mara')
+    await showCategory(user)
     await user.click(screen.getByRole('button', { name: /pizza queso/i }))
     await user.click(screen.getByRole('button', { name: /agregar una unidad de pizza queso/i }))
     await user.click(screen.getByRole('button', { name: /ver pedido \(2\)/i }))
@@ -274,6 +302,7 @@ describe('OrdersPage', () => {
     const user = userEvent.setup()
     renderPage()
     await user.click(await screen.findByRole('button', { name: 'M-4' }))
+    await showCategory(user)
     await user.click(screen.getByRole('button', { name: /pizza queso/i }))
     await user.click(screen.getByRole('button', { name: /registrar pedido/i }))
     expect(createOrder).toHaveBeenCalledWith(4, null, [{ type: 'product', productId: 'p', quantity: 1 }], null)
@@ -299,11 +328,13 @@ describe('OrdersPage pizza builder and notes', () => {
       { id: 'p', categoryId: 'pizza', name: 'Pizza queso', priceCents: 0, active: true, variants: [] },
       { id: 'a', categoryId: 'snacks', name: 'Alitas', priceCents: 0, active: true, variants: [] },
     ])
+    const user = userEvent.setup()
     renderPage()
+    expect(await screen.findByRole('button', { name: 'Botanas' })).toBeVisible()
+    expect(screen.queryByRole('button', { name: /^pizzas$/i })).not.toBeInTheDocument()
+    await showCategory(user)
     expect(await screen.findByRole('button', { name: /alitas/i })).toBeVisible()
     expect(screen.queryByRole('button', { name: /pizza queso/i })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /^pizzas$/i })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Botanas' })).toBeVisible()
   })
 
   it('does not offer the builder when the pizza catalog has no sizes', async () => {
@@ -365,6 +396,7 @@ describe('OrdersPage pizza builder and notes', () => {
   it('sends a product line note and keeps noted lines separate from plain ones', async () => {
     const user = userEvent.setup()
     renderPage()
+    await showCategory(user)
     await user.click(await screen.findByRole('button', { name: 'Pizza queso' }))
     await user.type(screen.getByLabelText('Nota para Pizza queso'), 'sin cebolla')
     await user.click(screen.getByRole('button', { name: 'Pizza queso' }))
@@ -385,6 +417,7 @@ describe('OrdersPage pizza builder and notes', () => {
   it('sends the order note as the fourth createOrder argument and clears it afterwards', async () => {
     const user = userEvent.setup()
     renderPage()
+    await showCategory(user)
     await user.click(await screen.findByRole('button', { name: /pizza queso/i }))
     await user.type(screen.getByLabelText(/nota del pedido/i), '  cliente alérgico ')
     await user.click(screen.getByRole('button', { name: 'M-2' }))
@@ -457,6 +490,7 @@ describe('OrdersPage pizza builder and notes', () => {
     })
 
     async function openPicker(user: ReturnType<typeof userEvent.setup>) {
+      if (!screen.queryByRole('button', { name: 'Hamburguesa' })) await showCategory(user, 'Hamburguesas')
       await user.click(await screen.findByRole('button', { name: 'Hamburguesa' }))
       return screen.getByRole('dialog', { name: 'Hamburguesa' })
     }
@@ -506,6 +540,7 @@ describe('OrdersPage pizza builder and notes', () => {
     it('adds a product without variants directly', async () => {
       const user = userEvent.setup()
       renderPage()
+      await showCategory(user, 'Hamburguesas')
       await user.click(await screen.findByRole('button', { name: 'Papas' }))
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'Quitar una unidad de Papas' })).toBeInTheDocument()

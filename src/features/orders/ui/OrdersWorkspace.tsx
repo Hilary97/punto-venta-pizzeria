@@ -297,6 +297,47 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
   const hasPizzaBuilder = pizzaCatalog !== null && pizzaCatalog.sizes.length > 0
   const visibleOrders = filterTable === null ? orders : orders.filter((order) => order.tableNumber === filterTable)
 
+  const openOrdersSection = (
+    <section className="flex min-w-0 flex-col gap-4" aria-labelledby={`${filterId}-title`}>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <h2 id={`${filterId}-title`} className="text-xl font-bold text-slate-900">
+          Pedidos abiertos
+        </h2>
+        <div className="flex items-end gap-3">
+          <div className="flex flex-col gap-1">
+            <label htmlFor={filterId} className="text-sm font-medium text-slate-700">
+              Filtrar por mesa
+            </label>
+            <select
+              id={filterId}
+              value={filterTable ?? ''}
+              onChange={(event) => setFilterTable(event.target.value === '' ? null : Number(event.target.value))}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-base text-slate-900"
+            >
+              <option value="">Todas</option>
+              {TABLE_NUMBERS.map((n) => (
+                <option key={n} value={n}>
+                  {tableLabel(n)}
+                </option>
+              ))}
+            </select>
+          </div>
+          <Button variant="secondary" disabled={isSubmitting} onClick={() => void reloadOrders()}>
+            Actualizar
+          </Button>
+        </div>
+      </div>
+      <OpenOrdersList
+        orders={visibleOrders}
+        canCharge={canCharge}
+        disabled={isSubmitting}
+        onAddItems={handleStartAdding}
+        onCancel={setOrderToCancel}
+        onEditNotes={handleEditNotes}
+      />
+    </section>
+  )
+
   return (
     <div className="flex min-w-0 flex-col gap-8 p-4">
       {shift && onChangeWaiter && (
@@ -342,50 +383,12 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
             onSelectProduct={handleSelectProduct}
             disabled={isSubmitting}
             showPrices={false}
+            allContent={openOrdersSection}
           />
         </div>
 
         <div className="hidden min-w-0 lg:block">{draftForm}</div>
       </div>
-
-      <section className="flex min-w-0 flex-col gap-4" aria-labelledby={`${filterId}-title`}>
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <h2 id={`${filterId}-title`} className="text-xl font-bold text-slate-900">
-            Pedidos abiertos
-          </h2>
-          <div className="flex items-end gap-3">
-            <div className="flex flex-col gap-1">
-              <label htmlFor={filterId} className="text-sm font-medium text-slate-700">
-                Filtrar por mesa
-              </label>
-              <select
-                id={filterId}
-                value={filterTable ?? ''}
-                onChange={(event) => setFilterTable(event.target.value === '' ? null : Number(event.target.value))}
-                className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-base text-slate-900"
-              >
-                <option value="">Todas</option>
-                {TABLE_NUMBERS.map((n) => (
-                  <option key={n} value={n}>
-                    {tableLabel(n)}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <Button variant="secondary" disabled={isSubmitting} onClick={() => void reloadOrders()}>
-              Actualizar
-            </Button>
-          </div>
-        </div>
-        <OpenOrdersList
-          orders={visibleOrders}
-          canCharge={canCharge}
-          disabled={isSubmitting}
-          onAddItems={handleStartAdding}
-          onCancel={setOrderToCancel}
-          onEditNotes={handleEditNotes}
-        />
-      </section>
 
       {(draft.length > 0 || addingToOrder !== null) && (
         <OrderFab itemCount={draftItemCount(draft)} onOpen={() => setIsDraftOpen(true)} />

@@ -96,6 +96,7 @@ describe('DeviceOrdersApp', () => {
     expect(getToken()).toBe('tok-1')
 
     await user.click(await screen.findByRole('button', { name: 'M-4' }))
+    await user.click(screen.getByRole('button', { name: 'Botanas' }))
     await user.click(screen.getByRole('button', { name: /pizza queso/i }))
     await user.click(screen.getByRole('button', { name: /registrar pedido/i }))
     expect(source.createOrder).toHaveBeenCalledWith(4, null, [{ type: 'product', productId: 'p', quantity: 1 }], null)
@@ -126,6 +127,7 @@ describe('DeviceOrdersApp', () => {
     renderApp()
     await loginWithPin(user)
     await user.click(await screen.findByRole('button', { name: 'M-1' }))
+    await user.click(screen.getByRole('button', { name: 'Botanas' }))
     await user.click(screen.getByRole('button', { name: /pizza queso/i }))
     await user.click(screen.getByRole('button', { name: /registrar pedido/i }))
     expect(await screen.findByText('¿Quién está tomando pedidos?')).toBeVisible()

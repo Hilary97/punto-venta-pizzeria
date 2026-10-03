@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { Input } from "../../../shared/ui/Input";
 import { cn } from "../../../shared/ui/cn";
 import { MoneyText } from "../../../shared/ui/MoneyText";
@@ -11,6 +11,8 @@ interface ProductGridProps {
   onSelectProduct: (product: Product) => void;
   disabled?: boolean;
   showPrices?: boolean;
+  /** Rendered instead of every product while "all" is selected and the search is empty. */
+  allContent?: ReactNode;
 }
 
 export function ProductGrid({
@@ -20,6 +22,7 @@ export function ProductGrid({
   onSelectProduct,
   disabled = false,
   showPrices = true,
+  allContent,
 }: ProductGridProps) {
   const searchId = useId();
   const [query, setQuery] = useState("");
@@ -77,7 +80,11 @@ export function ProductGrid({
         </div>
       </div>
 
-      {visibleProducts.length === 0 ? (
+      {allContent !== undefined &&
+      selectedCategoryId === "all" &&
+      query.trim() === "" ? (
+        allContent
+      ) : visibleProducts.length === 0 ? (
         <p className="p-4 text-center text-slate-500">
           {products.length === 0
             ? "No hay productos disponibles."
