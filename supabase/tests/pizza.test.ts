@@ -80,10 +80,29 @@ describe('pizza catalog seed', () => {
               (select count(*) from public.pizza_style_prices)::int as prices,
               (select count(*) from public.pizza_sizes)::int as sizes`,
     )
-    expect(counts.rows[0]).toEqual({ styles: 14, ingredients: 15, prices: 42, sizes: 3 })
+    expect(counts.rows[0]).toEqual({ styles: 17, ingredients: 15, prices: 51, sizes: 3 })
 
     const settings = await db.query(`select extra_ingredient_cents, extra_cheese_cents from public.pizza_settings`)
     expect(settings.rows).toEqual([{ extra_ingredient_cents: 500, extra_cheese_cents: 3000 }])
+  })
+
+  it('seeds Hawaiana, Italiana and Pepperoni at 110/190/210', async () => {
+    await asSuperuser(db)
+    const res = await db.query<Record<string, unknown>>(
+      `select s.name, s.description, s.kind, s.sort_order,
+              array_agg(p.price_cents order by z.sort_order) as prices
+       from public.pizza_styles s
+       join public.pizza_style_prices p on p.style_id = s.id
+       join public.pizza_sizes z on z.code = p.size_code
+       where s.name in ('Estilo Hawaiana', 'Estilo Italiana', 'Estilo Pepperoni')
+       group by s.id
+       order by s.sort_order`,
+    )
+    expect(res.rows).toEqual([
+      { name: 'Estilo Hawaiana', description: 'Jamón y piña', kind: 'special', sort_order: 14, prices: [11000, 19000, 21000] },
+      { name: 'Estilo Italiana', description: 'Pepperoni y champiñón', kind: 'special', sort_order: 15, prices: [11000, 19000, 21000] },
+      { name: 'Estilo Pepperoni', description: 'Pepperoni', kind: 'special', sort_order: 16, prices: [11000, 19000, 21000] },
+    ])
   })
 })
 
@@ -520,7 +539,7 @@ describe('device flow', () => {
       { code: 'mediana', name: 'Mediana', allowed_portions: [1, 2], sort_order: 2 },
       { code: 'grande', name: 'Grande', allowed_portions: [1, 2, 3, 4], sort_order: 3 },
     ])
-    expect(catalog.pizza.styles).toHaveLength(14)
+    expect(catalog.pizza.styles).toHaveLength(17)
     expect(catalog.pizza.styles[0].name).toBe(CUSTOM)
     expect(catalog.pizza.ingredients).toHaveLength(15)
     expect(JSON.stringify(catalog.pizza)).not.toMatch(/price|cents/i)
@@ -532,7 +551,7 @@ describe('device flow', () => {
     await db.query(`update public.pizza_ingredients set active = false where name = 'Ajo'`)
     await asAnon(db)
     const catalog = await rpc(db, 'public.device_list_catalog($1)', [secret])
-    expect(catalog.pizza.styles).toHaveLength(13)
+    expect(catalog.pizza.styles).toHaveLength(16)
     expect(catalog.pizza.ingredients).toHaveLength(14)
   })
 })
