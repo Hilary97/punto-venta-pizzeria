@@ -34,13 +34,14 @@ and returns as `Hamburguesa Monster sencilla (Pollo)`.
       merge rule, payloads, device mapping.
 - [x] 3. Waiter UI: variant picker on product tap; show variant in draft, open
       orders and pending orders.
-- [ ] 4. Admin: edit variants in the product form; show them in the products table.
+- [x] 4. Admin: edit variants in the product form; show them in the products table.
 
 ## Evidence
 
 - Task 1: `9a32b98` — migration `20261006120000_product_variants.sql` (columns + checks, coalesce merge index, insert_order_lines, order_lines_priced suffix, device RPCs, burger seed); RED observed (14/14 failing on missing column); 14 variants tests green; 359 tests (36 files); tsc 0. `create_sale` has no UI caller (dead path), so it cannot bypass variants.
 - Task 2: `906ee5a` — Product.variants + form schema + parseVariantsInput, OrderItem.variant, productLineLabel, draft merge by variant, payload/row/device mapping; RED observed (12 tests); 371 tests (37 files); tsc 0; lint 0 errors. Until task 4, admin product saves write `variants: []`.
 - Task 3: `6d6af53` — VariantPickerModal on product tap, `Name (Variant)` in draft, open orders and pending orders; RED observed (6 OrdersPage tests); 379 tests; tsc 0; lint 0 errors; build 0.
+- Task 4: `dcf2f72` — "Opciones" field in ProductFormModal (comma-separated, schema-validated) and variants shown in ProductsTable; admin saves now persist variants; RED observed (5/5); 384 tests (39 files); tsc 0; lint 0 errors; build 0. Not exercised in a real browser.
 
 ## Pending (user)
 
