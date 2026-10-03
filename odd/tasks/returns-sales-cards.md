@@ -18,9 +18,9 @@ The Devoluciones screen lists every sale of the open cash session as a detailed 
 
 ## Tasks
 
-- T1 (S1, S3) — new migration + repository: session sales include customer name, table, waiter, items, received, change. Route: worker. Commit: pending.
-- T2 (S1, S2, S3, S4) — Devoluciones UI renders sale cards with all info; return flow still reachable from each card. Route: worker. Commit: pending.
-- T3 (S1-S4) — verify: tests, tsc, lint. Route: verify. Commit: n/a.
+- T1 (S1, S3) — new migration + repository: session sales include customer name, table, waiter, items, received, change. Route: worker. Commit: e01b92a (done; PGlite RED->GREEN, 77 tests, tsc clean).
+- T2 (S1, S2, S3, S4) — Devoluciones UI renders sale cards with all info; return flow still reachable from each card. Route: worker. Commit: 15d2897 (done; RTL RED->GREEN, 13 tests, tsc/oxlint clean).
+- T3 (S1-S4) — verify: tests, tsc, lint. Route: verify. Done: PASS S1-S4, 399 tests, tsc and lint clean.
 
 ## Log
 
