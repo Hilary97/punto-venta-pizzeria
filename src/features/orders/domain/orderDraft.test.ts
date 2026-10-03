@@ -12,8 +12,8 @@ import {
 } from './orderDraft'
 import type { DraftLine } from './orderDraft'
 
-const margarita: DraftLine = { lineId: 'l1', kind: 'product', productId: 'p1', name: 'Pizza Margarita', quantity: 1, notes: '' }
-const soda: DraftLine = { lineId: 'l2', kind: 'product', productId: 'p2', name: 'Refresco', quantity: 1, notes: '' }
+const margarita: DraftLine = { lineId: 'l1', kind: 'product', productId: 'p1', name: 'Pizza Margarita', quantity: 1, notes: '', variant: null }
+const soda: DraftLine = { lineId: 'l2', kind: 'product', productId: 'p2', name: 'Refresco', quantity: 1, notes: '', variant: null }
 const config: PizzaConfig = {
   size: 'grande',
   portions: [{ styleId: 's1', ingredientIds: [], extraIngredientIds: [], extraCheese: false }],
@@ -21,6 +21,20 @@ const config: PizzaConfig = {
 const pizzaLine: DraftLine = { lineId: 'l3', kind: 'pizza', pizza: config, name: 'Pizza Grande: Varas', quantity: 1, notes: '' }
 
 describe('addToDraft', () => {
+  it('stores the variant on a new line and keeps the base name', () => {
+    expect(addToDraft([], { lineId: 'l1', productId: 'b1', name: 'Monster', variant: 'Pollo' })).toEqual([
+      { lineId: 'l1', kind: 'product', productId: 'b1', name: 'Monster', quantity: 1, notes: '', variant: 'Pollo' },
+    ])
+  })
+
+  it('merges only lines with the same variant', () => {
+    const res = addToDraft([], { lineId: 'a', productId: 'b1', name: 'Monster', variant: 'Res' })
+    const both = addToDraft(res, { lineId: 'b', productId: 'b1', name: 'Monster', variant: 'Pollo' })
+    expect(both.map((l) => l.lineId)).toEqual(['a', 'b'])
+    const merged = addToDraft(both, { lineId: 'c', productId: 'b1', name: 'Monster', variant: 'Pollo' })
+    expect(merged.map((l) => [l.lineId, l.quantity])).toEqual([['a', 1], ['b', 2]])
+  })
+
   it('adds a new product with quantity 1 and empty notes', () => {
     expect(addToDraft([], { lineId: 'l1', productId: 'p1', name: 'Pizza Margarita' })).toEqual([margarita])
   })
@@ -93,6 +107,14 @@ describe('draftItemCount', () => {
 })
 
 describe('draftToPayload', () => {
+  it('emits the variant only when set', () => {
+    const line: DraftLine = { ...margarita, productId: 'b1', variant: 'Res' }
+    expect(draftToPayload([line, soda])).toEqual([
+      { type: 'product', productId: 'b1', quantity: 1, variant: 'Res' },
+      { type: 'product', productId: 'p2', quantity: 1 },
+    ])
+  })
+
   it('keeps only product ids and quantities when there are no notes', () => {
     expect(draftToPayload([{ ...margarita, quantity: 2 }, soda])).toEqual([
       { type: 'product', productId: 'p1', quantity: 2 },

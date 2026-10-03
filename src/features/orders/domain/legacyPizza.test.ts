@@ -7,8 +7,8 @@ const categories: Category[] = [
   { id: 'c2', name: 'Botanas', sortOrder: 1 },
 ]
 const products: Product[] = [
-  { id: 'p1', categoryId: 'c1', name: 'Pizza queso', priceCents: 0, active: true },
-  { id: 'p2', categoryId: 'c2', name: 'Alitas', priceCents: 0, active: true },
+  { id: 'p1', categoryId: 'c1', name: 'Pizza queso', priceCents: 0, active: true, variants: [] },
+  { id: 'p2', categoryId: 'c2', name: 'Alitas', priceCents: 0, active: true, variants: [] },
 ]
 
 describe('hideLegacyPizza', () => {

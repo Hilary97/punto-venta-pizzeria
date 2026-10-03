@@ -8,6 +8,7 @@ import {
   normalizeCustomerName,
   normalizeNotes,
   orderLabel,
+  productLineLabel,
   TABLE_NUMBERS,
   tableLabel,
 } from './order'
@@ -108,5 +109,15 @@ describe('normalizeNotes', () => {
   it('exposes the SQL length limits', () => {
     expect(MAX_ORDER_NOTES_LENGTH).toBe(300)
     expect(MAX_ITEM_NOTES_LENGTH).toBe(200)
+  })
+})
+
+describe('productLineLabel', () => {
+  it('appends the variant in parentheses', () => {
+    expect(productLineLabel('Monster', 'Pollo')).toBe('Monster (Pollo)')
+  })
+
+  it('returns the name alone without a variant', () => {
+    expect(productLineLabel('Monster', null)).toBe('Monster')
   })
 })

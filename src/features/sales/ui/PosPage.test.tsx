@@ -31,8 +31,8 @@ const openOrder: Order = {
   status: 'open',
   createdAt: '2026-01-01T00:00:00Z',
   items: [
-    { id: 'i1', productId: 'p', productName: 'Pizza queso', quantity: 2, type: 'product' as const, pizza: null, notes: null },
-    { id: 'i2', productId: 'd', productName: 'Agua', quantity: 1, type: 'product' as const, pizza: null, notes: null },
+    { id: 'i1', productId: 'p', productName: 'Pizza queso', quantity: 2, type: 'product' as const, pizza: null, notes: null, variant: null },
+    { id: 'i2', productId: 'd', productName: 'Agua', quantity: 1, type: 'product' as const, pizza: null, notes: null, variant: null },
   ],
 }
 
@@ -169,7 +169,7 @@ describe('order checkout mode', () => {
     vi.mocked(getOrder).mockResolvedValue({
       ...openOrder,
       notes: 'Sin cebolla en toda la orden',
-      items: [{ id: 'i1', productId: null, productName: description, quantity: 1, type: 'pizza' as const, pizza: null, notes: 'Bien cocida' }],
+      items: [{ id: 'i1', productId: null, productName: description, quantity: 1, type: 'pizza' as const, pizza: null, notes: 'Bien cocida', variant: null }],
     })
     vi.mocked(quoteOrder).mockResolvedValue({
       ...openQuote,

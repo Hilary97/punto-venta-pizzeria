@@ -13,13 +13,15 @@ interface DraftLineBase {
 
 /** A line in the order being composed on the waiter screen. Deliberately price-less. */
 export type DraftLine =
-  | (DraftLineBase & { kind: 'product'; productId: string })
+  | (DraftLineBase & { kind: 'product'; productId: string; variant: string | null })
   | (DraftLineBase & { kind: 'pizza'; pizza: PizzaConfig })
 
 export interface NewProductLine {
   lineId: string
   productId: string
+  /** Base product name; display composes the variant with `productLineLabel`. */
   name: string
+  variant?: string | null
 }
 
 export interface NewPizzaLine {
@@ -30,15 +32,20 @@ export interface NewPizzaLine {
 }
 
 /**
- * Adds a product to the draft. It merges into an existing line of the same product
- * only when that line has no notes (the server merges the same way); otherwise it appends.
+ * Adds a product to the draft. It merges into an existing line of the same product and
+ * variant only when that line has no notes (the server merges the same way); otherwise it appends.
  */
 export function addToDraft(draft: DraftLine[], product: NewProductLine): DraftLine[] {
+  const variant = product.variant ?? null
   const existing = draft.find(
-    (line) => line.kind === 'product' && line.productId === product.productId && line.notes.trim() === '',
+    (line) =>
+      line.kind === 'product' &&
+      line.productId === product.productId &&
+      line.variant === variant &&
+      line.notes.trim() === '',
   )
   if (existing) return incrementDraftLine(draft, existing.lineId)
-  return [...draft, { ...product, kind: 'product', quantity: 1, notes: '' }]
+  return [...draft, { ...product, variant, kind: 'product', quantity: 1, notes: '' }]
 }
 
 /** Adds a pizza as its own line: pizza lines are never merged. */
@@ -81,6 +88,7 @@ export function draftToPayload(draft: DraftLine[]): OrderItemPayload[] {
     if (line.kind === 'pizza') {
       return { type: 'pizza', pizza: line.pizza, quantity: line.quantity, ...withNotes }
     }
-    return { type: 'product', productId: line.productId, quantity: line.quantity, ...withNotes }
+    const withVariant = line.variant === null ? {} : { variant: line.variant }
+    return { type: 'product', productId: line.productId, quantity: line.quantity, ...withNotes, ...withVariant }
   })
 }

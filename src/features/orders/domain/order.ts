@@ -12,6 +12,8 @@ export interface OrderItem {
   /** Canonical configuration for pizza lines; `null` for products. */
   pizza: PizzaConfig | null
   notes: string | null
+  /** Chosen variant for product lines of products with variants; otherwise `null`. */
+  variant: string | null
 }
 
 export interface Order {
@@ -26,7 +28,7 @@ export interface Order {
 }
 
 export type OrderItemPayload =
-  | { type: 'product'; productId: string; quantity: number; notes?: string | null }
+  | { type: 'product'; productId: string; quantity: number; notes?: string | null; variant?: string | null }
   | { type: 'pizza'; pizza: PizzaConfig; quantity: number; notes?: string | null }
 
 export const TABLE_NUMBERS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9]
@@ -68,6 +70,11 @@ export function orderLabel(order: { tableNumber: number | null; customerName: st
 export function canRegisterOrder(tableNumber: number | null, rawName: string): boolean {
   if (normalizeCustomerName(rawName).length === 0) return tableNumber !== null
   return isValidCustomerName(rawName)
+}
+
+/** Display label for a product line: `Name (Variant)` or just the name. */
+export function productLineLabel(name: string, variant: string | null): string {
+  return variant === null ? name : `${name} (${variant})`
 }
 
 /** Trims a note; blank or missing becomes `null`, as the server stores it. */

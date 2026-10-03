@@ -22,11 +22,12 @@ export const orderRowSchema = z.object({
       item_type: z.enum(['product', 'pizza']),
       pizza: pizzaConfigSchema.nullable(),
       notes: z.string().nullable(),
+      variant: z.string().nullable().default(null),
     }),
   ),
 })
 
-const ORDER_SELECT = 'id, table_number, customer_name, status, created_at, waiter_name, notes, order_items(id, product_id, product_name, quantity, item_type, pizza, notes)'
+const ORDER_SELECT = 'id, table_number, customer_name, status, created_at, waiter_name, notes, order_items(id, product_id, product_name, quantity, item_type, pizza, notes, variant)'
 
 export function mapOrderRow(row: z.infer<typeof orderRowSchema>): Order {
   return {
@@ -45,6 +46,7 @@ export function mapOrderRow(row: z.infer<typeof orderRowSchema>): Order {
       type: item.item_type,
       pizza: item.pizza,
       notes: item.notes,
+      variant: item.variant,
     })),
   }
 }
@@ -56,7 +58,14 @@ export function toRpcItems(items: OrderItemPayload[]) {
     if (item.type === 'pizza') {
       return { type: 'pizza', pizza: toRpcPizzaConfig(item.pizza), quantity: item.quantity, notes }
     }
-    return { type: 'product', product_id: item.productId, quantity: item.quantity, notes }
+    const variant = item.variant ?? null
+    return {
+      type: 'product',
+      product_id: item.productId,
+      quantity: item.quantity,
+      notes,
+      ...(variant === null ? {} : { variant }),
+    }
   })
 }
 

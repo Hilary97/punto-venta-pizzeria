@@ -31,7 +31,7 @@ const openOrder: Order = {
   customerName: 'Ana',
   status: 'open',
   createdAt: '2026-01-01T10:00:00Z',
-  items: [{ id: 'i1', productId: 'p', productName: 'Pizza queso', quantity: 2, type: 'product' as const, pizza: null, notes: null }],
+  items: [{ id: 'i1', productId: 'p', productName: 'Pizza queso', quantity: 2, type: 'product' as const, pizza: null, notes: null, variant: null }],
 }
 
 function LocationProbe() {
@@ -55,7 +55,7 @@ beforeEach(() => {
   vi.mocked(listPizzaCatalog).mockResolvedValue({ sizes: [], styles: [], ingredients: [] })
   vi.mocked(listCategories).mockResolvedValue([{ id: 'pizza', name: 'Botanas', sortOrder: 0 }])
   vi.mocked(listProducts).mockResolvedValue([
-    { id: 'p', categoryId: 'pizza', name: 'Pizza queso', priceCents: 15000, active: true },
+    { id: 'p', categoryId: 'pizza', name: 'Pizza queso', priceCents: 15000, active: true, variants: [] },
   ])
   vi.mocked(listOpenOrders).mockResolvedValue([openOrder])
   vi.mocked(createOrder).mockResolvedValue('new-order')
@@ -296,8 +296,8 @@ describe('OrdersPage pizza builder and notes', () => {
       { id: 'snacks', name: 'Botanas', sortOrder: 1 },
     ])
     vi.mocked(listProducts).mockResolvedValue([
-      { id: 'p', categoryId: 'pizza', name: 'Pizza queso', priceCents: 0, active: true },
-      { id: 'a', categoryId: 'snacks', name: 'Alitas', priceCents: 0, active: true },
+      { id: 'p', categoryId: 'pizza', name: 'Pizza queso', priceCents: 0, active: true, variants: [] },
+      { id: 'a', categoryId: 'snacks', name: 'Alitas', priceCents: 0, active: true, variants: [] },
     ])
     renderPage()
     expect(await screen.findByRole('button', { name: /alitas/i })).toBeVisible()

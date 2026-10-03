@@ -16,7 +16,7 @@ export async function listCategories(): Promise<Category[]> {
 export async function listProducts(onlyActive = false): Promise<Product[]> {
   let query = getSupabaseClient()
     .from('products')
-    .select('id, category_id, name, price_cents, active')
+    .select('id, category_id, name, price_cents, active, variants')
     .order('name', { ascending: true })
 
   if (onlyActive) {
@@ -32,6 +32,7 @@ export async function listProducts(onlyActive = false): Promise<Product[]> {
     name: row.name,
     priceCents: row.price_cents,
     active: row.active,
+    variants: row.variants,
   }))
 }
 
@@ -51,6 +52,7 @@ export async function createProduct(values: ProductFormValues): Promise<void> {
     name: values.name,
     price_cents: values.priceCents,
     active: values.active,
+    variants: values.variants,
   })
   if (error) throw new Error('No se pudo crear el producto.')
 }
@@ -63,6 +65,7 @@ export async function updateProduct(id: string, values: ProductFormValues): Prom
       name: values.name,
       price_cents: values.priceCents,
       active: values.active,
+      variants: values.variants,
     })
     .eq('id', id)
   if (error) throw new Error('No se pudo actualizar el producto.')

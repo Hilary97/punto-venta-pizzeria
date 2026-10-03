@@ -17,6 +17,12 @@ describe('toRpcItems', () => {
     ])
   })
 
+  it('sends the variant when present', () => {
+    expect(toRpcItems([{ type: 'product', productId: 'p', quantity: 1, variant: 'Res' }])).toEqual([
+      { type: 'product', product_id: 'p', quantity: 1, notes: null, variant: 'Res' },
+    ])
+  })
+
   it('maps pizza lines to the snake_case config and keeps notes', () => {
     expect(toRpcItems([{ type: 'pizza', pizza, quantity: 1, notes: 'bien cocida' }])).toEqual([
       {

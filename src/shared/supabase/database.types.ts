@@ -67,6 +67,7 @@ export interface Database {
           name: string
           price_cents: number
           active: boolean
+          variants: string[]
           created_at: string
         }
         Insert: {
@@ -75,12 +76,14 @@ export interface Database {
           name: string
           price_cents: number
           active?: boolean
+          variants?: string[]
         }
         Update: {
           category_id?: string
           name?: string
           price_cents?: number
           active?: boolean
+          variants?: string[]
         }
       }
       cash_sessions: EmptyRelationships & {
@@ -175,6 +178,7 @@ export interface Database {
           item_type: OrderItemType
           pizza: unknown
           notes: string | null
+          variant: string | null
         }
         Insert: never
         Update: never
