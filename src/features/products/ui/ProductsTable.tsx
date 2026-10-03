@@ -31,7 +31,12 @@ export function ProductsTable({ products, categories, onEdit, onToggleActive }: 
         <tbody className="divide-y divide-slate-200 bg-white">
           {products.map((product) => (
             <tr key={product.id}>
-              <td className="px-4 py-3 font-medium text-slate-900">{product.name}</td>
+              <td className="px-4 py-3 font-medium text-slate-900">
+                {product.name}
+                {product.variants.length > 0 && (
+                  <span className="ml-2 text-xs font-normal text-slate-500">{product.variants.join(' · ')}</span>
+                )}
+              </td>
               <td className="px-4 py-3 text-slate-600">{categoryName(product.categoryId)}</td>
               <td className="px-4 py-3">
                 <MoneyText cents={product.priceCents} />

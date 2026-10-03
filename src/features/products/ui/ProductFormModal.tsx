@@ -4,7 +4,7 @@ import { ErrorBanner } from '../../../shared/ui/ErrorBanner'
 import { Input } from '../../../shared/ui/Input'
 import { Modal } from '../../../shared/ui/Modal'
 import { parseMoneyInput, formatMoney } from '../../../shared/money'
-import { productFormSchema, type Category, type Product, type ProductFormValues } from '../domain/product'
+import { parseVariantsInput, productFormSchema, type Category, type Product, type ProductFormValues } from '../domain/product'
 
 interface ProductFormModalProps {
   categories: Category[]
@@ -17,6 +17,8 @@ export function ProductFormModal({ categories, initial, onSubmit, onClose }: Pro
   const [name, setName] = useState(initial?.name ?? '')
   const [categoryId, setCategoryId] = useState(initial?.categoryId ?? categories[0]?.id ?? '')
   const [priceInput, setPriceInput] = useState(initial ? formatMoney(initial.priceCents).replace('$', '') : '')
+  const [variantsInput, setVariantsInput] = useState(initial?.variants.join(', ') ?? '')
+  const [variantsError, setVariantsError] = useState<string | null>(null)
   const [active, setActive] = useState(initial?.active ?? true)
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -29,13 +31,27 @@ export function ProductFormModal({ categories, initial, onSubmit, onClose }: Pro
       return
     }
 
-    const parsed = productFormSchema.safeParse({ name, categoryId, priceCents, active })
+    const parsed = productFormSchema.safeParse({
+      name,
+      categoryId,
+      priceCents,
+      active,
+      variants: parseVariantsInput(variantsInput),
+    })
     if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
+      const variantsIssue = parsed.error.issues.find((issue) => issue.path[0] === 'variants')
+      if (variantsIssue) {
+        setError(null)
+        setVariantsError(variantsIssue.message)
+      } else {
+        setVariantsError(null)
+        setError(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
+      }
       return
     }
 
     setError(null)
+    setVariantsError(null)
     setIsSubmitting(true)
     try {
       await onSubmit(parsed.data)
@@ -81,6 +97,20 @@ export function ProductFormModal({ categories, initial, onSubmit, onClose }: Pro
           onChange={(e) => setPriceInput(e.target.value)}
           required
         />
+
+        <div className="flex flex-col gap-1">
+          <Input
+            id="product-variants"
+            label="Opciones"
+            placeholder="Res, Pollo"
+            value={variantsInput}
+            onChange={(e) => setVariantsInput(e.target.value)}
+            error={variantsError ?? undefined}
+          />
+          <p className="text-xs text-slate-500">
+            Opcional. Separadas por coma; el mozo deberá elegir una (ej.: Res, Pollo).
+          </p>
+        </div>
 
         <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
           <input
