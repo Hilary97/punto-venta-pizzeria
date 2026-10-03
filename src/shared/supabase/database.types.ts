@@ -15,6 +15,9 @@
 
 export type UserRole = 'admin' | 'cashier' | 'waiter'
 export type OrderStatus = 'open' | 'paid' | 'cancelled'
+export type OrderItemType = 'product' | 'pizza'
+export type PizzaSizeCode = 'chica' | 'mediana' | 'grande'
+export type PizzaStyleKind = 'special' | 'custom'
 
 interface EmptyRelationships {
   Relationships: []
@@ -157,6 +160,7 @@ export interface Database {
           cancelled_at: string | null
           waiter_id: string | null
           waiter_name: string | null
+          notes: string | null
         }
         Insert: never
         Update: never
@@ -168,9 +172,109 @@ export interface Database {
           product_id: string | null
           product_name: string
           quantity: number
+          item_type: OrderItemType
+          pizza: unknown
+          notes: string | null
         }
         Insert: never
         Update: never
+      }
+      pizza_sizes: EmptyRelationships & {
+        Row: {
+          code: PizzaSizeCode
+          name: string
+          sort_order: number
+          allowed_portions: number[]
+        }
+        Insert: {
+          code: PizzaSizeCode
+          name: string
+          sort_order: number
+          allowed_portions: number[]
+        }
+        Update: {
+          name?: string
+          sort_order?: number
+          allowed_portions?: number[]
+        }
+      }
+      pizza_styles: EmptyRelationships & {
+        Row: {
+          id: string
+          name: string
+          description: string
+          kind: PizzaStyleKind
+          included_ingredients: number
+          sort_order: number
+          active: boolean
+        }
+        Insert: {
+          id?: string
+          name: string
+          description?: string
+          kind: PizzaStyleKind
+          included_ingredients?: number
+          sort_order?: number
+          active?: boolean
+        }
+        Update: {
+          name?: string
+          description?: string
+          kind?: PizzaStyleKind
+          included_ingredients?: number
+          sort_order?: number
+          active?: boolean
+        }
+      }
+      pizza_style_prices: EmptyRelationships & {
+        Row: {
+          style_id: string
+          size_code: PizzaSizeCode
+          price_cents: number
+        }
+        Insert: {
+          style_id: string
+          size_code: PizzaSizeCode
+          price_cents: number
+        }
+        Update: {
+          price_cents?: number
+        }
+      }
+      pizza_ingredients: EmptyRelationships & {
+        Row: {
+          id: string
+          name: string
+          sort_order: number
+          active: boolean
+        }
+        Insert: {
+          id?: string
+          name: string
+          sort_order?: number
+          active?: boolean
+        }
+        Update: {
+          name?: string
+          sort_order?: number
+          active?: boolean
+        }
+      }
+      pizza_settings: EmptyRelationships & {
+        Row: {
+          id: boolean
+          extra_ingredient_cents: number
+          extra_cheese_cents: number
+        }
+        Insert: {
+          id?: boolean
+          extra_ingredient_cents: number
+          extra_cheese_cents: number
+        }
+        Update: {
+          extra_ingredient_cents?: number
+          extra_cheese_cents?: number
+        }
       }
     }
     Views: Record<string, never>
@@ -204,9 +308,15 @@ export interface Database {
           p_table_number: number | null
           p_customer_name: string | null
           p_items: unknown
+          p_notes?: string | null
         }
         Returns: unknown
       }
+      set_order_notes: {
+        Args: { p_order_id: string; p_notes: string | null }
+        Returns: unknown
+      }
+      quote_order: { Args: { p_order_id: string }; Returns: unknown }
       admin_list_waiters: { Args: Record<string, never>; Returns: unknown }
       admin_create_waiter: { Args: { p_full_name: string; p_pin: string }; Returns: unknown }
       admin_update_waiter: {
@@ -243,6 +353,16 @@ export interface Database {
           p_table_number: number | null
           p_customer_name: string | null
           p_items: unknown
+          p_notes?: string | null
+        }
+        Returns: unknown
+      }
+      device_set_order_notes: {
+        Args: {
+          p_device_secret: string
+          p_shift_token: string
+          p_order_id: string
+          p_notes: string | null
         }
         Returns: unknown
       }
