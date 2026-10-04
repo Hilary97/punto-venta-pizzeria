@@ -10,12 +10,13 @@ obvious which open order is receiving the new products.
   while scrolling categories; "Cancelar" exits add mode without opening the modal.
 - S2. Bottom floating order button: today "Ver pedido (2)"; in add mode it reads
   "Agregar a M-5 (2)" and turns amber.
-- S0 (done, uncommitted). Pressing "Agregar productos" scrolls to the "Armar pizza" section.
+- S0. Pressing "Agregar productos" scrolls to the "Armar pizza" section.
 
 ## Tasks
 
-- [x] T1 — S1 — inline — uncommitted (AddingToOrderBar + ProductGrid `stickyHeader` slot)
-- [x] T2 — S2 — inline — uncommitted (OrderFab `targetLabel`)
+- [x] T0 — S0 — inline — 4a0c822
+- [x] T1 — S1 — inline — dfc718f (AddingToOrderBar + ProductGrid `stickyHeader` slot)
+- [x] T2 — S2 — inline — dfc718f (OrderFab `targetLabel`)
 
 ## Log
 
@@ -25,3 +26,5 @@ obvious which open order is receiving the new products.
 - L4: ProductGrid already has a sticky top-0 header, so the bar renders inside it via a
   `stickyHeader` slot: it sits right below "Armar pizza" (not above) and sticks with the
   category pills. Verified: vitest 336/336, tsc, oxlint clean.
+- L5: "Si agrega una rama" — branch `feat/add-to-order-cues`; scroll-only commit verified
+  standalone (vitest 334/334, tsc).
