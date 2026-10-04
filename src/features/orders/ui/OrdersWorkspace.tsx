@@ -83,6 +83,14 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isDraftOpen, setIsDraftOpen] = useState(false)
   const [variantProduct, setVariantProduct] = useState<Product | null>(null)
+  const builderRef = useRef<HTMLDivElement>(null)
+  const addingToOrderId = addingToOrder?.id ?? null
+
+  // Bring the builder into view so the waiter sees they are adding to an open order.
+  useEffect(() => {
+    if (addingToOrderId === null) return
+    builderRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [addingToOrderId])
 
   const reloadOrders = useCallback(async () => {
     try {
@@ -371,21 +379,23 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
               />
             </>
           )}
-          {hasPizzaBuilder && (
-            <Button size="lg" disabled={isSubmitting} onClick={() => setIsBuilderOpen(true)}>
-              Armar pizza
-            </Button>
-          )}
-          <ProductGrid
-            categories={legacyHidden.categories}
-            products={legacyHidden.products}
-            cartProductIds={new Set(draft.flatMap((line) => (line.kind === 'product' ? [line.productId] : [])))}
-            onSelectProduct={handleSelectProduct}
-            disabled={isSubmitting}
-            showPrices={false}
-            allContent={openOrdersSection}
-            allContentLabel="Pedidos abiertos"
-          />
+          <div ref={builderRef} className="flex min-w-0 scroll-mt-4 flex-col gap-4">
+            {hasPizzaBuilder && (
+              <Button size="lg" disabled={isSubmitting} onClick={() => setIsBuilderOpen(true)}>
+                Armar pizza
+              </Button>
+            )}
+            <ProductGrid
+              categories={legacyHidden.categories}
+              products={legacyHidden.products}
+              cartProductIds={new Set(draft.flatMap((line) => (line.kind === 'product' ? [line.productId] : [])))}
+              onSelectProduct={handleSelectProduct}
+              disabled={isSubmitting}
+              showPrices={false}
+              allContent={openOrdersSection}
+              allContentLabel="Pedidos abiertos"
+            />
+          </div>
         </div>
 
         <div className="hidden min-w-0 lg:block">{draftForm}</div>

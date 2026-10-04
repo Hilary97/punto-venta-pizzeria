@@ -246,6 +246,19 @@ describe('OrdersPage', () => {
     expect(screen.getByLabelText(/nombre del cliente/i)).toBeVisible()
   })
 
+  it('scrolls to the pizza builder when starting to add items to an open order', async () => {
+    vi.mocked(listPizzaCatalog).mockResolvedValue(pizzaCatalogFixture)
+    const scrollIntoView = vi.spyOn(Element.prototype, 'scrollIntoView')
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: /agregar productos/i }))
+
+    expect(scrollIntoView).toHaveBeenCalledTimes(1)
+    expect(scrollIntoView.mock.contexts[0]).toContainElement(screen.getByRole('button', { name: /armar pizza/i }))
+    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' })
+    scrollIntoView.mockRestore()
+  })
+
   it('cancels edit mode without calling the server', async () => {
     const user = userEvent.setup()
     renderPage()
