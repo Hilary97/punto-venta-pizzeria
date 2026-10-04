@@ -35,6 +35,7 @@ import {
 } from '../domain/orderDraft'
 import { hideLegacyPizza } from '../domain/legacyPizza'
 import type { OrdersSource } from '../domain/ordersSource'
+import { AddingToOrderBar } from './AddingToOrderBar'
 import { OpenOrdersList } from './OpenOrdersList'
 import { OrderFab } from './OrderFab'
 import { OrderDraftPanel } from './OrderDraftPanel'
@@ -394,6 +395,9 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
               showPrices={false}
               allContent={openOrdersSection}
               allContentLabel="Pedidos abiertos"
+              stickyHeader={addingToOrder && (
+                <AddingToOrderBar order={addingToOrder} disabled={isSubmitting} onCancel={handleExitAdding} />
+              )}
             />
           </div>
         </div>
@@ -402,7 +406,11 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
       </div>
 
       {(draft.length > 0 || addingToOrder !== null) && (
-        <OrderFab itemCount={draftItemCount(draft)} onOpen={() => setIsDraftOpen(true)} />
+        <OrderFab
+          itemCount={draftItemCount(draft)}
+          targetLabel={addingToOrder ? orderLabel(addingToOrder) : null}
+          onOpen={() => setIsDraftOpen(true)}
+        />
       )}
       {isDraftOpen && (
         <Modal title="Pedido" onClose={() => setIsDraftOpen(false)}>

@@ -15,6 +15,8 @@ interface ProductGridProps {
   allContent?: ReactNode;
   /** When set with allContent, "all" moves out of the category pills into a fixed bottom button. */
   allContentLabel?: string;
+  /** Rendered at the top of the sticky search/category header. */
+  stickyHeader?: ReactNode;
 }
 
 export function ProductGrid({
@@ -26,6 +28,7 @@ export function ProductGrid({
   showPrices = true,
   allContent,
   allContentLabel,
+  stickyHeader,
 }: ProductGridProps) {
   const hasBottomAllButton =
     allContent !== undefined && allContentLabel !== undefined;
@@ -55,6 +58,7 @@ export function ProductGrid({
   return (
     <div className="flex min-w-0 flex-col gap-4">
       <div className="sticky top-0 z-10 flex flex-col gap-4 bg-slate-50 pb-2">
+        {stickyHeader}
         <Input
           id={searchId}
           type="search"

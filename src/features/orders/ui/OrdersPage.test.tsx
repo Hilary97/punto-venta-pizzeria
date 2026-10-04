@@ -259,6 +259,36 @@ describe('OrdersPage', () => {
     scrollIntoView.mockRestore()
   })
 
+  it('shows a sticky add-mode bar naming the open order, with a cancel shortcut', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByText('Ana')
+    expect(screen.queryByRole('region', { name: /pedido en edición/i })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /agregar productos/i }))
+    const bar = screen.getByRole('region', { name: /pedido en edición/i })
+    expect(bar).toHaveTextContent('Agregando al pedido M-3 · Ana')
+    expect(bar).toHaveTextContent('ya tiene 2 productos')
+    expect(bar).toContainElement(screen.getByRole('button', { name: 'Cancelar' }))
+
+    await user.click(within(bar).getByRole('button', { name: 'Cancelar' }))
+    expect(screen.queryByRole('region', { name: /pedido en edición/i })).not.toBeInTheDocument()
+    expect(screen.getByLabelText(/nombre del cliente/i)).toBeVisible()
+    expect(addOrderItems).not.toHaveBeenCalled()
+  })
+
+  it('labels the floating order button with the open order while adding', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: /agregar productos/i }))
+    expect(screen.getByRole('button', { name: 'Agregar a M-3 · Ana (0)' })).toBeInTheDocument()
+
+    await showCategory(user)
+    await user.click(screen.getByRole('button', { name: /pizza queso/i }))
+    expect(screen.getByRole('button', { name: 'Agregar a M-3 · Ana (1)' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /ver pedido/i })).not.toBeInTheDocument()
+  })
+
   it('cancels edit mode without calling the server', async () => {
     const user = userEvent.setup()
     renderPage()
@@ -322,7 +352,7 @@ describe('OrdersPage', () => {
     const user = userEvent.setup()
     renderPage()
     await user.click(await screen.findByRole('button', { name: /agregar productos/i }))
-    await user.click(screen.getByRole('button', { name: /ver pedido \(0\)/i }))
+    await user.click(screen.getByRole('button', { name: /agregar a m-3 · ana \(0\)/i }))
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: /cancelar edición/i }))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(screen.getByLabelText(/nombre del cliente/i)).toBeVisible()
