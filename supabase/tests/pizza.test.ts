@@ -99,9 +99,9 @@ describe('pizza catalog seed', () => {
        order by s.sort_order`,
     )
     expect(res.rows).toEqual([
-      { name: 'Estilo Hawaiana', description: 'Jamón y piña', kind: 'special', sort_order: 14, prices: [11000, 19000, 21000] },
-      { name: 'Estilo Italiana', description: 'Pepperoni y champiñón', kind: 'special', sort_order: 15, prices: [11000, 19000, 21000] },
-      { name: 'Estilo Pepperoni', description: 'Pepperoni', kind: 'special', sort_order: 16, prices: [11000, 19000, 21000] },
+      { name: 'Estilo Pepperoni', description: 'Pepperoni', kind: 'special', sort_order: 2, prices: [11000, 19000, 21000] },
+      { name: 'Estilo Hawaiana', description: 'Jamón y piña', kind: 'special', sort_order: 3, prices: [11000, 19000, 21000] },
+      { name: 'Estilo Italiana', description: 'Pepperoni y champiñón', kind: 'special', sort_order: 4, prices: [11000, 19000, 21000] },
     ])
   })
 })
