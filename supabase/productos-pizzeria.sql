@@ -2,12 +2,12 @@
 -- price_cents esta expresado en centavos: $250.00 MXN = 25000
 
 insert into public.categories (name, sort_order) values
-  ('Pizzas', 1),
-  ('Hamburguesas', 2),
-  ('Ensaladas', 3),
-  ('Botanas', 4),
-  ('Bebidas', 5),
-  ('Extras', 6)
+  ('Hamburguesas', 1),
+  ('Botanas', 2),
+  ('Bebidas', 3),
+  ('Extras', 4),
+  ('Pizzas', 6),
+  ('Ensaladas', 7)
 on conflict (name) do update
 set sort_order = excluded.sort_order;
 
