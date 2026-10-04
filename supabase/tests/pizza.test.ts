@@ -86,7 +86,7 @@ describe('pizza catalog seed', () => {
     expect(settings.rows).toEqual([{ extra_ingredient_cents: 500, extra_cheese_cents: 3000 }])
   })
 
-  it('seeds Hawaiana, Italiana and Pepperoni at 110/190/210', async () => {
+  it('seeds Hawaiana, Italiana and Pepperoni at 210/190/110 (grande/mediana/chica)', async () => {
     await asSuperuser(db)
     const res = await db.query<Record<string, unknown>>(
       `select s.name, s.description, s.kind, s.sort_order,
@@ -99,9 +99,9 @@ describe('pizza catalog seed', () => {
        order by s.sort_order`,
     )
     expect(res.rows).toEqual([
-      { name: 'Estilo Pepperoni', description: 'Pepperoni', kind: 'special', sort_order: 2, prices: [11000, 19000, 21000] },
-      { name: 'Estilo Hawaiana', description: 'Jamón y piña', kind: 'special', sort_order: 3, prices: [11000, 19000, 21000] },
-      { name: 'Estilo Italiana', description: 'Pepperoni y champiñón', kind: 'special', sort_order: 4, prices: [11000, 19000, 21000] },
+      { name: 'Estilo Pepperoni', description: 'Pepperoni', kind: 'special', sort_order: 2, prices: [21000, 19000, 11000] },
+      { name: 'Estilo Hawaiana', description: 'Jamón y piña', kind: 'special', sort_order: 3, prices: [21000, 19000, 11000] },
+      { name: 'Estilo Italiana', description: 'Pepperoni y champiñón', kind: 'special', sort_order: 4, prices: [21000, 19000, 11000] },
     ])
   })
 })
@@ -535,9 +535,9 @@ describe('device flow', () => {
     expect(catalog.categories).toBeTruthy()
     expect(catalog.products).toBeTruthy()
     expect(catalog.pizza.sizes).toEqual([
-      { code: 'chica', name: 'Chica', allowed_portions: [1], sort_order: 1 },
+      { code: 'grande', name: 'Grande', allowed_portions: [1, 2, 3, 4], sort_order: 1 },
       { code: 'mediana', name: 'Mediana', allowed_portions: [1, 2], sort_order: 2 },
-      { code: 'grande', name: 'Grande', allowed_portions: [1, 2, 3, 4], sort_order: 3 },
+      { code: 'chica', name: 'Chica', allowed_portions: [1], sort_order: 3 },
     ])
     expect(catalog.pizza.styles).toHaveLength(17)
     expect(catalog.pizza.styles[0].name).toBe(CUSTOM)
