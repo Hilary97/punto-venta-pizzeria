@@ -396,7 +396,7 @@ export interface Database {
         Returns: unknown
       }
       device_mark_delivered: {
-        Args: { p_device_secret: string; p_shift_token: string; p_order_id: string }
+        Args: { p_device_secret: string; p_shift_token: string; p_order_id: string; p_line_ids: string[] }
         Returns: unknown
       }
       list_kitchen_orders: { Args: { p_station: string }; Returns: unknown }
@@ -405,7 +405,7 @@ export interface Database {
         Returns: unknown
       }
       list_ready_orders: { Args: Record<string, never>; Returns: unknown }
-      mark_delivered: { Args: { p_order_id: string }; Returns: unknown }
+      mark_delivered: { Args: { p_order_id: string; p_line_ids: string[] }; Returns: unknown }
       add_order_items: {
         Args: { p_order_id: string; p_items: unknown }
         Returns: unknown

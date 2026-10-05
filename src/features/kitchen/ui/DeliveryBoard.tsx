@@ -14,7 +14,7 @@ interface DeliveryBoardProps {
 /** Delivery board: polls orders ready to hand over and lets staff mark each one delivered. */
 export function DeliveryBoard({ source, pollIntervalMs = POLL_INTERVAL_MS }: DeliveryBoardProps) {
   const list = useCallback(() => source.listReadyOrders(), [source])
-  const act = useCallback((orderId: string) => source.markDelivered(orderId), [source])
+  const act = useCallback((orderId: string, lineIds: string[]) => source.markDelivered(orderId, lineIds), [source])
   const { orders, error, pendingIds, reload, runAction } = useOrderBoard({ list, act, pollIntervalMs })
 
   return (
@@ -40,7 +40,7 @@ export function DeliveryBoard({ source, pollIntervalMs = POLL_INTERVAL_MS }: Del
               actionContent="Entregado"
               actionClassName="bg-red-700 text-xl hover:bg-red-800 active:bg-red-900"
               pending={pendingIds.has(order.id)}
-              onAction={() => void runAction(order.id)}
+              onAction={() => void runAction(order.id, order.lines.map((line) => line.id))}
             />
           ))}
         </ul>

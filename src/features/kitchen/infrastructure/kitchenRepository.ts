@@ -122,12 +122,13 @@ export function createDeviceDeliverySource(
       return mapKitchenOrders(parseRpcResult(kitchenOrdersSchema, data, error, LOAD_ERROR))
     },
 
-    async markDelivered(orderId) {
+    async markDelivered(orderId, lineIds) {
       const shiftToken = requireShiftToken()
       const { data, error } = await getSupabaseClient().rpc('device_mark_delivered', {
         p_device_secret: secret,
         p_shift_token: shiftToken,
         p_order_id: orderId,
+        p_line_ids: lineIds,
       })
       return parseRpcResult(orderIdResultSchema, data, error, DELIVERED_ERROR).order_id
     },
@@ -140,8 +141,11 @@ export const authenticatedDeliverySource: DeliverySource = {
     return mapKitchenOrders(parseRpcResult(kitchenOrdersSchema, data, error, LOAD_ERROR))
   },
 
-  async markDelivered(orderId) {
-    const { data, error } = await getSupabaseClient().rpc('mark_delivered', { p_order_id: orderId })
+  async markDelivered(orderId, lineIds) {
+    const { data, error } = await getSupabaseClient().rpc('mark_delivered', {
+      p_order_id: orderId,
+      p_line_ids: lineIds,
+    })
     return parseRpcResult(orderIdResultSchema, data, error, DELIVERED_ERROR).order_id
   },
 }

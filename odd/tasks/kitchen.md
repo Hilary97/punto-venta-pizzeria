@@ -28,11 +28,13 @@ Waiter orders flow automatically to a kitchen screen split into two stations (pi
 - T4 (S1, S4, S5) — Cocina screen: polling station cards with checkmark. Route: worker. Commit: 8f0b7ea (done; RED->GREEN, 372 src tests, tsc clean). Also routes devices by kind.
 - T5 (S6, S8) — Entrega screen for waiter devices and admin/cashier, "Entregado" action. Route: worker. Commit: 16f2b81 (done; RED->GREEN, 382 src tests, tsc clean; no count badge).
 - T7 (S5) — checkmark marks only the lines shown on the card: mark-ready RPCs take the displayed line ids; lines added after the last refresh stay pending. New migration. Route: worker. Commit: 851f88b (done; PGlite RED->GREEN, 477 tests, tsc clean). Kitchen lines never merge, so a repeated product is a new line.
+- T8 (S8) — "Entregado" marks only the lines shown on the card: mark-delivered RPCs take the displayed line ids. New migration. Route: worker. Done in commit "fix(kitchen): deliver only the lines shown on the card" (PGlite RED->GREEN, 479 tests, tsc and oxlint clean).
 - T6 — verify: tests, tsc, lint. Route: verify. Done: PASS S1-S8; 474 tests, tsc, oxlint (0 errors, 1 new warning useOrderBoard.ts set-state-in-effect), build OK. Gaps: no UI to set categories.kitchen_station for new categories; authenticated create_order path has no station test; migration not yet run in Supabase.
 
 ## Log
 
 - L1: "Necesito implementar nuevas feature, necesito pasar los pedidos a una nueva ruta que se llame cocina, para su elabaracion la cocina se divide en dos apartamentos para hacer pizzas y para hacer lo que es hambuerguesas y botonas. Necesito que al hacer el pedido el mesero en automatico se valla a seccion concian donde se renderiza una targeta con toda la infromación del pedido notas y todo y ya en concian se procedera al elaboración y habra una opcion donde terminada la elaboración se preisna en ese boton o recuadro con palomimta dodne se ira a entrega, esto en las dos secciones de cocina, lo importante es que en el pedido se identifique que era a cada seecion de cocina"
+- L4: "Si corrigelo" — apply the same shown-lines fix to Entrega.
 - L3: "Si corrige lo de la palomita" — fix the mark-ready race found in review.
 - L2: User chose: authorized kitchen device; split by station; new Entrega section; Bebidas/Extras skip the kitchen (Ensaladas/Botanas -> grill, Rebanadas -> pizza).
 

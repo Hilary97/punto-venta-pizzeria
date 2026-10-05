@@ -92,18 +92,19 @@ describe('delivery sources', () => {
     expect(rpc).toHaveBeenCalledWith('device_list_ready_orders', { p_device_secret: 'sec', p_shift_token: 'tok' })
 
     rpc.mockResolvedValue({ data: { order_id: 'o1' }, error: null })
-    await source.markDelivered('o1')
+    await source.markDelivered('o1', ['l1'])
     expect(rpc).toHaveBeenCalledWith('device_mark_delivered', {
       p_device_secret: 'sec',
       p_shift_token: 'tok',
       p_order_id: 'o1',
+      p_line_ids: ['l1'],
     })
   })
 
   it('device source requires a shift', async () => {
     const source = createDeviceDeliverySource('sec', () => null)
     await expect(source.listReadyOrders()).rejects.toThrow()
-    await expect(source.markDelivered('o1')).rejects.toThrow()
+    await expect(source.markDelivered('o1', ['l1'])).rejects.toThrow()
     expect(rpc).not.toHaveBeenCalled()
   })
 
@@ -113,7 +114,7 @@ describe('delivery sources', () => {
     expect(rpc).toHaveBeenCalledWith('list_ready_orders')
 
     rpc.mockResolvedValue({ data: { order_id: 'o1' }, error: null })
-    await authenticatedDeliverySource.markDelivered('o1')
-    expect(rpc).toHaveBeenCalledWith('mark_delivered', { p_order_id: 'o1' })
+    await authenticatedDeliverySource.markDelivered('o1', ['l1'])
+    expect(rpc).toHaveBeenCalledWith('mark_delivered', { p_order_id: 'o1', p_line_ids: ['l1'] })
   })
 })

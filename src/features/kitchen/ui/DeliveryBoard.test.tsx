@@ -57,7 +57,7 @@ describe('DeliveryBoard', () => {
     const source = makeSource([[order()], []])
     render(<DeliveryBoard source={source} />)
     await userEvent.click(await screen.findByRole('button', { name: 'Marcar pedido entregado' }))
-    expect(source.markDelivered).toHaveBeenCalledWith('o1')
+    expect(source.markDelivered).toHaveBeenCalledWith('o1', ['l1'])
     await waitFor(() => expect(screen.queryByText('M-4 · Ana')).not.toBeInTheDocument())
   })
 
