@@ -41,7 +41,8 @@ export interface KitchenOrder {
 
 export interface KitchenSource {
   listOrders(): Promise<KitchenOrder[]>
-  markReady(orderId: string): Promise<string>
+  /** Marks ready only the given lines: the ones the card showed, never lines added since. */
+  markReady(orderId: string, lineIds: string[]): Promise<string>
 }
 
 export interface DeliverySource {

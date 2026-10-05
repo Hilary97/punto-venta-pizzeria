@@ -47,15 +47,19 @@ describe('device kitchen source', () => {
 
   it('marks ready', async () => {
     rpc.mockResolvedValue({ data: { order_id: 'o1' }, error: null })
-    await createDeviceKitchenSource('sec').markReady('o1')
-    expect(rpc).toHaveBeenCalledWith('device_mark_station_ready', { p_device_secret: 'sec', p_order_id: 'o1' })
+    await createDeviceKitchenSource('sec').markReady('o1', ['l1', 'l2'])
+    expect(rpc).toHaveBeenCalledWith('device_mark_station_ready', {
+      p_device_secret: 'sec',
+      p_order_id: 'o1',
+      p_line_ids: ['l1', 'l2'],
+    })
   })
 
   it('rejects malformed payloads and rpc errors', async () => {
     rpc.mockResolvedValue({ data: [{ id: 1 }], error: null })
     await expect(createDeviceKitchenSource('sec').listOrders()).rejects.toThrow()
     rpc.mockResolvedValue({ data: null, error: { message: 'Este dispositivo no es de cocina.' } })
-    await expect(createDeviceKitchenSource('sec').markReady('o1')).rejects.toThrow('no es de cocina')
+    await expect(createDeviceKitchenSource('sec').markReady('o1', ['l1'])).rejects.toThrow('no es de cocina')
   })
 
   it('treats a station with no pending lines as empty lines', async () => {
@@ -71,8 +75,12 @@ describe('authenticated kitchen source', () => {
     expect(rpc).toHaveBeenCalledWith('list_kitchen_orders', { p_station: 'grill' })
 
     rpc.mockResolvedValue({ data: { order_id: 'o1' }, error: null })
-    await authenticatedKitchenSource('pizza').markReady('o1')
-    expect(rpc).toHaveBeenCalledWith('mark_station_ready', { p_order_id: 'o1', p_station: 'pizza' })
+    await authenticatedKitchenSource('pizza').markReady('o1', ['l1'])
+    expect(rpc).toHaveBeenCalledWith('mark_station_ready', {
+      p_order_id: 'o1',
+      p_station: 'pizza',
+      p_line_ids: ['l1'],
+    })
   })
 })
 

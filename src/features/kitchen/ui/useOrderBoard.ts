@@ -11,7 +11,7 @@ function byOldest(a: KitchenOrder, b: KitchenOrder): number {
 interface OrderBoardOptions {
   list: () => Promise<KitchenOrder[]>
   /** Per-order action (mark ready / delivered); the card is removed once it resolves. */
-  act: (orderId: string) => Promise<unknown>
+  act: (orderId: string, lineIds: string[]) => Promise<unknown>
   pollIntervalMs: number
 }
 
@@ -43,12 +43,12 @@ export function useOrderBoard({ list, act, pollIntervalMs }: OrderBoardOptions) 
     }
   }, [load, pollIntervalMs])
 
-  async function runAction(orderId: string) {
+  async function runAction(orderId: string, lineIds: string[] = []) {
     if (pendingIds.has(orderId)) return
     setPendingIds((ids) => new Set(ids).add(orderId))
     setError(null)
     try {
-      await act(orderId)
+      await act(orderId, lineIds)
       if (mounted.current) setOrders((current) => current?.filter((o) => o.id !== orderId) ?? null)
     } catch (e) {
       if (mounted.current) {

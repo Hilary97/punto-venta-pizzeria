@@ -69,10 +69,11 @@ export function createDeviceKitchenSource(secret: string): KitchenSource {
       return mapKitchenOrders(parseRpcResult(kitchenOrdersSchema, data, error, LOAD_ERROR))
     },
 
-    async markReady(orderId) {
+    async markReady(orderId, lineIds) {
       const { data, error } = await getSupabaseClient().rpc('device_mark_station_ready', {
         p_device_secret: secret,
         p_order_id: orderId,
+        p_line_ids: lineIds,
       })
       return parseRpcResult(orderIdResultSchema, data, error, READY_ERROR).order_id
     },
@@ -89,10 +90,11 @@ export function authenticatedKitchenSource(station: KitchenStation): KitchenSour
       return mapKitchenOrders(parseRpcResult(kitchenOrdersSchema, data, error, LOAD_ERROR))
     },
 
-    async markReady(orderId) {
+    async markReady(orderId, lineIds) {
       const { data, error } = await getSupabaseClient().rpc('mark_station_ready', {
         p_order_id: orderId,
         p_station: station,
+        p_line_ids: lineIds,
       })
       return parseRpcResult(orderIdResultSchema, data, error, READY_ERROR).order_id
     },

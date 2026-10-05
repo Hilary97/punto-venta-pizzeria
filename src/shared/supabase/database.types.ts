@@ -388,7 +388,7 @@ export interface Database {
       }
       device_list_kitchen_orders: { Args: { p_device_secret: string }; Returns: unknown }
       device_mark_station_ready: {
-        Args: { p_device_secret: string; p_order_id: string }
+        Args: { p_device_secret: string; p_order_id: string; p_line_ids: string[] }
         Returns: unknown
       }
       device_list_ready_orders: {
@@ -400,7 +400,10 @@ export interface Database {
         Returns: unknown
       }
       list_kitchen_orders: { Args: { p_station: string }; Returns: unknown }
-      mark_station_ready: { Args: { p_order_id: string; p_station: string }; Returns: unknown }
+      mark_station_ready: {
+        Args: { p_order_id: string; p_station: string; p_line_ids: string[] }
+        Returns: unknown
+      }
       list_ready_orders: { Args: Record<string, never>; Returns: unknown }
       mark_delivered: { Args: { p_order_id: string }; Returns: unknown }
       add_order_items: {

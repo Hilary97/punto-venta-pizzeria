@@ -15,7 +15,7 @@ interface KitchenBoardProps {
 /** Station board: polls the pending orders and lets the kitchen mark each one ready. */
 export function KitchenBoard({ source, stationLabel, pollIntervalMs = POLL_INTERVAL_MS }: KitchenBoardProps) {
   const list = useCallback(() => source.listOrders(), [source])
-  const act = useCallback((orderId: string) => source.markReady(orderId), [source])
+  const act = useCallback((orderId: string, lineIds: string[]) => source.markReady(orderId, lineIds), [source])
   const { orders, error, pendingIds, reload, runAction } = useOrderBoard({ list, act, pollIntervalMs })
 
   return (
@@ -41,7 +41,7 @@ export function KitchenBoard({ source, stationLabel, pollIntervalMs = POLL_INTER
               actionContent="✓"
               actionClassName="bg-emerald-700 text-3xl hover:bg-emerald-800 active:bg-emerald-900"
               pending={pendingIds.has(order.id)}
-              onAction={() => void runAction(order.id)}
+              onAction={() => void runAction(order.id, order.lines.map((line) => line.id))}
             />
           ))}
         </ul>

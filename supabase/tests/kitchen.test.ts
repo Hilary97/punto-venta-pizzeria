@@ -56,7 +56,14 @@ async function addItems(orderId: string, items: Json[]) {
 
 const kitchen = (secret: string) => rpc(db, 'public.device_list_kitchen_orders($1)', [secret])
 const ready = () => rpc(db, 'public.device_list_ready_orders($1, $2)', [waiterSecret, token])
-const markReady = (secret: string, orderId: string) => rpc(db, 'public.device_mark_station_ready($1, $2)', [secret, orderId])
+const markReadyLines = (secret: string, orderId: string, lineIds: string[] | null) =>
+  rpc(db, 'public.device_mark_station_ready($1, $2, $3)', [secret, orderId, lineIds])
+
+// Marks the lines currently listed for the order, like a cook who just refreshed the board.
+async function markReady(secret: string, orderId: string) {
+  const order = (await kitchen(secret)).find((o: Json) => o.id === orderId)
+  return markReadyLines(secret, orderId, (order?.lines ?? []).map((l: Json) => l.id))
+}
 const markDelivered = (orderId: string) => rpc(db, 'public.device_mark_delivered($1, $2, $3)', [waiterSecret, token, orderId])
 
 beforeEach(async () => {
@@ -229,6 +236,58 @@ describe('kitchen and delivery flow', () => {
     expect(r[0].lines).toHaveLength(3)
   })
 
+  it('marks only the lines the cook was shown, not ones added afterwards', async () => {
+    const id = await createOrder([{ product_id: burgerId, quantity: 1 }])
+    await asAnon(db)
+    const shown = (await kitchen(grillSecret))[0].lines.map((l: Json) => l.id)
+    expect(shown).toHaveLength(1)
+
+    // A different product: the same one would merge into the still-pending line.
+    await addItems(id, [{ product_id: botanaId, quantity: 1 }])
+    await asAnon(db)
+    const res = await markReadyLines(grillSecret, id, shown)
+    expect(res).toEqual({ order_id: id })
+
+    const g = await kitchen(grillSecret)
+    expect(g).toHaveLength(1)
+    expect(g[0].lines).toHaveLength(1)
+    expect(g[0].lines[0].id).not.toBe(shown[0])
+    expect(g[0].lines[0].product_name).toBe('Alitas')
+    expect(await ready()).toEqual([])
+  })
+
+  it('never merges a repeated station product into the line the cook was shown', async () => {
+    const id = await createOrder([{ product_id: burgerId, quantity: 1 }])
+    await asAnon(db)
+    const shown = (await kitchen(grillSecret))[0].lines.map((l: Json) => l.id)
+
+    await addItems(id, [{ product_id: burgerId, quantity: 1 }])
+    await asAnon(db)
+    await markReadyLines(grillSecret, id, shown)
+
+    const g = await kitchen(grillSecret)
+    expect(g).toHaveLength(1)
+    expect(g[0].lines).toHaveLength(1)
+    expect(g[0].lines[0]).toMatchObject({ product_name: 'Hamburguesa Sencilla', quantity: 1 })
+    expect(g[0].lines[0].id).not.toBe(shown[0])
+    expect(await ready()).toEqual([])
+  })
+
+  it('ignores line ids from another station or order and rejects empty ids', async () => {
+    const id = await createOrder([pizzaLine(), { product_id: burgerId, quantity: 1 }])
+    const other = await createOrder([{ product_id: burgerId, quantity: 1 }], 5)
+    await asAnon(db)
+    const pizzaIds = (await kitchen(pizzaSecret))[0].lines.map((l: Json) => l.id)
+    const otherGrill = (await kitchen(grillSecret)).find((o: Json) => o.id === other).lines.map((l: Json) => l.id)
+
+    await markReadyLines(grillSecret, id, [...pizzaIds, ...otherGrill])
+    expect(await kitchen(pizzaSecret)).toHaveLength(1)
+    expect((await kitchen(grillSecret)).map((o: Json) => o.id).sort()).toEqual([id, other].sort())
+
+    await expect(markReadyLines(grillSecret, id, [])).rejects.toThrow('Indica las líneas del pedido.')
+    await expect(markReadyLines(grillSecret, id, null)).rejects.toThrow('Indica las líneas del pedido.')
+  })
+
   it('lists only undelivered lines once part of the order was delivered', async () => {
     const id = await createOrder([{ product_id: burgerId, quantity: 1 }])
     await asAnon(db)
@@ -250,7 +309,7 @@ describe('kitchen and delivery flow', () => {
     await asAnon(db)
     await rpc(db, 'public.device_cancel_order($1, $2, $3)', [waiterSecret, token, c])
     expect((await kitchen(grillSecret)).map((o: Json) => o.id)).toEqual([a, b])
-    await expect(markReady(grillSecret, c)).rejects.toThrow('El pedido ya no está abierto.')
+    await expect(markReadyLines(grillSecret, c, [crypto.randomUUID()])).rejects.toThrow('El pedido ya no está abierto.')
   })
 
   it('exposes station fields in device_list_open_orders', async () => {
@@ -300,13 +359,13 @@ describe('device kinds', () => {
     await asAnon(db)
     const msg = 'Este dispositivo no es de cocina.'
     await expect(kitchen(waiterSecret)).rejects.toThrow(msg)
-    await expect(markReady(waiterSecret, id)).rejects.toThrow(msg)
+    await expect(markReadyLines(waiterSecret, id, [crypto.randomUUID()])).rejects.toThrow(msg)
   })
 
   it('rejects invalid secrets and invalid shift tokens', async () => {
     await asAnon(db)
     await expect(kitchen('x'.repeat(64))).rejects.toThrow(DEVICE_ERROR)
-    await expect(markReady('short', crypto.randomUUID())).rejects.toThrow(DEVICE_ERROR)
+    await expect(markReadyLines('short', crypto.randomUUID(), [crypto.randomUUID()])).rejects.toThrow(DEVICE_ERROR)
     await expect(rpc(db, 'public.device_list_ready_orders($1, $2)', ['x'.repeat(64), token])).rejects.toThrow(DEVICE_ERROR)
     await expect(rpc(db, 'public.device_list_ready_orders($1, $2)', [waiterSecret, crypto.randomUUID()])).rejects.toThrow(
       'Tu turno expiró. Ingresa tu PIN de nuevo.',
@@ -333,8 +392,10 @@ describe('authenticated variants', () => {
     expect(p[0].lines[0].item_type).toBe('pizza')
     expect(await rpc(db, `public.list_ready_orders()`)).toEqual([])
 
-    await rpc(db, `public.mark_station_ready($1, $2)`, [id, 'pizza'])
-    await rpc(db, `public.mark_station_ready($1, $2)`, [id, 'grill'])
+    const lineIds = async (station: string) =>
+      (await rpc(db, `public.list_kitchen_orders($1)`, [station]))[0].lines.map((l: Json) => l.id)
+    await rpc(db, `public.mark_station_ready($1, $2, $3)`, [id, 'pizza', await lineIds('pizza')])
+    await rpc(db, `public.mark_station_ready($1, $2, $3)`, [id, 'grill', await lineIds('grill')])
     expect(await rpc(db, `public.list_kitchen_orders($1)`, ['grill'])).toEqual([])
     const r = await rpc(db, `public.list_ready_orders()`)
     expect(r).toHaveLength(1)
@@ -349,7 +410,9 @@ describe('authenticated variants', () => {
     await asUser(db, waiterUser)
     const msg = 'No tienes permiso para operar la caja.'
     await expect(rpc(db, `public.list_kitchen_orders($1)`, ['grill'])).rejects.toThrow(msg)
-    await expect(rpc(db, `public.mark_station_ready($1, $2)`, [id, 'grill'])).rejects.toThrow(msg)
+    await expect(
+      rpc(db, `public.mark_station_ready($1, $2, $3)`, [id, 'grill', [crypto.randomUUID()]]),
+    ).rejects.toThrow(msg)
     await expect(rpc(db, `public.list_ready_orders()`)).rejects.toThrow(msg)
     await expect(rpc(db, `public.mark_delivered($1)`, [id])).rejects.toThrow(msg)
 
