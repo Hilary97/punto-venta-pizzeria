@@ -27,7 +27,7 @@ Waiter orders flow automatically to a kitchen screen split into two stations (pi
 - T3 (S7) — admin devices: choose device type (Mesero, Cocina Pizzas, Cocina Hamburguesas/Botanas) on authorization; stored device keeps kind. Route: worker. Commit: f6ae2e9 (done; 354 src tests, tsc clean; tests written first but RED not observed). Routing by kind moved to T4.
 - T4 (S1, S4, S5) — Cocina screen: polling station cards with checkmark. Route: worker. Commit: 8f0b7ea (done; RED->GREEN, 372 src tests, tsc clean). Also routes devices by kind.
 - T5 (S6, S8) — Entrega screen for waiter devices and admin/cashier, "Entregado" action. Route: worker. Commit: 16f2b81 (done; RED->GREEN, 382 src tests, tsc clean; no count badge).
-- T7 (S5) — checkmark marks only the lines shown on the card: mark-ready RPCs take the displayed line ids; lines added after the last refresh stay pending. New migration. Route: worker.
+- T7 (S5) — checkmark marks only the lines shown on the card: mark-ready RPCs take the displayed line ids; lines added after the last refresh stay pending. New migration. Route: worker. Commit: 851f88b (done; PGlite RED->GREEN, 477 tests, tsc clean). Kitchen lines never merge, so a repeated product is a new line.
 - T6 — verify: tests, tsc, lint. Route: verify. Done: PASS S1-S8; 474 tests, tsc, oxlint (0 errors, 1 new warning useOrderBoard.ts set-state-in-effect), build OK. Gaps: no UI to set categories.kitchen_station for new categories; authenticated create_order path has no station test; migration not yet run in Supabase.
 
 ## Log
