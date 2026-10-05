@@ -33,3 +33,8 @@ Waiter orders flow automatically to a kitchen screen split into two stations (pi
 
 - L1: "Necesito implementar nuevas feature, necesito pasar los pedidos a una nueva ruta que se llame cocina, para su elabaracion la cocina se divide en dos apartamentos para hacer pizzas y para hacer lo que es hambuerguesas y botonas. Necesito que al hacer el pedido el mesero en automatico se valla a seccion concian donde se renderiza una targeta con toda la infromación del pedido notas y todo y ya en concian se procedera al elaboración y habra una opcion donde terminada la elaboración se preisna en ese boton o recuadro con palomimta dodne se ira a entrega, esto en las dos secciones de cocina, lo importante es que en el pedido se identifique que era a cada seecion de cocina"
 - L2: User chose: authorized kitchen device; split by station; new Entrega section; Bebidas/Extras skip the kitchen (Ensaladas/Botanas -> grill, Rebanadas -> pizza).
+
+## Review
+
+- RDD native review lineage review-e940447e6f5e8fae over c0f1782..7e35e71: approved (4 lenses, no blockers), acknowledged.
+- Advisory follow-ups: mark-ready can also mark lines added after the cook last refreshed (migration :334-336); poll/action race in useOrderBoard; delivery tab does not return to PIN on shift expiry; frontend selects new columns, so deploy the migration before the app; duplicated revoked guard and enum literals.
