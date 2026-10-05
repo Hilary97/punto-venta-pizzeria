@@ -24,7 +24,7 @@ vi.mock('../infrastructure/waitersRepository', () => ({
 }))
 vi.mock('../../orders/infrastructure/ordersSources', () => ({ createDeviceOrdersSource: vi.fn() }))
 
-const device: AuthorizedDevice = { deviceId: 'd1', name: 'Tablet barra', secret: 'a1'.repeat(32) }
+const device: AuthorizedDevice = { deviceId: 'd1', name: 'Tablet barra', kind: 'waiter', secret: 'a1'.repeat(32) }
 
 const shift: WaiterShift = {
   token: 'tok-1',

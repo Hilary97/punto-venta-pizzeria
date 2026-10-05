@@ -19,6 +19,7 @@ function fakeStorage(): Storage {
 const device = (): AuthorizedDevice => ({
   deviceId: 'd1',
   name: 'Tablet barra',
+  kind: 'kitchen_pizza',
   secret: 'a1'.repeat(32),
 })
 
@@ -35,6 +36,13 @@ describe('deviceStorage', () => {
     const storage = fakeStorage()
     saveDevice(device(), storage)
     expect(loadDevice(storage)).toEqual(device())
+  })
+
+  it('falls back to waiter for devices stored without a kind', () => {
+    const storage = fakeStorage()
+    const { kind: _kind, ...legacy } = device()
+    storage.setItem(DEVICE_STORAGE_KEY, JSON.stringify(legacy))
+    expect(loadDevice(storage)).toEqual({ ...legacy, kind: 'waiter' })
   })
 
   it('returns null and clears malformed JSON', () => {

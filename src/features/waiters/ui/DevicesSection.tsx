@@ -7,7 +7,8 @@ import { Modal } from '../../../shared/ui/Modal'
 import { Spinner } from '../../../shared/ui/Spinner'
 import { toUserMessage } from '../../../shared/errors'
 import { signOut } from '../../auth/infrastructure/authRepository'
-import type { AdminDevice } from '../domain/device'
+import { DEVICE_KINDS, type DeviceKind } from '../../kitchen/domain/kitchen'
+import { DEVICE_KIND_LABELS, type AdminDevice } from '../domain/device'
 import { clearDevice, loadDevice, saveDevice } from '../domain/deviceStorage'
 import { clearShift } from '../domain/shiftStorage'
 import { MAX_WAITER_NAME_LENGTH, isValidWaiterName, normalizeWaiterName } from '../domain/waiter'
@@ -34,6 +35,7 @@ interface AuthorizeDeviceModalProps {
 function AuthorizeDeviceModal({ onClose }: AuthorizeDeviceModalProps) {
   const navigate = useNavigate()
   const [name, setName] = useState('')
+  const [kind, setKind] = useState<DeviceKind>('waiter')
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -49,8 +51,8 @@ function AuthorizeDeviceModal({ onClose }: AuthorizeDeviceModalProps) {
     setError(null)
     setIsSubmitting(true)
     try {
-      const device = await adminRegisterDevice(normalizeWaiterName(name))
-      saveDevice({ deviceId: device.deviceId, name: device.name, secret: device.secret })
+      const device = await adminRegisterDevice(normalizeWaiterName(name), kind)
+      saveDevice({ deviceId: device.deviceId, name: device.name, kind: device.kind, secret: device.secret })
       clearShift()
     } catch (submitError) {
       setError(toUserMessage(submitError))
@@ -82,6 +84,23 @@ function AuthorizeDeviceModal({ onClose }: AuthorizeDeviceModalProps) {
           onChange={(e) => setName(e.target.value)}
           required
         />
+        <div className="flex flex-col gap-1">
+          <label htmlFor="device-kind" className="text-sm font-medium text-slate-700">
+            Tipo de dispositivo
+          </label>
+          <select
+            id="device-kind"
+            value={kind}
+            onChange={(e) => setKind(e.target.value as DeviceKind)}
+            className="rounded-lg border border-slate-300 px-3 py-2.5 text-base text-slate-900 focus:border-red-600 focus:outline-none focus:ring-2 focus:ring-red-200"
+          >
+            {DEVICE_KINDS.map((option) => (
+              <option key={option} value={option}>
+                {DEVICE_KIND_LABELS[option]}
+              </option>
+            ))}
+          </select>
+        </div>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting}>
             Cancelar
@@ -199,6 +218,7 @@ export function DevicesSection() {
             <thead className="bg-slate-100 text-slate-600">
               <tr>
                 <th className="px-4 py-3 font-semibold">Dispositivo</th>
+                <th className="px-4 py-3 font-semibold">Tipo</th>
                 <th className="px-4 py-3 font-semibold">Último uso</th>
                 <th className="px-4 py-3 font-semibold">Estado</th>
                 <th className="px-4 py-3 font-semibold">Acciones</th>
@@ -208,6 +228,7 @@ export function DevicesSection() {
               {devices.map((device) => (
                 <tr key={device.id}>
                   <td className="px-4 py-3 font-medium text-slate-900">{device.name}</td>
+                  <td className="px-4 py-3 text-slate-700">{DEVICE_KIND_LABELS[device.kind]}</td>
                   <td className="px-4 py-3 text-slate-700">{formatLastSeen(device.lastSeenAt)}</td>
                   <td className="px-4 py-3">
                     <span

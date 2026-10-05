@@ -23,7 +23,7 @@ Waiter orders flow automatically to a kitchen screen split into two stations (pi
 ## Tasks
 
 - T1 (S2, S3, S6, S7, S8) — migration + PGlite tests: stations, ready/delivered timestamps, device kind, kitchen and delivery RPCs. Route: worker. Commit: c0f1782 (done; PGlite RED->GREEN, 92 db tests, tsc clean). Note: re-adding a cooked product creates a new line instead of bumping quantity.
-- T2 (S3, S4) — orders domain + repository: station/ready/delivered fields, kitchen and delivery source functions. Route: worker.
+- T2 (S3, S4) — orders domain + repository: station/ready/delivered fields, kitchen and delivery source functions. Route: worker. Commit: b3ada7e (done; RED->GREEN, 351 src tests, tsc clean).
 - T3 (S7) — admin devices: choose device type (Mesero, Cocina Pizzas, Cocina Hamburguesas/Botanas) on authorization; device app routes by kind. Route: worker.
 - T4 (S1, S4, S5) — Cocina screen: polling station cards with checkmark. Route: worker.
 - T5 (S6, S8) — Entrega screen for waiter devices and admin/cashier, "Entregado" action. Route: worker.

@@ -43,7 +43,7 @@ describe('RequireAuth', () => {
   })
 
   it('sends a signed-out authorized order device to orders instead of login', () => {
-    saveDevice({ deviceId: 'device-1', name: 'Tablet barra', secret: 'a'.repeat(64) })
+    saveDevice({ deviceId: 'device-1', name: 'Tablet barra', kind: 'waiter', secret: 'a'.repeat(64) })
     renderSignedOutAtCash()
     expect(screen.getByText('Orders page')).toBeInTheDocument()
     expect(screen.queryByText('Protected content')).not.toBeInTheDocument()

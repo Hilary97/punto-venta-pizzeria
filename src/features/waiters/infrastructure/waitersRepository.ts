@@ -134,7 +134,7 @@ export async function deviceEndShift(secret: string, token: string): Promise<voi
 export async function adminRegisterDevice(
   name: string,
   kind: DeviceKind = 'waiter',
-): Promise<AuthorizedDevice & { kind: DeviceKind }> {
+): Promise<AuthorizedDevice> {
   const { data, error } = await getSupabaseClient().rpc('admin_register_device', {
     p_name: name,
     p_kind: kind,
@@ -148,7 +148,7 @@ export async function adminRegisterDevice(
   return { deviceId: result.device_id, name: result.name, kind: result.kind, secret: result.device_secret }
 }
 
-export async function adminListDevices(): Promise<(AdminDevice & { kind: DeviceKind })[]> {
+export async function adminListDevices(): Promise<AdminDevice[]> {
   const { data, error } = await getSupabaseClient().rpc('admin_list_devices')
   const rows = parseRpcResult(adminDeviceListSchema, data, error, 'No se pudieron cargar los dispositivos.')
   return rows.map((row) => ({

@@ -22,8 +22,8 @@ vi.mock('../../auth/infrastructure/authRepository', () => auth)
 const SECRET = 'ab'.repeat(32)
 
 const DEVICES: AdminDevice[] = [
-  { id: 'd1', name: 'Tablet barra', createdAt: '2026-01-01T00:00:00Z', lastSeenAt: '2026-02-03T15:30:00Z', revoked: false },
-  { id: 'd2', name: 'Celular viejo', createdAt: '2026-01-02T00:00:00Z', lastSeenAt: null, revoked: true },
+  { id: 'd1', name: 'Tablet barra', createdAt: '2026-01-01T00:00:00Z', lastSeenAt: '2026-02-03T15:30:00Z', revoked: false, kind: 'waiter' },
+  { id: 'd2', name: 'Celular viejo', createdAt: '2026-01-02T00:00:00Z', lastSeenAt: null, revoked: true, kind: 'kitchen_pizza' },
 ]
 
 beforeEach(() => {
@@ -32,7 +32,7 @@ beforeEach(() => {
   repo.adminListDevices.mockResolvedValue(DEVICES)
   repo.adminRevokeDevice.mockResolvedValue(undefined)
   repo.adminDeleteDevice.mockResolvedValue(undefined)
-  repo.adminRegisterDevice.mockResolvedValue({ deviceId: 'new-1', name: 'Tablet nueva', secret: SECRET })
+  repo.adminRegisterDevice.mockResolvedValue({ deviceId: 'new-1', name: 'Tablet nueva', kind: 'waiter', secret: SECRET })
   auth.signOut.mockResolvedValue(undefined)
 })
 
@@ -62,6 +62,37 @@ it('lists devices with last use and state, and Revocar only on active ones', asy
   expect(within(row('Celular viejo')).queryByRole('button', { name: 'Revocar' })).not.toBeInTheDocument()
 })
 
+it('shows each device type label in the list', async () => {
+  await renderSection()
+  expect(within(row('Tablet barra')).getByText('Mesero')).toBeInTheDocument()
+  expect(within(row('Celular viejo')).getByText('Cocina - Pizzas')).toBeInTheDocument()
+})
+
+it('lets the admin pick the device type, defaulting to Mesero, and stores it', async () => {
+  const user = await renderSection()
+  await user.click(screen.getByRole('button', { name: 'Usar este dispositivo para pedidos' }))
+  const dialog = screen.getByRole('dialog')
+  const select = within(dialog).getByLabelText('Tipo de dispositivo')
+  expect(select).toHaveValue('waiter')
+  expect(within(select).getAllByRole('option').map((o) => o.textContent)).toEqual([
+    'Mesero',
+    'Cocina - Pizzas',
+    'Cocina - Hamburguesas y botanas',
+  ])
+  repo.adminRegisterDevice.mockResolvedValueOnce({
+    deviceId: 'k1',
+    name: 'Cocina grill',
+    kind: 'kitchen_grill',
+    secret: SECRET,
+  })
+  await user.type(within(dialog).getByLabelText('Nombre del dispositivo'), 'Cocina grill')
+  await user.selectOptions(select, 'kitchen_grill')
+  await user.click(within(dialog).getByRole('button', { name: 'Autorizar' }))
+  expect(await screen.findByText('Pantalla de pedidos')).toBeInTheDocument()
+  expect(repo.adminRegisterDevice).toHaveBeenCalledWith('Cocina grill', 'kitchen_grill')
+  expect(loadDevice()?.kind).toBe('kitchen_grill')
+})
+
 it('revokes only after confirmation, then reloads', async () => {
   const user = await renderSection()
   await user.click(within(row('Tablet barra')).getByRole('button', { name: 'Revocar' }))
@@ -84,8 +115,8 @@ it('authorizes this device: stores it, clears shift, signs out and goes to /pedi
   await user.click(within(dialog).getByRole('button', { name: 'Autorizar' }))
 
   expect(await screen.findByText('Pantalla de pedidos')).toBeInTheDocument()
-  expect(repo.adminRegisterDevice).toHaveBeenCalledWith('Tablet nueva')
-  expect(loadDevice()).toEqual({ deviceId: 'new-1', name: 'Tablet nueva', secret: SECRET })
+  expect(repo.adminRegisterDevice).toHaveBeenCalledWith('Tablet nueva', 'waiter')
+  expect(loadDevice()).toEqual({ deviceId: 'new-1', name: 'Tablet nueva', kind: 'waiter', secret: SECRET })
   expect(localStorage.getItem(SHIFT_STORAGE_KEY)).toBeNull()
   expect(auth.signOut).toHaveBeenCalledTimes(1)
   expect(document.body.innerHTML).not.toContain(SECRET)
@@ -168,7 +199,7 @@ it('shows the registration error and does not store or sign out', async () => {
 })
 
 it('notes an already authorized browser and removes it locally without revoking', async () => {
-  const device: AuthorizedDevice = { deviceId: 'd1', name: 'Tablet barra', secret: SECRET }
+  const device: AuthorizedDevice = { deviceId: 'd1', name: 'Tablet barra', kind: 'waiter', secret: SECRET }
   saveDevice(device)
   localStorage.setItem(SHIFT_STORAGE_KEY, '{"stale":true}')
   const user = await renderSection()

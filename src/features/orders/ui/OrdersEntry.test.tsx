@@ -73,7 +73,7 @@ beforeEach(() => {
 
 describe('OrdersEntry', () => {
   it('opens the device app without any session when a device is stored', async () => {
-    saveDevice({ deviceId: 'd1', name: 'Tablet barra', secret: 'a1'.repeat(32) })
+    saveDevice({ deviceId: 'd1', name: 'Tablet barra', kind: 'waiter', secret: 'a1'.repeat(32) })
     mockAuth(null)
     renderAt('/pedidos')
     expect(await screen.findByText('Pedidos · Tablet barra')).toBeVisible()
@@ -106,7 +106,7 @@ describe('OrdersEntry', () => {
   })
 
   it('sends an authorized device without a session from the cash screens to orders', async () => {
-    saveDevice({ deviceId: 'd1', name: 'Tablet barra', secret: 'a1'.repeat(32) })
+    saveDevice({ deviceId: 'd1', name: 'Tablet barra', kind: 'waiter', secret: 'a1'.repeat(32) })
     mockAuth(null)
     renderAt('/')
     expect(await screen.findByRole('heading', { name: 'Pedidos · Tablet barra' })).toBeVisible()

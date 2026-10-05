@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { DEVICE_KINDS, type DeviceKind } from '../../kitchen/domain/kitchen'
 import type { AuthorizedDevice } from './device'
 
 export const DEVICE_STORAGE_KEY = 'pizzeria.orderDevice'
@@ -6,6 +7,8 @@ export const DEVICE_STORAGE_KEY = 'pizzeria.orderDevice'
 const deviceSchema = z.object({
   deviceId: z.string().min(1),
   name: z.string().min(1),
+  // Devices stored before kinds existed are waiter devices.
+  kind: z.enum(DEVICE_KINDS as [DeviceKind, ...DeviceKind[]]).catch('waiter'),
   secret: z.string().regex(/^[0-9a-f]{64}$/i),
 })
 
