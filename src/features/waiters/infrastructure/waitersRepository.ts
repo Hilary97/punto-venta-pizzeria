@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { getSupabaseClient } from '../../../shared/supabase/client'
 import { parseRpcResult } from '../../../shared/supabase/rpc'
+import type { DeviceKind } from '../../kitchen/domain/kitchen'
 import type { AdminDevice, AuthorizedDevice } from '../domain/device'
 import type { AdminWaiter, Waiter, WaiterShift } from '../domain/waiter'
 
@@ -34,12 +35,15 @@ const endShiftResultSchema = z.object({ ended: z.boolean() })
 
 const waiterIdResultSchema = z.object({ waiter_id: z.string() })
 
-const deviceInfoSchema = z.object({ device_id: z.string(), name: z.string() })
+const deviceKindSchema = z.enum(['waiter', 'kitchen_pizza', 'kitchen_grill']).default('waiter')
+
+const deviceInfoSchema = z.object({ device_id: z.string(), name: z.string(), kind: deviceKindSchema })
 
 const adminDeviceListSchema = z.array(
   z.object({
     id: z.string(),
     name: z.string(),
+    kind: deviceKindSchema,
     created_at: z.string(),
     last_seen_at: z.string().nullable(),
     revoked: z.boolean(),
@@ -49,6 +53,7 @@ const adminDeviceListSchema = z.array(
 const registerDeviceResultSchema = z.object({
   device_id: z.string(),
   name: z.string(),
+  kind: deviceKindSchema,
   device_secret: z.string(),
 })
 
@@ -59,10 +64,10 @@ const deletedWaiterResultSchema = z.object({ deleted_waiter_id: z.string() })
 const deletedDeviceResultSchema = z.object({ deleted_device_id: z.string() })
 
 /** Identity of the device behind a secret; throws when the secret is unknown or revoked. */
-export async function deviceInfo(secret: string): Promise<{ deviceId: string; name: string }> {
+export async function deviceInfo(secret: string): Promise<{ deviceId: string; name: string; kind: DeviceKind }> {
   const { data, error } = await getSupabaseClient().rpc('device_info', { p_device_secret: secret })
   const result = parseRpcResult(deviceInfoSchema, data, error, 'No se pudo verificar el dispositivo.')
-  return { deviceId: result.device_id, name: result.name }
+  return { deviceId: result.device_id, name: result.name, kind: result.kind }
 }
 
 /** Active waiters for the name picker. */
@@ -126,23 +131,30 @@ export async function deviceEndShift(secret: string, token: string): Promise<voi
 }
 
 /** Authorizes a new device. The returned secret is shown by the server only this once. */
-export async function adminRegisterDevice(name: string): Promise<AuthorizedDevice> {
-  const { data, error } = await getSupabaseClient().rpc('admin_register_device', { p_name: name })
+export async function adminRegisterDevice(
+  name: string,
+  kind: DeviceKind = 'waiter',
+): Promise<AuthorizedDevice & { kind: DeviceKind }> {
+  const { data, error } = await getSupabaseClient().rpc('admin_register_device', {
+    p_name: name,
+    p_kind: kind,
+  })
   const result = parseRpcResult(
     registerDeviceResultSchema,
     data,
     error,
     'No se pudo autorizar el dispositivo.',
   )
-  return { deviceId: result.device_id, name: result.name, secret: result.device_secret }
+  return { deviceId: result.device_id, name: result.name, kind: result.kind, secret: result.device_secret }
 }
 
-export async function adminListDevices(): Promise<AdminDevice[]> {
+export async function adminListDevices(): Promise<(AdminDevice & { kind: DeviceKind })[]> {
   const { data, error } = await getSupabaseClient().rpc('admin_list_devices')
   const rows = parseRpcResult(adminDeviceListSchema, data, error, 'No se pudieron cargar los dispositivos.')
   return rows.map((row) => ({
     id: row.id,
     name: row.name,
+    kind: row.kind,
     createdAt: row.created_at,
     lastSeenAt: row.last_seen_at,
     revoked: row.revoked,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { PizzaConfig } from '../../pizza/domain/pizza'
-import { toRpcItems } from './ordersRepository'
+import { mapOrderRow, orderRowSchema, toRpcItems } from './ordersRepository'
 
 const pizza: PizzaConfig = {
   size: 'grande',
@@ -38,5 +38,43 @@ describe('toRpcItems', () => {
         notes: 'bien cocida',
       },
     ])
+  })
+})
+
+describe('mapOrderRow', () => {
+  const base = {
+    id: 'o',
+    table_number: 1,
+    customer_name: null,
+    status: 'open' as const,
+    created_at: '2026-10-10T10:00:00Z',
+    waiter_name: null,
+    notes: null,
+  }
+  const line = {
+    id: 'l',
+    product_id: null,
+    product_name: 'X',
+    quantity: 1,
+    item_type: 'product' as const,
+    pizza: null,
+    notes: null,
+  }
+
+  it('maps station, readyAt and deliveredAt when present', () => {
+    const row = orderRowSchema.parse({
+      ...base,
+      order_items: [{ ...line, station: 'grill', ready_at: '2026-10-10T10:05:00Z', delivered_at: null }],
+    })
+    expect(mapOrderRow(row).items[0]).toMatchObject({
+      station: 'grill',
+      readyAt: '2026-10-10T10:05:00Z',
+      deliveredAt: null,
+    })
+  })
+
+  it('defaults them to null when the rpc omits them', () => {
+    const row = orderRowSchema.parse({ ...base, order_items: [line] })
+    expect(mapOrderRow(row).items[0]).toMatchObject({ station: null, readyAt: null, deliveredAt: null })
   })
 })

@@ -23,11 +23,14 @@ export const orderRowSchema = z.object({
       pizza: pizzaConfigSchema.nullable(),
       notes: z.string().nullable(),
       variant: z.string().nullable().default(null),
+      station: z.enum(['pizza', 'grill']).nullable().default(null),
+      ready_at: z.string().nullable().default(null),
+      delivered_at: z.string().nullable().default(null),
     }),
   ),
 })
 
-const ORDER_SELECT = 'id, table_number, customer_name, status, created_at, waiter_name, notes, order_items(id, product_id, product_name, quantity, item_type, pizza, notes, variant)'
+const ORDER_SELECT = 'id, table_number, customer_name, status, created_at, waiter_name, notes, order_items(id, product_id, product_name, quantity, item_type, pizza, notes, variant, station, ready_at, delivered_at)'
 
 export function mapOrderRow(row: z.infer<typeof orderRowSchema>): Order {
   return {
@@ -47,6 +50,9 @@ export function mapOrderRow(row: z.infer<typeof orderRowSchema>): Order {
       pizza: item.pizza,
       notes: item.notes,
       variant: item.variant,
+      station: item.station,
+      readyAt: item.ready_at,
+      deliveredAt: item.delivered_at,
     })),
   }
 }

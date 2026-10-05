@@ -179,6 +179,9 @@ export interface Database {
           pizza: unknown
           notes: string | null
           variant: string | null
+          station: 'pizza' | 'grill' | null
+          ready_at: string | null
+          delivered_at: string | null
         }
         Insert: never
         Update: never
@@ -329,7 +332,7 @@ export interface Database {
       }
       admin_reset_waiter_pin: { Args: { p_waiter_id: string; p_pin: string }; Returns: unknown }
       admin_unlock_waiter: { Args: { p_waiter_id: string }; Returns: unknown }
-      admin_register_device: { Args: { p_name: string }; Returns: unknown }
+      admin_register_device: { Args: { p_name: string; p_kind?: string }; Returns: unknown }
       admin_list_devices: { Args: Record<string, never>; Returns: unknown }
       admin_revoke_device: { Args: { p_device_id: string }; Returns: unknown }
       admin_delete_waiter: { Args: { p_waiter_id: string }; Returns: unknown }
@@ -383,6 +386,23 @@ export interface Database {
         Args: { p_device_secret: string; p_shift_token: string; p_order_id: string }
         Returns: unknown
       }
+      device_list_kitchen_orders: { Args: { p_device_secret: string }; Returns: unknown }
+      device_mark_station_ready: {
+        Args: { p_device_secret: string; p_order_id: string }
+        Returns: unknown
+      }
+      device_list_ready_orders: {
+        Args: { p_device_secret: string; p_shift_token: string }
+        Returns: unknown
+      }
+      device_mark_delivered: {
+        Args: { p_device_secret: string; p_shift_token: string; p_order_id: string }
+        Returns: unknown
+      }
+      list_kitchen_orders: { Args: { p_station: string }; Returns: unknown }
+      mark_station_ready: { Args: { p_order_id: string; p_station: string }; Returns: unknown }
+      list_ready_orders: { Args: Record<string, never>; Returns: unknown }
+      mark_delivered: { Args: { p_order_id: string }; Returns: unknown }
       add_order_items: {
         Args: { p_order_id: string; p_items: unknown }
         Returns: unknown
