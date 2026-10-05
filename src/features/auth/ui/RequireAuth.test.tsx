@@ -32,6 +32,7 @@ describe('RequireAuth', () => {
           <Route path="/" element={<RequireAuth>Protected content</RequireAuth>} />
           <Route path="/login" element={<p>Login page</p>} />
           <Route path="/pedidos" element={<p>Orders page</p>} />
+          <Route path="/cocina" element={<p>Kitchen page</p>} />
         </Routes>
       </MemoryRouter>,
     )
@@ -47,6 +48,12 @@ describe('RequireAuth', () => {
     renderSignedOutAtCash()
     expect(screen.getByText('Orders page')).toBeInTheDocument()
     expect(screen.queryByText('Protected content')).not.toBeInTheDocument()
+  })
+
+  it('sends a signed-out authorized kitchen device to the kitchen', () => {
+    saveDevice({ deviceId: 'device-2', name: 'Cocina', kind: 'kitchen_grill', secret: 'a'.repeat(64) })
+    renderSignedOutAtCash()
+    expect(screen.getByText('Kitchen page')).toBeInTheDocument()
   })
 
   it('shows logout failures and permits retry on a protected route', async () => {

@@ -1,7 +1,9 @@
 import { useState } from 'react'
+import { Navigate } from 'react-router'
 import { AppLayout } from '../../../app/AppLayout'
 import { useAuth } from '../../auth/ui/AuthContext'
 import { RequireAuth } from '../../auth/ui/RequireAuth'
+import { deviceKindStation } from '../../kitchen/domain/kitchen'
 import { loadDevice } from '../../waiters/domain/deviceStorage'
 import { DeviceOrdersApp } from '../../waiters/ui/DeviceOrdersApp'
 import { OrdersPage } from './OrdersPage'
@@ -10,6 +12,7 @@ import { OrdersPage } from './OrdersPage'
 export function OrdersEntry() {
   const [device] = useState(() => loadDevice())
 
+  if (device && deviceKindStation(device.kind) !== null) return <Navigate to="/cocina" replace />
   if (device) return <DeviceOrdersApp device={device} />
 
   return (

@@ -11,6 +11,7 @@ import { CashSessionDetailPage } from './features/cash-register/ui/CashSessionDe
 import { OpenRegisterPage } from './features/cash-register/ui/OpenRegisterPage'
 import { RequireOpenSession } from './features/cash-register/ui/RequireOpenSession'
 import { AdminProductsPage } from './features/products/ui/AdminProductsPage'
+import { KitchenEntry } from './features/kitchen/ui/KitchenEntry'
 import { OrdersEntry } from './features/orders/ui/OrdersEntry'
 import { AdminWaitersPage } from './features/waiters/ui/AdminWaitersPage'
 import { ReturnsPage } from './features/returns/ui/ReturnsPage'
@@ -25,6 +26,7 @@ function App() {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/pedidos" element={<OrdersEntry />} />
+          <Route path="/cocina" element={<KitchenEntry />} />
           <Route
             element={
               <RequireAuth>

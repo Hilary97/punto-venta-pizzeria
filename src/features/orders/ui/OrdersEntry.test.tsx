@@ -48,6 +48,7 @@ function renderAt(path: string) {
       <Routes>
         <Route path="/login" element={<p>Login page</p>} />
         <Route path="/pedidos" element={<OrdersEntry />} />
+        <Route path="/cocina" element={<p>Kitchen page</p>} />
         <Route
           path="/"
           element={
@@ -112,5 +113,19 @@ describe('OrdersEntry', () => {
     expect(await screen.findByRole('heading', { name: 'Pedidos · Tablet barra' })).toBeVisible()
     expect(screen.queryByText('Login page')).not.toBeInTheDocument()
     expect(screen.queryByText('Cash screen')).not.toBeInTheDocument()
+  })
+
+  it('redirects a stored kitchen device from orders to the kitchen', async () => {
+    saveDevice({ deviceId: 'd2', name: 'Cocina', kind: 'kitchen_grill', secret: 'b2'.repeat(32) })
+    mockAuth(null)
+    renderAt('/pedidos')
+    expect(await screen.findByText('Kitchen page')).toBeVisible()
+  })
+
+  it('sends a signed-out kitchen device from the cash screens to the kitchen', async () => {
+    saveDevice({ deviceId: 'd2', name: 'Cocina', kind: 'kitchen_pizza', secret: 'b2'.repeat(32) })
+    mockAuth(null)
+    renderAt('/')
+    expect(await screen.findByText('Kitchen page')).toBeVisible()
   })
 })
