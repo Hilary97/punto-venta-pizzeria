@@ -2,26 +2,25 @@ import { useCallback } from 'react'
 import { Button } from '../../../shared/ui/Button'
 import { ErrorBanner } from '../../../shared/ui/ErrorBanner'
 import { Spinner } from '../../../shared/ui/Spinner'
-import type { KitchenSource } from '../domain/kitchen'
+import type { DeliverySource } from '../domain/kitchen'
 import { OrderTicketCard } from './OrderTicketCard'
 import { POLL_INTERVAL_MS, useOrderBoard } from './useOrderBoard'
 
-interface KitchenBoardProps {
-  source: KitchenSource
-  stationLabel: string
+interface DeliveryBoardProps {
+  source: DeliverySource
   pollIntervalMs?: number
 }
 
-/** Station board: polls the pending orders and lets the kitchen mark each one ready. */
-export function KitchenBoard({ source, stationLabel, pollIntervalMs = POLL_INTERVAL_MS }: KitchenBoardProps) {
-  const list = useCallback(() => source.listOrders(), [source])
-  const act = useCallback((orderId: string) => source.markReady(orderId), [source])
+/** Delivery board: polls orders ready to hand over and lets staff mark each one delivered. */
+export function DeliveryBoard({ source, pollIntervalMs = POLL_INTERVAL_MS }: DeliveryBoardProps) {
+  const list = useCallback(() => source.listReadyOrders(), [source])
+  const act = useCallback((orderId: string) => source.markDelivered(orderId), [source])
   const { orders, error, pendingIds, reload, runAction } = useOrderBoard({ list, act, pollIntervalMs })
 
   return (
-    <section aria-label={`Cocina ${stationLabel}`} className="flex flex-col gap-4 p-4">
+    <section aria-label="Entrega de pedidos" className="flex flex-col gap-4 p-4">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-xl font-bold text-slate-900">{stationLabel}</h2>
+        <h2 className="text-xl font-bold text-slate-900">Entrega</h2>
         <Button variant="secondary" onClick={() => void reload()}>
           Actualizar
         </Button>
@@ -30,16 +29,16 @@ export function KitchenBoard({ source, stationLabel, pollIntervalMs = POLL_INTER
       {orders === null ? (
         !error && <Spinner label="Cargando pedidos…" />
       ) : orders.length === 0 ? (
-        <p className="p-8 text-center text-lg text-slate-500">Sin pedidos en cocina</p>
+        <p className="p-8 text-center text-lg text-slate-500">Sin pedidos listos para entregar</p>
       ) : (
         <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {orders.map((order) => (
             <OrderTicketCard
               key={order.id}
               order={order}
-              actionLabel="Marcar pedido listo"
-              actionContent="✓"
-              actionClassName="bg-emerald-700 text-3xl hover:bg-emerald-800 active:bg-emerald-900"
+              actionLabel="Marcar pedido entregado"
+              actionContent="Entregado"
+              actionClassName="bg-red-700 text-xl hover:bg-red-800 active:bg-red-900"
               pending={pendingIds.has(order.id)}
               onAction={() => void runAction(order.id)}
             />

@@ -15,7 +15,7 @@ it('shows only Pedidos to waiters', () => {
   auth.role = 'waiter'
   render(<MemoryRouter><Nav /></MemoryRouter>)
   expect(screen.getByRole('link', { name: 'Pedidos' })).toHaveAttribute('href', '/pedidos')
-  for (const name of ['Venta', 'Cocina', 'Historial de Ventas', 'Corte de caja', 'Productos', 'Historial', 'Meseros'])
+  for (const name of ['Venta', 'Cocina', 'Entrega', 'Historial de Ventas', 'Corte de caja', 'Productos', 'Historial', 'Meseros'])
     expect(screen.queryByRole('link', { name })).not.toBeInTheDocument()
   auth.role = 'admin'
 })
@@ -23,7 +23,7 @@ it('shows only Pedidos to waiters', () => {
 it('shows cash links plus Pedidos to cashiers, without admin links', () => {
   auth.role = 'cashier'
   render(<MemoryRouter><Nav /></MemoryRouter>)
-  for (const name of ['Pedidos', 'Cocina', 'Venta', 'Historial de Ventas', 'Corte de caja'])
+  for (const name of ['Pedidos', 'Cocina', 'Entrega', 'Venta', 'Historial de Ventas', 'Corte de caja'])
     expect(screen.getByRole('link', { name })).toBeInTheDocument()
   expect(screen.queryByRole('link', { name: 'Productos' })).not.toBeInTheDocument()
   expect(screen.queryByRole('link', { name: 'Meseros' })).not.toBeInTheDocument()
@@ -32,7 +32,7 @@ it('shows cash links plus Pedidos to cashiers, without admin links', () => {
 
 it('shows every link to admins', () => {
   render(<MemoryRouter><Nav /></MemoryRouter>)
-  for (const name of ['Pedidos', 'Cocina', 'Venta', 'Historial de Ventas', 'Corte de caja', 'Productos', 'Historial', 'Meseros'])
+  for (const name of ['Pedidos', 'Cocina', 'Entrega', 'Venta', 'Historial de Ventas', 'Corte de caja', 'Productos', 'Historial', 'Meseros'])
     expect(screen.getByRole('link', { name })).toBeInTheDocument()
 })
 

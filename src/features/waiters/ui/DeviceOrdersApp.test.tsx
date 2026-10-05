@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { OrdersSource } from '../../orders/domain/ordersSource'
+import { createDeviceDeliverySource } from '../../kitchen/infrastructure/kitchenRepository'
 import { createDeviceOrdersSource } from '../../orders/infrastructure/ordersSources'
 import { DEVICE_STORAGE_KEY, saveDevice } from '../domain/deviceStorage'
 import type { AuthorizedDevice } from '../domain/device'
@@ -23,6 +24,8 @@ vi.mock('../infrastructure/waitersRepository', () => ({
   deviceEndShift: vi.fn(),
 }))
 vi.mock('../../orders/infrastructure/ordersSources', () => ({ createDeviceOrdersSource: vi.fn() }))
+
+vi.mock('../../kitchen/infrastructure/kitchenRepository', () => ({ createDeviceDeliverySource: vi.fn() }))
 
 const device: AuthorizedDevice = { deviceId: 'd1', name: 'Tablet barra', kind: 'waiter', secret: 'a1'.repeat(32) }
 
@@ -65,6 +68,12 @@ beforeEach(() => {
     setOrderNotes: vi.fn().mockResolvedValue('o'),
   }
   vi.mocked(createDeviceOrdersSource).mockReturnValue(source)
+  vi.mocked(createDeviceDeliverySource).mockReturnValue({
+    listReadyOrders: vi.fn().mockResolvedValue([
+      { id: 'r1', tableNumber: 7, customerName: null, waiterName: 'Carlos', notes: null, createdAt: '2026-01-01T15:05:00Z', lines: [] },
+    ]),
+    markDelivered: vi.fn().mockResolvedValue('r1'),
+  })
   vi.mocked(deviceListWaiters).mockResolvedValue([{ id: 'w1', fullName: 'Carlos' }])
   vi.mocked(deviceStartShift).mockResolvedValue(shift)
   vi.mocked(deviceGetShift).mockResolvedValue(shift)
@@ -141,5 +150,32 @@ describe('DeviceOrdersApp', () => {
     await user.click(await screen.findByRole('button', { name: /cambiar mesero/i }))
     expect(deviceEndShift).toHaveBeenCalledWith(device.secret, 'tok-1')
     expect(await screen.findByText('¿Quién está tomando pedidos?')).toBeVisible()
+  })
+
+  it('switches between Pedidos and Entrega tabs once a shift is active', async () => {
+    const user = userEvent.setup()
+    renderApp()
+    expect(screen.queryByRole('tab', { name: /entrega/i })).not.toBeInTheDocument()
+    await loginWithPin(user)
+    expect(await screen.findByRole('tab', { name: 'Pedidos' })).toHaveAttribute('aria-selected', 'true')
+    await user.click(screen.getByRole('tab', { name: /entrega/i }))
+    expect(await screen.findByText('M-7')).toBeVisible()
+    expect(createDeviceDeliverySource).toHaveBeenCalledWith(device.secret, expect.any(Function))
+    const getToken = vi.mocked(createDeviceDeliverySource).mock.calls[0]![1]
+    expect(getToken()).toBe('tok-1')
+    await user.click(screen.getByRole('tab', { name: 'Pedidos' }))
+    expect(await screen.findByRole('button', { name: 'M-4' })).toBeVisible()
+  })
+
+  it('detects a revoked device from delivery calls', async () => {
+    vi.mocked(createDeviceDeliverySource).mockReturnValue({
+      listReadyOrders: vi.fn().mockRejectedValue(new Error('Este dispositivo no está autorizado.')),
+      markDelivered: vi.fn(),
+    })
+    const user = userEvent.setup()
+    renderApp()
+    await loginWithPin(user)
+    await user.click(await screen.findByRole('tab', { name: /entrega/i }))
+    expect(await screen.findByText(/ya no está autorizado para pedidos/i)).toBeVisible()
   })
 })

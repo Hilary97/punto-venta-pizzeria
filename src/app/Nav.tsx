@@ -46,6 +46,9 @@ export function Nav() {
             <NavLink to="/cocina" className={NAV_LINK_CLASS}>
               Cocina
             </NavLink>
+            <NavLink to="/entrega" className={NAV_LINK_CLASS}>
+              Entrega
+            </NavLink>
             <NavLink to="/historial-ventas" className={NAV_LINK_CLASS}>
               Historial de Ventas
             </NavLink>

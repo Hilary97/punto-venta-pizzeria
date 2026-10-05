@@ -11,6 +11,7 @@ import { CashSessionDetailPage } from './features/cash-register/ui/CashSessionDe
 import { OpenRegisterPage } from './features/cash-register/ui/OpenRegisterPage'
 import { RequireOpenSession } from './features/cash-register/ui/RequireOpenSession'
 import { AdminProductsPage } from './features/products/ui/AdminProductsPage'
+import { DeliveryPage } from './features/kitchen/ui/DeliveryPage'
 import { KitchenEntry } from './features/kitchen/ui/KitchenEntry'
 import { OrdersEntry } from './features/orders/ui/OrdersEntry'
 import { AdminWaitersPage } from './features/waiters/ui/AdminWaitersPage'
@@ -39,6 +40,14 @@ function App() {
               element={
                 <RequireRole role={CASH_ROLES}>
                   <HomeRoute />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="entrega"
+              element={
+                <RequireRole role={CASH_ROLES}>
+                  <DeliveryPage />
                 </RequireRole>
               }
             />

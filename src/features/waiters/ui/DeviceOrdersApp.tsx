@@ -1,13 +1,24 @@
 import { useCallback, useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import { toUserMessage } from '../../../shared/errors'
+import type { DeliverySource } from '../../kitchen/domain/kitchen'
+import { createDeviceDeliverySource } from '../../kitchen/infrastructure/kitchenRepository'
+import { DeliveryBoard } from '../../kitchen/ui/DeliveryBoard'
 import type { OrdersSource } from '../../orders/domain/ordersSource'
 import { createDeviceOrdersSource } from '../../orders/infrastructure/ordersSources'
 import { OrdersWorkspace } from '../../orders/ui/OrdersWorkspace'
 import type { AuthorizedDevice } from '../domain/device'
 import { clearDevice } from '../domain/deviceStorage'
 import { clearShift, loadShift } from '../domain/shiftStorage'
+import { cn } from '../../../shared/ui/cn'
 import { createDeviceShiftApi, WaiterShiftGate, type ShiftApi } from './WaiterShiftGate'
+
+type DeviceView = 'orders' | 'delivery'
+
+const TABS: { value: DeviceView; label: string }[] = [
+  { value: 'orders', label: 'Pedidos' },
+  { value: 'delivery', label: 'Entrega' },
+]
 
 const REVOKED_MARKER = 'no está autorizado'
 
@@ -31,6 +42,7 @@ function revokedGuard(onRevoked: () => void) {
 /** Full-screen orders app for an authorized device: waiter gate and workspace, no app navigation. */
 export function DeviceOrdersApp({ device }: { device: AuthorizedDevice }) {
   const [revoked, setRevoked] = useState(false)
+  const [view, setView] = useState<DeviceView>('orders')
 
   const handleRevoked = useCallback(() => {
     clearDevice()
@@ -62,6 +74,15 @@ export function DeviceOrdersApp({ device }: { device: AuthorizedDevice }) {
     }
   }, [device.secret, handleRevoked])
 
+  const deliverySource = useMemo<DeliverySource>(() => {
+    const base = createDeviceDeliverySource(device.secret, () => loadShift()?.token ?? null)
+    const guard = revokedGuard(handleRevoked)
+    return {
+      listReadyOrders: guard(base.listReadyOrders),
+      markDelivered: guard(base.markDelivered),
+    }
+  }, [device.secret, handleRevoked])
+
   if (revoked) {
     return (
       <div className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-slate-50 p-6 text-center">
@@ -86,13 +107,36 @@ export function DeviceOrdersApp({ device }: { device: AuthorizedDevice }) {
       <main className="flex-1">
         <WaiterShiftGate api={api}>
           {(shift, onChangeWaiter, onShiftExpired) => (
-            <OrdersWorkspace
-              source={source}
-              shift={shift}
-              canCharge={false}
-              onChangeWaiter={onChangeWaiter}
-              onShiftExpired={onShiftExpired}
-            />
+            <div className="flex flex-col">
+              <div role="tablist" aria-label="Sección" className="flex gap-2 px-4 pt-4">
+                {TABS.map((tab) => (
+                  <button
+                    key={tab.value}
+                    type="button"
+                    role="tab"
+                    aria-selected={view === tab.value}
+                    onClick={() => setView(tab.value)}
+                    className={cn(
+                      'rounded-xl px-5 py-3 text-base font-semibold transition-colors',
+                      view === tab.value ? 'bg-red-700 text-white' : 'bg-slate-200 text-slate-800 hover:bg-slate-300',
+                    )}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+              {view === 'orders' ? (
+                <OrdersWorkspace
+                  source={source}
+                  shift={shift}
+                  canCharge={false}
+                  onChangeWaiter={onChangeWaiter}
+                  onShiftExpired={onShiftExpired}
+                />
+              ) : (
+                <DeliveryBoard source={deliverySource} />
+              )}
+            </div>
           )}
         </WaiterShiftGate>
       </main>
