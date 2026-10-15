@@ -13,11 +13,13 @@ alter table public.orders add column if not exists token smallint;
 alter table public.orders drop constraint if exists orders_token_range;
 alter table public.orders add constraint orders_token_range check (token between 1 and 50);
 
--- Existing open orders take tokens in creation order.
+-- Existing open orders take tokens in creation order. Only on the first run:
+-- once any order holds a token, running the script again leaves tokens alone.
 with ranked as (
   select id, row_number() over (order by created_at, id) as n
   from public.orders
   where status = 'open' and token is null
+    and not exists (select 1 from public.orders held where held.token is not null)
 )
 update public.orders o
 set token = r.n

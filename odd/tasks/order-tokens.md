@@ -22,7 +22,7 @@ Each open order gets a physical token number (1-50) shown in Cocina, Entrega and
 
 - T1 (S2, S3, S4, S5) — migration + PGlite tests: column, unique index, trigger, backfill, token in list RPCs. Route: inline. Commit: see "feat(db): assign numbered tokens to open orders" (done; PGlite RED->GREEN, 105 db tests).
 - T2 (S1, S4) — UI: token in domain/repositories, `Ficha N` / `Sin ficha` on OrderTicketCard and OpenOrdersList. Route: inline. Commit: see "feat(orders): show the order token on kitchen and order cards" (done; RED->GREEN, 493 tests, tsc clean, oxlint 10 pre-existing warnings).
-- T3 — verify: tests, tsc, lint, build. Route: verify (high risk: migration, concurrency). Pending.
+- T3 — verify: tests, tsc, lint, build. Route: verify (high risk: migration, concurrency). Done: PASS S1-S5; 493 tests, tsc, oxlint (no new warnings), build OK. Fixed finding: re-running the script with tokenless open orders broke the unique index; backfill now runs only when no order holds a token (RED->GREEN). Residual: concurrency reasoned, not run concurrently (PGlite); apply the migration before deploying the app (ORDER_SELECT reads token); not run in Supabase.
 
 ## Log
 

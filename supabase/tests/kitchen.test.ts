@@ -494,6 +494,18 @@ describe('order tokens', () => {
       const rows = await old.query<{ id: string; token: number | null }>(`select id, token from public.orders`)
       const tokens = Object.fromEntries(rows.rows.map((r) => [r.id, r.token]))
       expect(tokens).toEqual({ [early]: 1, [late]: 2, [gone]: null })
+
+      // Running the script again (e.g. pasted twice) keeps the tokens already held.
+      const extra = await insert('2026-01-01T09:00:00Z')
+      await old.query(`update public.orders set token = null where id = $1`, [extra])
+      await applyMigration(old, '20261018120000_order_tokens.sql')
+      const again = await old.query<{ id: string; token: number | null }>(`select id, token from public.orders`)
+      expect(Object.fromEntries(again.rows.map((r) => [r.id, r.token]))).toEqual({
+        [early]: 1,
+        [late]: 2,
+        [gone]: null,
+        [extra]: null,
+      })
     } finally {
       await old.close()
     }
