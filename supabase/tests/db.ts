@@ -36,20 +36,25 @@ grant execute on function auth.uid(), auth.role() to anon, authenticated;
 
 export type TestDb = PGlite
 
-export async function createTestDb(): Promise<TestDb> {
+/** Runs one migration file against the database. */
+export async function applyMigration(db: TestDb, file: string) {
+  try {
+    await db.exec(readFileSync(join(MIGRATIONS_DIR, file), 'utf8'))
+  } catch (err) {
+    throw new Error(`Migration ${file} failed: ${(err as Error).message}`, { cause: err })
+  }
+}
+
+/** Creates a database with every migration, or only the ones sorting before `options.before`. */
+export async function createTestDb(options: { before?: string } = {}): Promise<TestDb> {
   const db = new PGlite({ extensions: { pgcrypto } })
   await db.exec(BOOTSTRAP_SQL)
 
   const files = readdirSync(MIGRATIONS_DIR)
     .filter((f) => f.endsWith('.sql'))
+    .filter((f) => options.before === undefined || f < options.before)
     .sort()
-  for (const file of files) {
-    try {
-      await db.exec(readFileSync(join(MIGRATIONS_DIR, file), 'utf8'))
-    } catch (err) {
-      throw new Error(`Migration ${file} failed: ${(err as Error).message}`, { cause: err })
-    }
-  }
+  for (const file of files) await applyMigration(db, file)
   return db
 }
 

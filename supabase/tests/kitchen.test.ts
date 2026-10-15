@@ -2,7 +2,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { asAnon, asSuperuser, asUser, createProfile, createTestDb, type TestDb } from './db.ts'
+import { applyMigration, asAnon, asSuperuser, asUser, createProfile, createTestDb, type TestDb } from './db.ts'
 
 type Json = Record<string, any>
 
@@ -353,12 +353,93 @@ describe('kitchen and delivery flow', () => {
     await expect(markReadyLines(grillSecret, c, [crypto.randomUUID()])).rejects.toThrow('El pedido ya no está abierto.')
   })
 
+  it('lists a late addition as a separate ticket after orders that arrived before it', async () => {
+    const a = await createOrder([{ product_id: burgerId, quantity: 1 }], 1)
+    const b = await createOrder([{ product_id: burgerId, quantity: 1 }], 2)
+    await addItems(a, [{ product_id: botanaId, quantity: 2 }])
+    await asAnon(db)
+
+    const g = await kitchen(grillSecret)
+    expect(g.map((t: Json) => t.id)).toEqual([a, b, a])
+    expect(g.map((t: Json) => t.lines.map((l: Json) => l.product_name))).toEqual([
+      ['Hamburguesa Sencilla'],
+      ['Hamburguesa Sencilla'],
+      ['Alitas'],
+    ])
+    expect(g[2].lines[0].quantity).toBe(2)
+    const times = g.map((t: Json) => new Date(t.created_at).getTime())
+    expect(times[0]).toBeLessThan(times[1])
+    expect(times[1]).toBeLessThan(times[2])
+
+    // Marking the late ticket leaves the first ticket of the same order pending.
+    await markReadyLines(grillSecret, a, g[2].lines.map((l: Json) => l.id))
+    const after = await kitchen(grillSecret)
+    expect(after.map((t: Json) => t.id)).toEqual([a, b])
+    expect(after[0].lines[0].product_name).toBe('Hamburguesa Sencilla')
+  })
+
+  it('orders tickets by when the lines arrived, not when the order was opened', async () => {
+    const a = await createOrder([{ product_id: drinkId, quantity: 1 }], 1)
+    const b = await createOrder([{ product_id: burgerId, quantity: 1 }], 2)
+    await addItems(a, [{ product_id: burgerId, quantity: 1 }])
+    await asAnon(db)
+
+    expect((await kitchen(grillSecret)).map((t: Json) => t.id)).toEqual([b, a])
+  })
+
+  it('keeps one ticket per station for lines sent together', async () => {
+    const a = await createOrder([{ product_id: burgerId, quantity: 1 }, { product_id: botanaId, quantity: 1 }, pizzaLine()], 1)
+    await asAnon(db)
+
+    const g = await kitchen(grillSecret)
+    expect(g).toHaveLength(1)
+    expect(g[0].id).toBe(a)
+    expect(g[0].lines).toHaveLength(2)
+    const p = await kitchen(pizzaSecret)
+    expect(p).toHaveLength(1)
+    expect(p[0].created_at).toBe(g[0].created_at)
+  })
+
   it('exposes station fields in device_list_open_orders', async () => {
     await createOrder([{ product_id: burgerId, quantity: 1 }])
     await asAnon(db)
     const open = await rpc(db, 'public.device_list_open_orders($1)', [waiterSecret])
     expect(open[0].order_items[0]).toMatchObject({ station: 'grill', ready_at: null, delivered_at: null })
   })
+})
+
+describe('line arrival time migration', () => {
+  it('backfills existing lines with their order time and stamps new lines', async () => {
+    const old = await createTestDb({ before: '20261017120000' })
+    try {
+      await asSuperuser(old)
+      const owner = await createProfile(old, { role: 'admin', fullName: 'Admin' })
+      await asSuperuser(old)
+      const orderId = (
+        await old.query<{ id: string }>(
+          `insert into public.orders (table_number, customer_name, created_by, created_at)
+           values (1, 'Ana', $1, '2026-01-01T12:00:00Z') returning id`,
+          [owner],
+        )
+      ).rows[0].id
+      await old.query(`insert into public.order_items (order_id, product_name, quantity) values ($1, 'Legacy', 1)`, [orderId])
+
+      await applyMigration(old, '20261017120000_kitchen_ticket_order.sql')
+
+      const legacy = await old.query<{ created_at: Date }>(`select created_at from public.order_items`)
+      expect(legacy.rows[0].created_at.toISOString()).toBe('2026-01-01T12:00:00.000Z')
+      await old.query(`insert into public.order_items (order_id, product_name, quantity) values ($1, 'New', 1)`, [orderId])
+      const fresh = await old.query<{ created_at: Date | null }>(
+        `select created_at from public.order_items where product_name = 'New'`,
+      )
+      expect(fresh.rows[0].created_at).not.toBeNull()
+      await expect(
+        old.query(`update public.order_items set created_at = null where product_name = 'New'`),
+      ).rejects.toThrow()
+    } finally {
+      await old.close()
+    }
+  }, 60_000)
 })
 
 describe('device kinds', () => {
