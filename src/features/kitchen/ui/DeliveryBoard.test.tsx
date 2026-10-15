@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DeliverySource, KitchenOrder } from '../domain/kitchen'
@@ -33,6 +33,32 @@ function makeSource(orders: KitchenOrder[][] = [[order()]]): DeliverySource & {
 describe('DeliveryBoard', () => {
   beforeEach(() => vi.useRealTimers())
   afterEach(() => vi.useRealTimers())
+
+  it('groups the lines by pickup place with the token colour', async () => {
+    const mixed = order({
+      lines: [
+        { id: 'l1', productName: 'Hamburguesa', quantity: 2, type: 'product', pizza: null, notes: null, variant: null, station: 'grill' },
+        { id: 'l2', productName: 'Pizza Hawaiana', quantity: 1, type: 'product', pizza: null, notes: null, variant: null, station: 'pizza' },
+        { id: 'l3', productName: 'Refresco', quantity: 1, type: 'product', pizza: null, notes: null, variant: null, station: null },
+      ],
+    })
+    const source = makeSource([[mixed]])
+    render(<DeliveryBoard source={source} />)
+    const pizza = await screen.findByRole('group', { name: 'Recoger en Pizzas (ficha roja)' })
+    expect(within(pizza).getByText('1 × Pizza Hawaiana')).toBeVisible()
+    const grill = screen.getByRole('group', { name: 'Recoger en Hamburguesas y botanas (ficha azul)' })
+    expect(within(grill).getByText('2 × Hamburguesa')).toBeVisible()
+    const rest = screen.getByRole('group', { name: 'Bebidas y otros' })
+    expect(within(rest).getByText('1 × Refresco')).toBeVisible()
+    expect(screen.getAllByRole('group').map((g) => g.getAttribute('aria-label'))).toEqual([
+      'Recoger en Pizzas (ficha roja)',
+      'Recoger en Hamburguesas y botanas (ficha azul)',
+      'Bebidas y otros',
+    ])
+
+    await userEvent.click(screen.getByRole('button', { name: 'Marcar pedido entregado' }))
+    expect(source.markDelivered).toHaveBeenCalledWith('o1', ['l1', 'l2', 'l3'])
+  })
 
   it('shows the order card with every detail', async () => {
     render(<DeliveryBoard source={makeSource()} />)

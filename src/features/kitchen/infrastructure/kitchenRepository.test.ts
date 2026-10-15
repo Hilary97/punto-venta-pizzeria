@@ -21,7 +21,7 @@ const row = {
   notes: 'sin prisa',
   created_at: '2026-10-10T10:00:00Z',
   lines: [
-    { id: 'l1', product_name: 'Hamburguesa', quantity: 2, item_type: 'product', pizza: null, notes: null, variant: 'Res' },
+    { id: 'l1', product_name: 'Hamburguesa', quantity: 2, item_type: 'product', pizza: null, notes: null, variant: 'Res', station: 'grill' },
   ],
 }
 
@@ -34,7 +34,7 @@ const mapped = {
   notes: 'sin prisa',
   createdAt: '2026-10-10T10:00:00Z',
   lines: [
-    { id: 'l1', productName: 'Hamburguesa', quantity: 2, type: 'product', pizza: null, notes: null, variant: 'Res' },
+    { id: 'l1', productName: 'Hamburguesa', quantity: 2, type: 'product', pizza: null, notes: null, variant: 'Res', station: 'grill' },
   ],
 }
 
@@ -51,6 +51,12 @@ describe('device kitchen source', () => {
     const { token: _token, ...withoutToken } = row
     rpc.mockResolvedValue({ data: [withoutToken], error: null })
     expect((await createDeviceKitchenSource('sec').listOrders())[0]!.token).toBeNull()
+  })
+
+  it('maps a missing line station to null', async () => {
+    const lines = row.lines.map(({ station: _station, ...line }) => line)
+    rpc.mockResolvedValue({ data: [{ ...row, lines }], error: null })
+    expect((await createDeviceKitchenSource('sec').listOrders())[0]!.lines[0]!.station).toBeNull()
   })
 
   it('marks ready', async () => {

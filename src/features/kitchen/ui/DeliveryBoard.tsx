@@ -36,6 +36,7 @@ export function DeliveryBoard({ source, pollIntervalMs = POLL_INTERVAL_MS }: Del
             <OrderTicketCard
               key={ticketKey(order)}
               order={order}
+              groupByPickup
               actionLabel="Marcar pedido entregado"
               actionContent="Entregado"
               actionClassName="bg-red-700 text-xl hover:bg-red-800 active:bg-red-900"

@@ -190,7 +190,7 @@ describe('kitchen and delivery flow', () => {
     expect(g[0].lines).toHaveLength(1)
     expect(g[0].lines[0]).toMatchObject({ product_name: 'Hamburguesa Sencilla', quantity: 2, item_type: 'product' })
     expect(Object.keys(g[0].lines[0]).sort()).toEqual(
-      ['id', 'item_type', 'notes', 'pizza', 'product_name', 'quantity', 'variant'].sort(),
+      ['id', 'item_type', 'notes', 'pizza', 'product_name', 'quantity', 'station', 'variant'].sort(),
     )
 
     expect(await ready()).toEqual([])
@@ -454,6 +454,21 @@ describe('order tokens', () => {
     await asUser(db, cashier)
     expect((await rpc(db, `public.list_kitchen_orders('grill')`)).map((t: Json) => t.token)).toEqual([1])
     expect((await rpc(db, 'public.list_ready_orders()')).map((o: Json) => o.token)).toEqual([2])
+  })
+
+  it('tells each kitchen and delivery line its station', async () => {
+    const id = await createOrder([{ product_id: burgerId, quantity: 1 }, { product_id: drinkId, quantity: 1 }, pizzaLine()], 1)
+    await asAnon(db)
+    expect((await kitchen(grillSecret))[0].lines.map((l: Json) => l.station)).toEqual(['grill'])
+    expect((await kitchen(pizzaSecret))[0].lines.map((l: Json) => l.station)).toEqual(['pizza'])
+    await markReady(grillSecret, id)
+    await markReady(pizzaSecret, id)
+    const stations = (await ready())[0].lines.map((l: Json) => [l.product_name, l.station])
+    expect(stations).toEqual([
+      ['Hamburguesa Sencilla', 'grill'],
+      [expect.any(String), 'pizza'],
+      ['Refresco', null],
+    ])
   })
 
   it('creates the order without a token when all 50 are held, and never shares a token', async () => {
