@@ -38,6 +38,7 @@ export function KitchenBoard({ source, stationLabel, pollIntervalMs = POLL_INTER
               key={ticketKey(order)}
               order={order}
               turn={index + 1}
+              textSize="large"
               actionLabel="Marcar pedido listo"
               actionContent="✓"
               actionClassName="bg-emerald-700 text-3xl hover:bg-emerald-800 active:bg-emerald-900"
