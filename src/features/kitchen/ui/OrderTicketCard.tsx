@@ -2,10 +2,13 @@ import type { ReactNode } from 'react'
 import { orderLabel, productLineLabel } from '../../orders/domain/order'
 import type { KitchenOrder } from '../domain/kitchen'
 
+/** Local time in 12-hour format, e.g. "3:05 pm". */
 function formatTime(iso: string): string {
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return ''
-  return date.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: false })
+  const hours = date.getHours()
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  return `${hours % 12 || 12}:${minutes} ${hours < 12 ? 'am' : 'pm'}`
 }
 
 interface OrderTicketCardProps {

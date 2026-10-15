@@ -29,3 +29,4 @@ Each station lists its work as tickets in exact arrival order, numbered #1, #2..
 - L1: "Ya corri la migración de supabase. Lo que necesito es revisar la logica de como llegan los pedidos a cocina?, necesito que tengan orden paaa que los cocineros sepan cual entro primero segundo para que los vallan cocinando en orden, en las dos categorias de  pizza y  hamburguesas y botana"
 - L2: "Si una targeta aparte para repetar el el orden de llegada exacto y armar los 3 pasos que propones"
 - L3: Finding: `kitchen_orders_core` sorted by `orders.created_at`; `order_items` had no timestamp, so a pizza added late to an old table jumped ahead.
+- L4: "Si asi esta bien la logica de los numeros de turno y si haz commit" — user confirmed shifting turn numbers; asked for 12-hour am/pm times on cards.

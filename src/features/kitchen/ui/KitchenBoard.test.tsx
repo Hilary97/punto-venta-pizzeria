@@ -43,6 +43,21 @@ describe('KitchenBoard', () => {
     expect(screen.getByRole('button', { name: 'Marcar pedido listo' })).toBeEnabled()
   })
 
+  it('shows the arrival time in 12-hour format with am and pm', async () => {
+    const at = (h: number, m: number) => new Date(2026, 0, 1, h, m).toISOString()
+    const orders = [
+      order({ id: 'a', tableNumber: 1, customerName: null, createdAt: at(0, 5) }),
+      order({ id: 'b', tableNumber: 2, customerName: null, createdAt: at(9, 30) }),
+      order({ id: 'c', tableNumber: 3, customerName: null, createdAt: at(12, 0) }),
+      order({ id: 'd', tableNumber: 4, customerName: null, createdAt: at(15, 5) }),
+    ]
+    render(<KitchenBoard source={makeSource([orders])} stationLabel="Pizzas" />)
+    await screen.findByText('M-1')
+    for (const time of ['12:05 am', '9:30 am', '12:00 pm', '3:05 pm']) {
+      expect(screen.getByText(time)).toBeVisible()
+    }
+  })
+
   it('shows the empty state', async () => {
     render(<KitchenBoard source={makeSource([[]])} stationLabel="Pizzas" />)
     expect(await screen.findByText('Sin pedidos en cocina')).toBeVisible()
