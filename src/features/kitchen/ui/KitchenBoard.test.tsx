@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { KitchenOrder, KitchenSource } from '../domain/kitchen'
@@ -62,6 +62,37 @@ describe('KitchenBoard', () => {
     await screen.findByText('M-1')
     const titles = screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)
     expect(titles).toEqual(['M-1', 'M-9'])
+  })
+
+  it('numbers the tickets #1, #2 in arrival order', async () => {
+    const newer = order({ id: 'new', tableNumber: 9, customerName: null, createdAt: '2026-01-01T16:00:00Z' })
+    const older = order({ id: 'old', tableNumber: 1, customerName: null, createdAt: '2026-01-01T15:00:00Z' })
+    render(<KitchenBoard source={makeSource([[newer, older]])} stationLabel="Pizzas" />)
+    await screen.findByText('M-1')
+    const cards = screen.getAllByRole('listitem').filter((li) => li.querySelector('h3'))
+    expect(cards.map((card) => within(card).getByLabelText(/^Turno/).textContent)).toEqual(['#1', '#2'])
+    expect(within(cards[0]!).getByLabelText('Turno 1')).toBeVisible()
+    expect(within(cards[1]!).getByText('M-9')).toBeVisible()
+  })
+
+  it('shows two tickets of one order and marks ready only the one tapped', async () => {
+    const first = order({ createdAt: '2026-01-01T15:00:00Z' })
+    const late = order({
+      createdAt: '2026-01-01T15:30:00Z',
+      lines: [{ id: 'l2', productName: 'Alitas', quantity: 1, type: 'product', pizza: null, notes: null, variant: null }],
+    })
+    const source = makeSource([[first, late], [first]])
+    render(<KitchenBoard source={source} stationLabel="Pizzas" />)
+    expect(await screen.findByText('1 × Alitas')).toBeVisible()
+    expect(screen.getAllByText('M-4 · Ana')).toHaveLength(2)
+
+    const buttons = screen.getAllByRole('button', { name: 'Marcar pedido listo' })
+    await userEvent.click(buttons[1]!)
+    expect(source.markReady).toHaveBeenCalledWith('o1', ['l2'])
+    await waitFor(() => expect(screen.queryByText('1 × Alitas')).not.toBeInTheDocument())
+    expect(screen.getByText('2 × Hamburguesa (Doble)')).toBeVisible()
+    expect(screen.getAllByText('M-4 · Ana')).toHaveLength(1)
+    expect(screen.getByRole('button', { name: 'Marcar pedido listo' })).toBeEnabled()
   })
 
   it('removes the card optimistically when marked ready', async () => {

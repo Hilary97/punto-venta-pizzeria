@@ -28,7 +28,10 @@ export interface KitchenLine {
   variant: string | null
 }
 
-/** An open order seen by a station (only its pending lines) or by delivery (lines still to deliver). */
+/**
+ * An open order seen by a station or by delivery. A station sees one ticket per arrival batch
+ * (`createdAt` is when those lines arrived), so one order may appear twice; delivery sees one per order.
+ */
 export interface KitchenOrder {
   id: string
   tableNumber: number | null
@@ -37,6 +40,11 @@ export interface KitchenOrder {
   notes: string | null
   createdAt: string
   lines: KitchenLine[]
+}
+
+/** Identifies a ticket on a board: the order plus its arrival time. */
+export function ticketKey(order: Pick<KitchenOrder, 'id' | 'createdAt'>): string {
+  return `${order.id}@${order.createdAt}`
 }
 
 export interface KitchenSource {

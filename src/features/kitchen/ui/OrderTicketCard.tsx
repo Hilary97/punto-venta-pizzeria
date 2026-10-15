@@ -10,6 +10,8 @@ function formatTime(iso: string): string {
 
 interface OrderTicketCardProps {
   order: KitchenOrder
+  /** Position in the station queue (1 = cook first); omitted on boards without a queue. */
+  turn?: number
   actionLabel: string
   actionContent: ReactNode
   actionClassName: string
@@ -20,6 +22,7 @@ interface OrderTicketCardProps {
 /** Order ticket shared by the kitchen and delivery boards, with one big action button. */
 export function OrderTicketCard({
   order,
+  turn,
   actionLabel,
   actionContent,
   actionClassName,
@@ -29,7 +32,17 @@ export function OrderTicketCard({
   return (
     <li className="flex min-w-0 flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex items-start justify-between gap-2">
-        <h3 className="min-w-0 break-words text-2xl font-bold text-slate-900">{orderLabel(order)}</h3>
+        <div className="flex min-w-0 items-center gap-3">
+          {turn !== undefined && (
+            <span
+              aria-label={`Turno ${turn}`}
+              className="shrink-0 rounded-lg bg-slate-900 px-3 py-1 text-3xl font-black text-white"
+            >
+              #{turn}
+            </span>
+          )}
+          <h3 className="min-w-0 break-words text-2xl font-bold text-slate-900">{orderLabel(order)}</h3>
+        </div>
         <span className="shrink-0 rounded-lg bg-slate-100 px-2 py-1 text-sm font-semibold text-slate-700">
           {formatTime(order.createdAt)}
         </span>

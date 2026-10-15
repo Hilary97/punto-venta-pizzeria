@@ -2,7 +2,7 @@ import { useCallback } from 'react'
 import { Button } from '../../../shared/ui/Button'
 import { ErrorBanner } from '../../../shared/ui/ErrorBanner'
 import { Spinner } from '../../../shared/ui/Spinner'
-import type { DeliverySource } from '../domain/kitchen'
+import { ticketKey, type DeliverySource } from '../domain/kitchen'
 import { OrderTicketCard } from './OrderTicketCard'
 import { POLL_INTERVAL_MS, useOrderBoard } from './useOrderBoard'
 
@@ -34,13 +34,13 @@ export function DeliveryBoard({ source, pollIntervalMs = POLL_INTERVAL_MS }: Del
         <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {orders.map((order) => (
             <OrderTicketCard
-              key={order.id}
+              key={ticketKey(order)}
               order={order}
               actionLabel="Marcar pedido entregado"
               actionContent="Entregado"
               actionClassName="bg-red-700 text-xl hover:bg-red-800 active:bg-red-900"
-              pending={pendingIds.has(order.id)}
-              onAction={() => void runAction(order.id, order.lines.map((line) => line.id))}
+              pending={pendingIds.has(ticketKey(order))}
+              onAction={() => void runAction(order)}
             />
           ))}
         </ul>

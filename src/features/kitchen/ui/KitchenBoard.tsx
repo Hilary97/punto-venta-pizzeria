@@ -2,7 +2,7 @@ import { useCallback } from 'react'
 import { Button } from '../../../shared/ui/Button'
 import { ErrorBanner } from '../../../shared/ui/ErrorBanner'
 import { Spinner } from '../../../shared/ui/Spinner'
-import type { KitchenSource } from '../domain/kitchen'
+import { ticketKey, type KitchenSource } from '../domain/kitchen'
 import { OrderTicketCard } from './OrderTicketCard'
 import { POLL_INTERVAL_MS, useOrderBoard } from './useOrderBoard'
 
@@ -12,7 +12,7 @@ interface KitchenBoardProps {
   pollIntervalMs?: number
 }
 
-/** Station board: polls the pending orders and lets the kitchen mark each one ready. */
+/** Station board: polls the pending tickets, numbered in arrival order, and lets the kitchen mark each one ready. */
 export function KitchenBoard({ source, stationLabel, pollIntervalMs = POLL_INTERVAL_MS }: KitchenBoardProps) {
   const list = useCallback(() => source.listOrders(), [source])
   const act = useCallback((orderId: string, lineIds: string[]) => source.markReady(orderId, lineIds), [source])
@@ -33,15 +33,16 @@ export function KitchenBoard({ source, stationLabel, pollIntervalMs = POLL_INTER
         <p className="p-8 text-center text-lg text-slate-500">Sin pedidos en cocina</p>
       ) : (
         <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {orders.map((order) => (
+          {orders.map((order, index) => (
             <OrderTicketCard
-              key={order.id}
+              key={ticketKey(order)}
               order={order}
+              turn={index + 1}
               actionLabel="Marcar pedido listo"
               actionContent="✓"
               actionClassName="bg-emerald-700 text-3xl hover:bg-emerald-800 active:bg-emerald-900"
-              pending={pendingIds.has(order.id)}
-              onAction={() => void runAction(order.id, order.lines.map((line) => line.id))}
+              pending={pendingIds.has(ticketKey(order))}
+              onAction={() => void runAction(order)}
             />
           ))}
         </ul>

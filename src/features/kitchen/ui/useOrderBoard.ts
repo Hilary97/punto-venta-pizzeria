@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { toUserMessage } from '../../../shared/errors'
-import type { KitchenOrder } from '../domain/kitchen'
+import { ticketKey, type KitchenOrder } from '../domain/kitchen'
 
 export const POLL_INTERVAL_MS = 10_000
 
@@ -10,12 +10,12 @@ function byOldest(a: KitchenOrder, b: KitchenOrder): number {
 
 interface OrderBoardOptions {
   list: () => Promise<KitchenOrder[]>
-  /** Per-order action (mark ready / delivered); the card is removed once it resolves. */
+  /** Per-ticket action (mark ready / delivered) on the shown lines; the card is removed once it resolves. */
   act: (orderId: string, lineIds: string[]) => Promise<unknown>
   pollIntervalMs: number
 }
 
-/** Polls a list of orders (oldest first) and runs a per-order action with optimistic removal. */
+/** Polls a list of tickets (oldest first) and runs a per-ticket action with optimistic removal. */
 export function useOrderBoard({ list, act, pollIntervalMs }: OrderBoardOptions) {
   const [orders, setOrders] = useState<KitchenOrder[] | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -43,13 +43,14 @@ export function useOrderBoard({ list, act, pollIntervalMs }: OrderBoardOptions) 
     }
   }, [load, pollIntervalMs])
 
-  async function runAction(orderId: string, lineIds: string[] = []) {
-    if (pendingIds.has(orderId)) return
-    setPendingIds((ids) => new Set(ids).add(orderId))
+  async function runAction(order: KitchenOrder) {
+    const key = ticketKey(order)
+    if (pendingIds.has(key)) return
+    setPendingIds((ids) => new Set(ids).add(key))
     setError(null)
     try {
-      await act(orderId, lineIds)
-      if (mounted.current) setOrders((current) => current?.filter((o) => o.id !== orderId) ?? null)
+      await act(order.id, order.lines.map((line) => line.id))
+      if (mounted.current) setOrders((current) => current?.filter((o) => ticketKey(o) !== key) ?? null)
     } catch (e) {
       if (mounted.current) {
         await load()
@@ -59,7 +60,7 @@ export function useOrderBoard({ list, act, pollIntervalMs }: OrderBoardOptions) 
       if (mounted.current) {
         setPendingIds((ids) => {
           const next = new Set(ids)
-          next.delete(orderId)
+          next.delete(key)
           return next
         })
       }
