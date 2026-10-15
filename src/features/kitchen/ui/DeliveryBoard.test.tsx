@@ -7,6 +7,7 @@ import { DeliveryBoard } from './DeliveryBoard'
 function order(overrides: Partial<KitchenOrder> = {}): KitchenOrder {
   return {
     id: 'o1',
+    token: 7,
     tableNumber: 4,
     customerName: 'Ana',
     waiterName: 'Carlos',
@@ -36,6 +37,7 @@ describe('DeliveryBoard', () => {
   it('shows the order card with every detail', async () => {
     render(<DeliveryBoard source={makeSource()} />)
     expect(await screen.findByText('M-4 · Ana')).toBeVisible()
+    expect(screen.getByText('Ficha 7')).toBeVisible()
     expect(screen.getByText('2 × Hamburguesa (Doble)')).toBeVisible()
     expect(screen.getByText(/Sin cebolla en todo/)).toBeVisible()
     expect(screen.getByRole('button', { name: 'Marcar pedido entregado' })).toHaveTextContent('Entregado')

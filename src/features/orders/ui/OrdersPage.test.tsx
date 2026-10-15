@@ -25,6 +25,7 @@ vi.mock('../infrastructure/ordersRepository', async (importOriginal) => ({
 
 const openOrder: Order = {
   id: 'order-1',
+  token: 12,
   waiterName: null,
   notes: null,
   tableNumber: 3,
@@ -218,6 +219,7 @@ describe('OrdersPage', () => {
     renderPage()
     const card = (await screen.findByText('Ana')).closest('li')!
     expect(within(card).getByText('M-3')).toBeVisible()
+    expect(within(card).getByText('Ficha 12')).toBeVisible()
     expect(within(card).getByText(/pizza queso × 2/i)).toBeVisible()
   })
 

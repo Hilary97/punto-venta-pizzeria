@@ -7,6 +7,7 @@ import { KitchenBoard } from './KitchenBoard'
 function order(overrides: Partial<KitchenOrder> = {}): KitchenOrder {
   return {
     id: 'o1',
+    token: 7,
     tableNumber: 4,
     customerName: 'Ana',
     waiterName: 'Carlos',
@@ -56,6 +57,15 @@ describe('KitchenBoard', () => {
     for (const time of ['12:05 am', '9:30 am', '12:00 pm', '3:05 pm']) {
       expect(screen.getByText(time)).toBeVisible()
     }
+  })
+
+  it('shows the token, or Sin ficha when the order has none', async () => {
+    const orders = [order(), order({ id: 'o2', tableNumber: 5, customerName: null, token: null })]
+    render(<KitchenBoard source={makeSource([orders])} stationLabel="Pizzas" />)
+    const first = (await screen.findByText('M-4 · Ana')).closest('li')!
+    expect(within(first).getByText('Ficha 7')).toBeVisible()
+    const second = screen.getByText('M-5').closest('li')!
+    expect(within(second).getByText('Sin ficha')).toBeVisible()
   })
 
   it('shows the empty state', async () => {

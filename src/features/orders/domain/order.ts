@@ -24,6 +24,8 @@ export interface OrderItem {
 
 export interface Order {
   id: string
+  /** Physical token (ficha) 1..50 held by the order; `null` when none was free; omitted by sources without tokens. */
+  token?: number | null
   tableNumber: number | null
   customerName: string | null
   status: OrderStatus
@@ -48,6 +50,11 @@ export const MAX_ITEM_NOTES_LENGTH = 200
 /** Display label for a table, e.g. `M-3`. */
 export function tableLabel(tableNumber: number): string {
   return `M-${tableNumber}`
+}
+
+/** Label for an order's physical token, e.g. `Ficha 12`, or `Sin ficha` when it has none. */
+export function tokenLabel(token: number | null): string {
+  return token === null ? 'Sin ficha' : `Ficha ${token}`
 }
 
 /** Trims the name and collapses any inner whitespace run into a single space. */

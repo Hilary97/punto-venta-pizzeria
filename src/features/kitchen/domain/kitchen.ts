@@ -34,6 +34,8 @@ export interface KitchenLine {
  */
 export interface KitchenOrder {
   id: string
+  /** Physical token (ficha) 1..50 held by the order; `null` when none was free. */
+  token: number | null
   tableNumber: number | null
   customerName: string | null
   waiterName: string | null

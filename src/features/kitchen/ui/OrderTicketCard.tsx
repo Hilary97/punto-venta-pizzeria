@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { orderLabel, productLineLabel } from '../../orders/domain/order'
+import { orderLabel, productLineLabel, tokenLabel } from '../../orders/domain/order'
 import type { KitchenOrder } from '../domain/kitchen'
 
 /** Local time in 12-hour format, e.g. "3:05 pm". */
@@ -50,6 +50,9 @@ export function OrderTicketCard({
           {formatTime(order.createdAt)}
         </span>
       </div>
+      <p className="self-start rounded-lg border-2 border-amber-500 bg-amber-50 px-3 py-1 text-xl font-bold text-amber-900">
+        {tokenLabel(order.token)}
+      </p>
       {order.waiterName && <p className="text-sm text-slate-500">Atendió: {order.waiterName}</p>}
       <ul className="flex-1 space-y-2 text-lg text-slate-800">
         {order.lines.map((line) => (

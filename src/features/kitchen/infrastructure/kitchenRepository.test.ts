@@ -14,6 +14,7 @@ vi.mock('../../../shared/supabase/client', () => ({
 
 const row = {
   id: 'o1',
+  token: 7,
   table_number: 3,
   customer_name: null,
   waiter_name: 'Luis',
@@ -26,6 +27,7 @@ const row = {
 
 const mapped = {
   id: 'o1',
+  token: 7,
   tableNumber: 3,
   customerName: null,
   waiterName: 'Luis',
@@ -43,6 +45,12 @@ describe('device kitchen source', () => {
     rpc.mockResolvedValue({ data: [row], error: null })
     expect(await createDeviceKitchenSource('sec').listOrders()).toEqual([mapped])
     expect(rpc).toHaveBeenCalledWith('device_list_kitchen_orders', { p_device_secret: 'sec' })
+  })
+
+  it('maps a missing token to null', async () => {
+    const { token: _token, ...withoutToken } = row
+    rpc.mockResolvedValue({ data: [withoutToken], error: null })
+    expect((await createDeviceKitchenSource('sec').listOrders())[0]!.token).toBeNull()
   })
 
   it('marks ready', async () => {

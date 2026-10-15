@@ -7,6 +7,7 @@ import type { OrderQuote } from '../domain/orderQuote'
 
 export const orderRowSchema = z.object({
   id: z.string(),
+  token: z.number().int().nullable().default(null),
   table_number: z.number().int().nullable(),
   customer_name: z.string().nullable(),
   status: z.enum(['open', 'paid', 'cancelled']),
@@ -30,11 +31,12 @@ export const orderRowSchema = z.object({
   ),
 })
 
-const ORDER_SELECT = 'id, table_number, customer_name, status, created_at, waiter_name, notes, order_items(id, product_id, product_name, quantity, item_type, pizza, notes, variant, station, ready_at, delivered_at)'
+const ORDER_SELECT = 'id, token, table_number, customer_name, status, created_at, waiter_name, notes, order_items(id, product_id, product_name, quantity, item_type, pizza, notes, variant, station, ready_at, delivered_at)'
 
 export function mapOrderRow(row: z.infer<typeof orderRowSchema>): Order {
   return {
     id: row.id,
+    token: row.token,
     tableNumber: row.table_number,
     customerName: row.customer_name,
     status: row.status,

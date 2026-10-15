@@ -13,6 +13,7 @@ import type {
 const kitchenOrdersSchema = z.array(
   z.object({
     id: z.string(),
+    token: z.number().int().nullable().default(null),
     table_number: z.number().int().nullable(),
     customer_name: z.string().nullable(),
     waiter_name: z.string().nullable(),
@@ -37,6 +38,7 @@ const kitchenOrdersSchema = z.array(
 function mapKitchenOrders(rows: z.infer<typeof kitchenOrdersSchema>): KitchenOrder[] {
   return rows.map((row) => ({
     id: row.id,
+    token: row.token,
     tableNumber: row.table_number,
     customerName: row.customer_name,
     waiterName: row.waiter_name,

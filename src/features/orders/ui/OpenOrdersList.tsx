@@ -1,6 +1,6 @@
 import { Link } from 'react-router'
 import { Button } from '../../../shared/ui/Button'
-import { productLineLabel, tableLabel, type Order } from '../domain/order'
+import { productLineLabel, tableLabel, tokenLabel, type Order } from '../domain/order'
 
 interface OpenOrdersListProps {
   orders: Order[]
@@ -26,6 +26,11 @@ export function OpenOrdersList({ orders, canCharge, disabled = false, onAddItems
             )}
             {order.customerName && <span className="min-w-0 break-words font-semibold text-slate-900">{order.customerName}</span>}
           </div>
+          {order.token !== undefined && (
+            <p className="self-start rounded-lg border-2 border-amber-500 bg-amber-50 px-3 py-1 text-lg font-bold text-amber-900">
+              {tokenLabel(order.token)}
+            </p>
+          )}
           {order.waiterName && <p className="text-sm text-slate-500">Atendió: {order.waiterName}</p>}
           <ul className="flex-1 text-slate-700">
             {order.items.map((item) => (

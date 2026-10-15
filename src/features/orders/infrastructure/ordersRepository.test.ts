@@ -73,6 +73,11 @@ describe('mapOrderRow', () => {
     })
   })
 
+  it('maps the token, defaulting to null when the rpc omits it', () => {
+    expect(mapOrderRow(orderRowSchema.parse({ ...base, token: 5, order_items: [] })).token).toBe(5)
+    expect(mapOrderRow(orderRowSchema.parse({ ...base, order_items: [] })).token).toBeNull()
+  })
+
   it('defaults them to null when the rpc omits them', () => {
     const row = orderRowSchema.parse({ ...base, order_items: [line] })
     expect(mapOrderRow(row).items[0]).toMatchObject({ station: null, readyAt: null, deliveredAt: null })
