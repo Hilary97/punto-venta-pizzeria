@@ -22,7 +22,7 @@ Each station lists its work as tickets in exact arrival order, numbered #1, #2..
 
 - T1 (S1, S2, S3) — migration + PGlite tests: `order_items.created_at` with backfill; `kitchen_orders_core` returns one ticket per arrival batch, oldest first. Route: inline. Commit: 200b4e7 (done; PGlite RED->GREEN, 101 db tests).
 - T2 (S2, S4, S5) — UI: ticket key per batch (two tickets of one order coexist), turn number #N on Cocina cards. Route: inline. Commit: see "feat(kitchen): number tickets in arrival order" (done; RED->GREEN, 485 tests, tsc clean, oxlint warnings only, pre-existing).
-- T3 — verify: tests, tsc, lint, build. Route: verify (high risk: migration). Pending.
+- T3 — verify: tests, tsc, lint, build. Route: verify (high risk: migration). Done: PASS S1-S5; 485 tests, tsc, oxlint (no new warnings), build OK. Residual: database.types.ts lacks order_items.created_at; turn numbers shift when a ticket is marked ready; migration not yet run in Supabase.
 
 ## Log
 
