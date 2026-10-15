@@ -408,6 +408,98 @@ describe('kitchen and delivery flow', () => {
   })
 })
 
+describe('order tokens', () => {
+  beforeEach(async () => {
+    await asSuperuser(db)
+    await db.query(`update public.categories set kitchen_station = 'grill' where name in ('Hamburguesas','Botanas')`)
+  })
+
+  const cancel = async (id: string) => {
+    await asAnon(db)
+    await rpc(db, 'public.device_cancel_order($1, $2, $3)', [waiterSecret, token, id])
+  }
+  const tokenOf = async (id: string) => {
+    await asSuperuser(db)
+    return (await db.query<{ token: number | null }>(`select token from public.orders where id = $1`, [id])).rows[0].token
+  }
+
+  it('gives each new order the lowest free token and reuses freed ones', async () => {
+    const a = await createOrder([{ product_id: burgerId, quantity: 1 }], 1)
+    const b = await createOrder([{ product_id: burgerId, quantity: 1 }], 2)
+    const c = await createOrder([{ product_id: burgerId, quantity: 1 }], 3)
+    expect([await tokenOf(a), await tokenOf(b), await tokenOf(c)]).toEqual([1, 2, 3])
+
+    await cancel(b)
+    expect(await tokenOf(b)).toBe(2)
+    const d = await createOrder([{ product_id: burgerId, quantity: 1 }], 4)
+    expect(await tokenOf(d)).toBe(2)
+    const e = await createOrder([{ product_id: burgerId, quantity: 1 }], 5)
+    expect(await tokenOf(e)).toBe(4)
+
+    // Items added later keep the order's token.
+    await addItems(a, [pizzaLine()])
+    expect(await tokenOf(a)).toBe(1)
+  })
+
+  it('exposes the token on kitchen, delivery and open order lists', async () => {
+    await createOrder([{ product_id: burgerId, quantity: 1 }], 1)
+    const b = await createOrder([{ product_id: burgerId, quantity: 1 }, { product_id: drinkId, quantity: 1 }], 2)
+    await asAnon(db)
+    expect((await kitchen(grillSecret)).map((t: Json) => t.token)).toEqual([1, 2])
+    await markReady(grillSecret, b)
+    expect((await ready()).map((o: Json) => o.token)).toEqual([2])
+    const open = await rpc(db, 'public.device_list_open_orders($1)', [waiterSecret])
+    expect(open.map((o: Json) => o.token)).toEqual([1, 2])
+
+    await asUser(db, cashier)
+    expect((await rpc(db, `public.list_kitchen_orders('grill')`)).map((t: Json) => t.token)).toEqual([1])
+    expect((await rpc(db, 'public.list_ready_orders()')).map((o: Json) => o.token)).toEqual([2])
+  })
+
+  it('creates the order without a token when all 50 are held, and never shares a token', async () => {
+    const ids: string[] = []
+    for (let i = 0; i < 51; i++) ids.push(await createOrder([{ product_id: drinkId, quantity: 1 }], (i % 9) + 1))
+    expect(await tokenOf(ids[49]!)).toBe(50)
+    expect(await tokenOf(ids[50]!)).toBeNull()
+
+    await asSuperuser(db)
+    await expect(db.query(`update public.orders set token = 1 where id = $1`, [ids[1]])).rejects.toThrow()
+    await expect(db.query(`update public.orders set token = 51 where id = $1`, [ids[50]])).rejects.toThrow()
+
+    await cancel(ids[9]!)
+    const next = await createOrder([{ product_id: drinkId, quantity: 1 }], 1)
+    expect(await tokenOf(next)).toBe(10)
+  }, 60_000)
+
+  it('backfills open orders in creation order on migration', async () => {
+    const old = await createTestDb({ before: '20261018120000' })
+    try {
+      await asSuperuser(old)
+      const owner = await createProfile(old, { role: 'admin', fullName: 'Admin' })
+      await asSuperuser(old)
+      const insert = async (at: string, status = 'open') =>
+        (
+          await old.query<{ id: string }>(
+            `insert into public.orders (table_number, created_by, created_at, status, cancelled_at)
+             values (1, $1, $2, $3, case when $3 = 'cancelled' then now() end) returning id`,
+            [owner, at, status],
+          )
+        ).rows[0].id
+      const late = await insert('2026-01-01T13:00:00Z')
+      const gone = await insert('2026-01-01T11:00:00Z', 'cancelled')
+      const early = await insert('2026-01-01T12:00:00Z')
+
+      await applyMigration(old, '20261018120000_order_tokens.sql')
+
+      const rows = await old.query<{ id: string; token: number | null }>(`select id, token from public.orders`)
+      const tokens = Object.fromEntries(rows.rows.map((r) => [r.id, r.token]))
+      expect(tokens).toEqual({ [early]: 1, [late]: 2, [gone]: null })
+    } finally {
+      await old.close()
+    }
+  }, 60_000)
+})
+
 describe('line arrival time migration', () => {
   it('backfills existing lines with their order time and stamps new lines', async () => {
     const old = await createTestDb({ before: '20261017120000' })
