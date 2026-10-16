@@ -33,7 +33,7 @@ export function KitchenDeviceApp({ device }: { device: AuthorizedDevice }) {
         }
       }
     }
-    return { listOrders: guard(base.listOrders), markReady: guard(base.markReady) }
+    return { listOrders: guard(base.listOrders), markReady: guard(base.markReady), subscribe: base.subscribe }
   }, [device.secret, handleRevoked])
 
   if (revoked) {

@@ -167,6 +167,20 @@ describe('DeviceOrdersApp', () => {
     expect(await screen.findByRole('button', { name: 'M-4' })).toBeVisible()
   })
 
+  it('passes the realtime subscription to the delivery board', async () => {
+    const subscribe = vi.fn(() => () => {})
+    vi.mocked(createDeviceDeliverySource).mockReturnValue({
+      listReadyOrders: vi.fn().mockResolvedValue([]),
+      markDelivered: vi.fn(),
+      subscribe,
+    })
+    const user = userEvent.setup()
+    renderApp()
+    await loginWithPin(user)
+    await user.click(await screen.findByRole('tab', { name: /entrega/i }))
+    await waitFor(() => expect(subscribe).toHaveBeenCalledTimes(1))
+  })
+
   it('detects a revoked device from delivery calls', async () => {
     vi.mocked(createDeviceDeliverySource).mockReturnValue({
       listReadyOrders: vi.fn().mockRejectedValue(new Error('Este dispositivo no está autorizado.')),

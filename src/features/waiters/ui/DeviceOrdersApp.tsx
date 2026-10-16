@@ -80,6 +80,7 @@ export function DeviceOrdersApp({ device }: { device: AuthorizedDevice }) {
     return {
       listReadyOrders: guard(base.listReadyOrders),
       markDelivered: guard(base.markDelivered),
+      subscribe: base.subscribe,
     }
   }, [device.secret, handleRevoked])
 

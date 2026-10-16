@@ -1,8 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { toUserMessage } from '../../../shared/errors'
-import { ticketKey, type KitchenOrder } from '../domain/kitchen'
+import { ticketKey, type KitchenOrder, type SubscribeChanges } from '../domain/kitchen'
 
+/** Polling interval when the board has no realtime signal. */
 export const POLL_INTERVAL_MS = 10_000
+/** Fallback polling interval while the realtime signal drives the reloads. */
+export const REALTIME_FALLBACK_POLL_MS = 60_000
+/** Signals arriving within this window cause a single reload. */
+const SIGNAL_DEBOUNCE_MS = 300
 
 function byOldest(a: KitchenOrder, b: KitchenOrder): number {
   return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
@@ -12,36 +17,61 @@ interface OrderBoardOptions {
   list: () => Promise<KitchenOrder[]>
   /** Per-ticket action (mark ready / delivered) on the shown lines; the card is removed once it resolves. */
   act: (orderId: string, lineIds: string[]) => Promise<unknown>
-  pollIntervalMs: number
+  /** Realtime change signal; when present the board reloads on it and polls only as a fallback. */
+  subscribe?: SubscribeChanges
+  /** Overrides the polling interval chosen from `subscribe`. */
+  pollIntervalMs?: number
 }
 
-/** Polls a list of tickets (oldest first) and runs a per-ticket action with optimistic removal. */
-export function useOrderBoard({ list, act, pollIntervalMs }: OrderBoardOptions) {
+/**
+ * Loads a list of tickets (oldest first), reloading on the realtime signal or by polling,
+ * and runs a per-ticket action with optimistic removal.
+ */
+export function useOrderBoard({ list, act, subscribe, pollIntervalMs }: OrderBoardOptions) {
   const [orders, setOrders] = useState<KitchenOrder[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [pendingIds, setPendingIds] = useState<ReadonlySet<string>>(new Set())
   const mounted = useRef(true)
+  const latestLoad = useRef(0)
 
   const load = useCallback(async () => {
+    // Overlapping loads (signal, poll, button) may resolve out of order; keep only the newest.
+    const loadId = ++latestLoad.current
     try {
       const loaded = await list()
-      if (!mounted.current) return
+      if (!mounted.current || loadId !== latestLoad.current) return
       setOrders([...loaded].sort(byOldest))
       setError(null)
     } catch (e) {
-      if (mounted.current) setError(toUserMessage(e))
+      if (mounted.current && loadId === latestLoad.current) setError(toUserMessage(e))
     }
   }, [list])
 
   useEffect(() => {
     mounted.current = true
     void load()
-    const timer = setInterval(() => void load(), pollIntervalMs)
+
+    let debounce: ReturnType<typeof setTimeout> | undefined
+    let unsubscribe: (() => void) | undefined
+    if (subscribe) {
+      try {
+        unsubscribe = subscribe(() => {
+          clearTimeout(debounce)
+          debounce = setTimeout(() => void load(), SIGNAL_DEBOUNCE_MS)
+        })
+      } catch {
+        // No realtime (e.g. misconfigured client): fall back to regular polling.
+      }
+    }
+    const interval = pollIntervalMs ?? (unsubscribe ? REALTIME_FALLBACK_POLL_MS : POLL_INTERVAL_MS)
+    const timer = setInterval(() => void load(), interval)
     return () => {
       mounted.current = false
       clearInterval(timer)
+      clearTimeout(debounce)
+      unsubscribe?.()
     }
-  }, [load, pollIntervalMs])
+  }, [load, subscribe, pollIntervalMs])
 
   async function runAction(order: KitchenOrder) {
     const key = ticketKey(order)

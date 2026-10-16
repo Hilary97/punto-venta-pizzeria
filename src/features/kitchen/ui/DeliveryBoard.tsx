@@ -4,18 +4,18 @@ import { ErrorBanner } from '../../../shared/ui/ErrorBanner'
 import { Spinner } from '../../../shared/ui/Spinner'
 import { ticketKey, type DeliverySource } from '../domain/kitchen'
 import { OrderTicketCard } from './OrderTicketCard'
-import { POLL_INTERVAL_MS, useOrderBoard } from './useOrderBoard'
+import { useOrderBoard } from './useOrderBoard'
 
 interface DeliveryBoardProps {
   source: DeliverySource
   pollIntervalMs?: number
 }
 
-/** Delivery board: polls orders ready to hand over and lets staff mark each one delivered. */
-export function DeliveryBoard({ source, pollIntervalMs = POLL_INTERVAL_MS }: DeliveryBoardProps) {
+/** Delivery board: shows orders ready (reloaded on the realtime signal, polled as fallback) to hand over and lets staff mark each one delivered. */
+export function DeliveryBoard({ source, pollIntervalMs }: DeliveryBoardProps) {
   const list = useCallback(() => source.listReadyOrders(), [source])
   const act = useCallback((orderId: string, lineIds: string[]) => source.markDelivered(orderId, lineIds), [source])
-  const { orders, error, pendingIds, reload, runAction } = useOrderBoard({ list, act, pollIntervalMs })
+  const { orders, error, pendingIds, reload, runAction } = useOrderBoard({ list, act, subscribe: source.subscribe, pollIntervalMs })
 
   return (
     <section aria-label="Entrega de pedidos" className="flex flex-col gap-4 p-4">

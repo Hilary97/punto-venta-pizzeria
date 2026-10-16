@@ -79,14 +79,21 @@ export function ticketKey(order: Pick<KitchenOrder, 'id' | 'createdAt'>): string
   return `${order.id}@${order.createdAt}`
 }
 
+/** Calls `onChange` whenever orders may have changed; returns the function that stops listening. */
+export type SubscribeChanges = (onChange: () => void) => () => void
+
 export interface KitchenSource {
   listOrders(): Promise<KitchenOrder[]>
   /** Marks ready only the given lines: the ones the card showed, never lines added since. */
   markReady(orderId: string, lineIds: string[]): Promise<string>
+  /** Realtime change signal; without it the board polls more often. */
+  subscribe?: SubscribeChanges
 }
 
 export interface DeliverySource {
   listReadyOrders(): Promise<KitchenOrder[]>
   /** Delivers only the given lines: the ones the card showed, never lines that became ready since. */
   markDelivered(orderId: string, lineIds: string[]): Promise<string>
+  /** Realtime change signal; without it the board polls more often. */
+  subscribe?: SubscribeChanges
 }

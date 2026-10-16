@@ -63,6 +63,16 @@ describe('KitchenEntry', () => {
     expect(screen.queryByRole('link', { name: 'Venta' })).not.toBeInTheDocument()
   })
 
+  it('passes the realtime subscription to the kitchen board', async () => {
+    saveDevice({ deviceId: 'd1', name: 'Horno', kind: 'kitchen_pizza', secret: 'b2'.repeat(32) })
+    mockAuth(null)
+    const subscribe = vi.fn(() => () => {})
+    vi.mocked(createDeviceKitchenSource).mockReturnValue({ ...source(), subscribe })
+    renderAt()
+    expect(await screen.findByText('Sin pedidos en cocina')).toBeVisible()
+    expect(subscribe).toHaveBeenCalledTimes(1)
+  })
+
   it('labels the grill station', async () => {
     saveDevice({ deviceId: 'd1', name: 'Plancha', kind: 'kitchen_grill', secret: 'b2'.repeat(32) })
     mockAuth(null)

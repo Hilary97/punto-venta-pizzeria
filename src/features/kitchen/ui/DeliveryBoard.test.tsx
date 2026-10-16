@@ -30,6 +30,17 @@ function makeSource(orders: KitchenOrder[][] = [[order()]]): DeliverySource & {
   return { listReadyOrders: list, markDelivered: vi.fn().mockResolvedValue('o1') }
 }
 
+/** Adds a fake realtime subscription; `signal()` simulates a change broadcast. */
+function withRealtime<T extends object>(source: T) {
+  let notify: (() => void) | null = null
+  const unsubscribe = vi.fn()
+  const subscribe = vi.fn((onChange: () => void) => {
+    notify = onChange
+    return unsubscribe
+  })
+  return { source: { ...source, subscribe }, signal: () => notify!(), unsubscribe }
+}
+
 describe('DeliveryBoard', () => {
   beforeEach(() => vi.useRealTimers())
   afterEach(() => vi.useRealTimers())
@@ -130,5 +141,17 @@ describe('DeliveryBoard', () => {
     const calls = source.listReadyOrders.mock.calls.length
     await act(async () => { await vi.advanceTimersByTimeAsync(5000) })
     expect(source.listReadyOrders).toHaveBeenCalledTimes(calls)
+  })
+
+  it('reloads when the realtime signal arrives and unsubscribes on unmount', async () => {
+    const base = makeSource([[order()], [order(), order({ id: 'o2', tableNumber: 5, customerName: null })]])
+    const { source, signal, unsubscribe } = withRealtime(base)
+    const { unmount } = render(<DeliveryBoard source={source} />)
+    await screen.findByText('M-4 · Ana')
+    act(() => signal())
+    expect(await screen.findByText('M-5')).toBeVisible()
+    expect(base.listReadyOrders).toHaveBeenCalledTimes(2)
+    unmount()
+    expect(unsubscribe).toHaveBeenCalledTimes(1)
   })
 })

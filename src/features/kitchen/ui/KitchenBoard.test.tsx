@@ -30,6 +30,17 @@ function makeSource(orders: KitchenOrder[][] = [[order()]]): KitchenSource & {
   return { listOrders: list, markReady: vi.fn().mockResolvedValue('o1') }
 }
 
+/** Adds a fake realtime subscription; `signal()` simulates a change broadcast. */
+function withRealtime<T extends object>(source: T) {
+  let notify: (() => void) | null = null
+  const unsubscribe = vi.fn()
+  const subscribe = vi.fn((onChange: () => void) => {
+    notify = onChange
+    return unsubscribe
+  })
+  return { source: { ...source, subscribe }, signal: () => notify!(), unsubscribe }
+}
+
 describe('KitchenBoard', () => {
   beforeEach(() => vi.useRealTimers())
   afterEach(() => vi.useRealTimers())
@@ -169,5 +180,59 @@ describe('KitchenBoard', () => {
     const calls = source.listOrders.mock.calls.length
     await act(async () => { await vi.advanceTimersByTimeAsync(5000) })
     expect(source.listOrders).toHaveBeenCalledTimes(calls)
+  })
+
+  it('reloads when the realtime signal arrives', async () => {
+    const base = makeSource([[order()], [order(), order({ id: 'o2', tableNumber: 5, customerName: null })]])
+    const { source, signal } = withRealtime(base)
+    render(<KitchenBoard source={source} stationLabel="Pizzas" />)
+    await screen.findByText('M-4 · Ana')
+    act(() => signal())
+    expect(await screen.findByText('M-5')).toBeVisible()
+    expect(base.listOrders).toHaveBeenCalledTimes(2)
+  })
+
+  it('merges a burst of realtime signals into one reload', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const base = makeSource()
+    const { source, signal } = withRealtime(base)
+    render(<KitchenBoard source={source} stationLabel="Pizzas" />)
+    await screen.findByText('M-4 · Ana')
+    act(() => {
+      signal()
+      signal()
+      signal()
+    })
+    await act(async () => { await vi.advanceTimersByTimeAsync(1000) })
+    expect(base.listOrders).toHaveBeenCalledTimes(2)
+  })
+
+  it('polls only every 60 s as a fallback when realtime is available', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const base = makeSource()
+    render(<KitchenBoard source={withRealtime(base).source} stationLabel="Pizzas" />)
+    await screen.findByText('M-4 · Ana')
+    await act(async () => { await vi.advanceTimersByTimeAsync(59_000) })
+    expect(base.listOrders).toHaveBeenCalledTimes(1)
+    await act(async () => { await vi.advanceTimersByTimeAsync(1_000) })
+    expect(base.listOrders).toHaveBeenCalledTimes(2)
+  })
+
+  it('keeps polling every 10 s without realtime', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const source = makeSource()
+    render(<KitchenBoard source={source} stationLabel="Pizzas" />)
+    await screen.findByText('M-4 · Ana')
+    await act(async () => { await vi.advanceTimersByTimeAsync(10_000) })
+    expect(source.listOrders).toHaveBeenCalledTimes(2)
+  })
+
+  it('unsubscribes from realtime on unmount', async () => {
+    const base = makeSource()
+    const { source, unsubscribe } = withRealtime(base)
+    const { unmount } = render(<KitchenBoard source={source} stationLabel="Pizzas" />)
+    await screen.findByText('M-4 · Ana')
+    unmount()
+    expect(unsubscribe).toHaveBeenCalledTimes(1)
   })
 })

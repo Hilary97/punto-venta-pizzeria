@@ -1,3 +1,4 @@
+import type { RealtimeChannel } from '@supabase/supabase-js'
 import { z } from 'zod'
 import { getSupabaseClient } from '../../../shared/supabase/client'
 import { parseRpcResult } from '../../../shared/supabase/rpc'
@@ -58,6 +59,40 @@ function mapKitchenOrders(rows: z.infer<typeof kitchenOrdersSchema>): KitchenOrd
   }))
 }
 
+/** Public Broadcast channel the database signals on every order change (no payload). */
+const KITCHEN_CHANNEL = 'kitchen'
+const CHANGED_EVENT = 'changed'
+
+const changeListeners = new Set<() => void>()
+let kitchenChannel: RealtimeChannel | null = null
+
+function notifyChangeListeners() {
+  for (const listener of [...changeListeners]) listener()
+}
+
+/**
+ * Listens for the database's order-change signal on one channel shared by every board.
+ * Also notifies when the channel (re)subscribes, so changes missed while offline are reloaded.
+ */
+export function subscribeKitchenChanges(onChange: () => void): () => void {
+  changeListeners.add(onChange)
+  if (!kitchenChannel) {
+    kitchenChannel = getSupabaseClient()
+      .channel(KITCHEN_CHANNEL)
+      .on('broadcast', { event: CHANGED_EVENT }, notifyChangeListeners)
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') notifyChangeListeners()
+      })
+  }
+  return () => {
+    changeListeners.delete(onChange)
+    if (changeListeners.size === 0 && kitchenChannel) {
+      void getSupabaseClient().removeChannel(kitchenChannel)
+      kitchenChannel = null
+    }
+  }
+}
+
 const LOAD_ERROR = 'No se pudieron cargar los pedidos.'
 const READY_ERROR = 'No se pudo marcar el pedido como listo.'
 const DELIVERED_ERROR = 'No se pudo marcar el pedido como entregado.'
@@ -81,6 +116,8 @@ export function createDeviceKitchenSource(secret: string): KitchenSource {
       })
       return parseRpcResult(orderIdResultSchema, data, error, READY_ERROR).order_id
     },
+
+    subscribe: subscribeKitchenChanges,
   }
 }
 
@@ -102,6 +139,8 @@ export function authenticatedKitchenSource(station: KitchenStation): KitchenSour
       })
       return parseRpcResult(orderIdResultSchema, data, error, READY_ERROR).order_id
     },
+
+    subscribe: subscribeKitchenChanges,
   }
 }
 
@@ -136,6 +175,8 @@ export function createDeviceDeliverySource(
       })
       return parseRpcResult(orderIdResultSchema, data, error, DELIVERED_ERROR).order_id
     },
+
+    subscribe: subscribeKitchenChanges,
   }
 }
 
@@ -152,4 +193,6 @@ export const authenticatedDeliverySource: DeliverySource = {
     })
     return parseRpcResult(orderIdResultSchema, data, error, DELIVERED_ERROR).order_id
   },
+
+  subscribe: subscribeKitchenChanges,
 }

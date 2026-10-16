@@ -4,7 +4,7 @@ import { ErrorBanner } from '../../../shared/ui/ErrorBanner'
 import { Spinner } from '../../../shared/ui/Spinner'
 import { ticketKey, type KitchenSource } from '../domain/kitchen'
 import { OrderTicketCard } from './OrderTicketCard'
-import { POLL_INTERVAL_MS, useOrderBoard } from './useOrderBoard'
+import { useOrderBoard } from './useOrderBoard'
 
 interface KitchenBoardProps {
   source: KitchenSource
@@ -12,11 +12,11 @@ interface KitchenBoardProps {
   pollIntervalMs?: number
 }
 
-/** Station board: polls the pending tickets, numbered in arrival order, and lets the kitchen mark each one ready. */
-export function KitchenBoard({ source, stationLabel, pollIntervalMs = POLL_INTERVAL_MS }: KitchenBoardProps) {
+/** Station board: shows the pending tickets (reloaded on the realtime signal, polled as fallback), numbered in arrival order, and lets the kitchen mark each one ready. */
+export function KitchenBoard({ source, stationLabel, pollIntervalMs }: KitchenBoardProps) {
   const list = useCallback(() => source.listOrders(), [source])
   const act = useCallback((orderId: string, lineIds: string[]) => source.markReady(orderId, lineIds), [source])
-  const { orders, error, pendingIds, reload, runAction } = useOrderBoard({ list, act, pollIntervalMs })
+  const { orders, error, pendingIds, reload, runAction } = useOrderBoard({ list, act, subscribe: source.subscribe, pollIntervalMs })
 
   return (
     <section aria-label={`Cocina ${stationLabel}`} className="flex flex-col gap-4 p-4">

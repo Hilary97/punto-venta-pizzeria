@@ -4,12 +4,34 @@ import {
   authenticatedKitchenSource,
   createDeviceDeliverySource,
   createDeviceKitchenSource,
+  subscribeKitchenChanges,
 } from './kitchenRepository'
 
-const rpc = vi.hoisted(() => vi.fn())
+const { rpc, channel, removeChannel, realtime } = vi.hoisted(() => {
+  const realtime = {
+    onBroadcast: null as null | ((message: unknown) => void),
+    onStatus: null as null | ((status: string) => void),
+  }
+  const fakeChannel = {
+    on: vi.fn((_type: string, _filter: unknown, handler: (message: unknown) => void) => {
+      realtime.onBroadcast = handler
+      return fakeChannel
+    }),
+    subscribe: vi.fn((callback: (status: string) => void) => {
+      realtime.onStatus = callback
+      return fakeChannel
+    }),
+  }
+  return {
+    rpc: vi.fn(),
+    channel: vi.fn(() => fakeChannel),
+    removeChannel: vi.fn().mockResolvedValue('ok'),
+    realtime,
+  }
+})
 
 vi.mock('../../../shared/supabase/client', () => ({
-  getSupabaseClient: () => ({ rpc }),
+  getSupabaseClient: () => ({ rpc, channel, removeChannel }),
 }))
 
 const row = {
@@ -130,5 +152,61 @@ describe('delivery sources', () => {
     rpc.mockResolvedValue({ data: { order_id: 'o1' }, error: null })
     await authenticatedDeliverySource.markDelivered('o1', ['l1'])
     expect(rpc).toHaveBeenCalledWith('mark_delivered', { p_order_id: 'o1', p_line_ids: ['l1'] })
+  })
+})
+
+describe('subscribeKitchenChanges', () => {
+  beforeEach(() => {
+    channel.mockClear()
+    removeChannel.mockClear()
+  })
+
+  it('shares one public kitchen channel and notifies every listener on a change signal', () => {
+    const first = vi.fn()
+    const second = vi.fn()
+    const stopFirst = subscribeKitchenChanges(first)
+    const stopSecond = subscribeKitchenChanges(second)
+    expect(channel).toHaveBeenCalledTimes(1)
+    expect(channel).toHaveBeenCalledWith('kitchen')
+    const fakeChannel = channel.mock.results[0]!.value
+    expect(fakeChannel.on).toHaveBeenCalledWith('broadcast', { event: 'changed' }, expect.any(Function))
+
+    realtime.onBroadcast!({ event: 'changed', payload: {} })
+    expect(first).toHaveBeenCalledTimes(1)
+    expect(second).toHaveBeenCalledTimes(1)
+
+    stopFirst()
+    expect(removeChannel).not.toHaveBeenCalled()
+    realtime.onBroadcast!({ event: 'changed', payload: {} })
+    expect(first).toHaveBeenCalledTimes(1)
+    expect(second).toHaveBeenCalledTimes(2)
+
+    stopSecond()
+    expect(removeChannel).toHaveBeenCalledWith(fakeChannel)
+  })
+
+  it('notifies when the channel (re)subscribes, but not on errors', () => {
+    const listener = vi.fn()
+    const stop = subscribeKitchenChanges(listener)
+    realtime.onStatus!('CHANNEL_ERROR')
+    realtime.onStatus!('TIMED_OUT')
+    expect(listener).not.toHaveBeenCalled()
+    realtime.onStatus!('SUBSCRIBED')
+    expect(listener).toHaveBeenCalledTimes(1)
+    stop()
+  })
+
+  it('opens a new channel after the last listener left', () => {
+    subscribeKitchenChanges(vi.fn())()
+    subscribeKitchenChanges(vi.fn())()
+    expect(channel).toHaveBeenCalledTimes(2)
+    expect(removeChannel).toHaveBeenCalledTimes(2)
+  })
+
+  it('is exposed by every kitchen and delivery source', () => {
+    expect(createDeviceKitchenSource('s').subscribe).toBe(subscribeKitchenChanges)
+    expect(authenticatedKitchenSource('pizza').subscribe).toBe(subscribeKitchenChanges)
+    expect(createDeviceDeliverySource('s', () => 't').subscribe).toBe(subscribeKitchenChanges)
+    expect(authenticatedDeliverySource.subscribe).toBe(subscribeKitchenChanges)
   })
 })
