@@ -6,6 +6,8 @@ import { cn } from '../../../shared/ui/cn'
 import { orderLabel, productLineLabel, TABLE_NUMBERS, tableLabel, type Order } from '../../orders/domain/order'
 import { filterOrders } from '../../orders/domain/orderFilter'
 import { listOpenOrders } from '../../orders/infrastructure/ordersRepository'
+import { subscribeKitchenChanges } from '../../kitchen/infrastructure/kitchenRepository'
+import { useChangeSignal } from '../../../shared/realtime/useChangeSignal'
 
 interface PendingOrdersPanelProps {
   onCharge: (orderId: string) => void
@@ -27,6 +29,9 @@ export function PendingOrdersPanel({ onCharge }: PendingOrdersPanelProps) {
     setTableNumber(null)
     setNameQuery('')
   }
+
+  // Orders opened, changed or paid elsewhere show up without pressing Actualizar.
+  useChangeSignal(subscribeKitchenChanges, () => setReloadCount((count) => count + 1))
 
   useEffect(() => {
     async function load() {

@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -7,7 +7,10 @@ import { listCategories, listProducts } from '../../products/infrastructure/prod
 import type { Order } from '../domain/order'
 import { addOrderItems, cancelOrder, createOrder, listOpenOrders, setOrderNotes } from '../infrastructure/ordersRepository'
 import { pizzaCatalogFixture } from '../../pizza/ui/pizzaCatalogFixture'
+import { subscribeKitchenChanges } from '../../kitchen/infrastructure/kitchenRepository'
 import { OrdersPage } from './OrdersPage'
+
+vi.mock('../../kitchen/infrastructure/kitchenRepository', () => ({ subscribeKitchenChanges: vi.fn() }))
 
 vi.mock('../../pizza/infrastructure/pizzaRepository', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../pizza/infrastructure/pizzaRepository')>()),
@@ -67,9 +70,31 @@ beforeEach(() => {
   vi.mocked(addOrderItems).mockResolvedValue('order-1')
   vi.mocked(cancelOrder).mockResolvedValue('order-1')
   vi.mocked(setOrderNotes).mockResolvedValue('order-1')
+  vi.mocked(subscribeKitchenChanges).mockReturnValue(() => {})
 })
 
+/** Simulates the realtime order-change signal and waits past its 300 ms merge window. */
+async function signalOrdersChanged() {
+  const onChange = vi.mocked(subscribeKitchenChanges).mock.calls.at(-1)![0]
+  await act(async () => {
+    onChange()
+    await new Promise((resolve) => setTimeout(resolve, 350))
+  })
+}
+
 describe('OrdersPage', () => {
+  it('reloads the open orders, not the catalog, when the realtime signal arrives', async () => {
+    const other: Order = { ...openOrder, id: 'order-2', tableNumber: 5, customerName: 'Beto', token: 13 }
+    vi.mocked(listOpenOrders).mockResolvedValueOnce([openOrder]).mockResolvedValue([openOrder, other])
+    renderPage()
+    const region = await screen.findByRole('region', { name: /pedidos abiertos/i })
+    expect(within(region).queryByText(/Beto/)).not.toBeInTheDocument()
+    await signalOrdersChanged()
+    expect(await within(region).findByText(/Beto/)).toBeVisible()
+    expect(listOpenOrders).toHaveBeenCalledTimes(2)
+    expect(listProducts).toHaveBeenCalledTimes(1)
+  })
+
   it('renders the nine table buttons and hides product prices', async () => {
     const user = userEvent.setup()
     renderPage()

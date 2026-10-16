@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { toUserMessage } from '../../../shared/errors'
+import { useChangeSignal } from '../../../shared/realtime/useChangeSignal'
 import { Button } from '../../../shared/ui/Button'
 import { ErrorBanner } from '../../../shared/ui/ErrorBanner'
 import { Input } from '../../../shared/ui/Input'
@@ -101,6 +102,16 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
       setActionError(toUserMessage(error))
     }
   }, [source])
+
+  // Another waiter or the cashier changed an order: refresh the list quietly, keeping any action message.
+  const refreshOrders = useCallback(async () => {
+    try {
+      setOrders(await source.listOpenOrders())
+    } catch {
+      // Keep the current list; the next signal or action reloads it.
+    }
+  }, [source])
+  useChangeSignal(source.subscribe, () => void refreshOrders())
 
   useEffect(() => {
     async function load() {

@@ -167,6 +167,15 @@ describe('DeviceOrdersApp', () => {
     expect(await screen.findByRole('button', { name: 'M-4' })).toBeVisible()
   })
 
+  it('passes the realtime subscription to the orders workspace', async () => {
+    const subscribe = vi.fn(() => () => {})
+    vi.mocked(createDeviceOrdersSource).mockReturnValue({ ...source, subscribe })
+    const user = userEvent.setup()
+    renderApp()
+    await loginWithPin(user)
+    await waitFor(() => expect(subscribe).toHaveBeenCalledTimes(1))
+  })
+
   it('passes the realtime subscription to the delivery board', async () => {
     const subscribe = vi.fn(() => () => {})
     vi.mocked(createDeviceDeliverySource).mockReturnValue({

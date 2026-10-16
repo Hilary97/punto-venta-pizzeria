@@ -1,4 +1,5 @@
 import type { PizzaConfig } from '../../pizza/domain/pizza'
+import type { SubscribeChanges } from '../../../shared/realtime/useChangeSignal'
 
 export type KitchenStation = 'pizza' | 'grill'
 
@@ -79,8 +80,7 @@ export function ticketKey(order: Pick<KitchenOrder, 'id' | 'createdAt'>): string
   return `${order.id}@${order.createdAt}`
 }
 
-/** Calls `onChange` whenever orders may have changed; returns the function that stops listening. */
-export type SubscribeChanges = (onChange: () => void) => () => void
+export type { SubscribeChanges } from '../../../shared/realtime/useChangeSignal'
 
 export interface KitchenSource {
   listOrders(): Promise<KitchenOrder[]>

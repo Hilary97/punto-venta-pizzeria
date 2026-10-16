@@ -1,11 +1,14 @@
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, useLocation } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Order } from '../../orders/domain/order'
 import type { OrderQuote } from '../../orders/domain/orderQuote'
 import { getOrder, listOpenOrders, payOrder, quoteOrder } from '../../orders/infrastructure/ordersRepository'
+import { subscribeKitchenChanges } from '../../kitchen/infrastructure/kitchenRepository'
 import { PosPage } from './PosPage'
+
+vi.mock('../../kitchen/infrastructure/kitchenRepository', () => ({ subscribeKitchenChanges: vi.fn() }))
 
 vi.mock('../../orders/infrastructure/ordersRepository', () => ({ getOrder: vi.fn(), listOpenOrders: vi.fn(), payOrder: vi.fn(), quoteOrder: vi.fn() }))
 
@@ -53,6 +56,7 @@ beforeEach(() => {
   vi.mocked(getOrder).mockResolvedValue(openOrder)
   vi.mocked(listOpenOrders).mockResolvedValue([])
   vi.mocked(payOrder).mockResolvedValue({ saleId: 'sale', totalCents: 32000, changeCents: 8000, orderId: 'o1' })
+  vi.mocked(subscribeKitchenChanges).mockReturnValue(() => {})
 })
 
 describe('Venta screen without direct sales', () => {
@@ -234,6 +238,23 @@ describe('pending orders panel', () => {
     await screen.findByText('Cobrando pedido M-3 · Ana')
     expect(screen.queryByText(/pedidos pendientes/i)).not.toBeInTheDocument()
     expect(listOpenOrders).not.toHaveBeenCalled()
+  })
+
+  it('reloads the pending orders when the realtime signal arrives and unsubscribes on unmount', async () => {
+    const unsubscribe = vi.fn()
+    vi.mocked(subscribeKitchenChanges).mockReturnValue(unsubscribe)
+    vi.mocked(listOpenOrders).mockResolvedValueOnce([]).mockResolvedValue([openOrder])
+    const { unmount } = renderPos()
+    await screen.findByText('Pedidos pendientes (0)')
+    const onChange = vi.mocked(subscribeKitchenChanges).mock.calls.at(-1)![0]
+    await act(async () => {
+      onChange()
+      await new Promise((resolve) => setTimeout(resolve, 350))
+    })
+    expect(await screen.findByText('Pedidos pendientes (1)')).toBeVisible()
+    expect(listOpenOrders).toHaveBeenCalledTimes(2)
+    unmount()
+    expect(unsubscribe).toHaveBeenCalledTimes(1)
   })
 
   it('reloads after a successful payOrder so the paid order disappears', async () => {

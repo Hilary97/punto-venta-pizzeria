@@ -1,5 +1,6 @@
 import type { Category, Product } from '../../products/domain/product'
 import type { PizzaCatalog } from '../../pizza/domain/pizza'
+import type { SubscribeChanges } from '../../../shared/realtime/useChangeSignal'
 import type { Order, OrderItemPayload } from './order'
 
 /** Device catalogs carry no prices: products come with `priceCents: 0` and are shown without prices. */
@@ -22,4 +23,6 @@ export interface OrdersSource {
   addOrderItems(orderId: string, items: OrderItemPayload[]): Promise<string>
   cancelOrder(orderId: string): Promise<string>
   setOrderNotes(orderId: string, notes: string | null): Promise<string>
+  /** Realtime signal that open orders changed (e.g. another waiter added items). */
+  subscribe?: SubscribeChanges
 }

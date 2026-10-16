@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { getSupabaseClient } from '../../../shared/supabase/client'
+import { subscribeKitchenChanges } from '../../kitchen/infrastructure/kitchenRepository'
 import { parseRpcResult } from '../../../shared/supabase/rpc'
 import { listCategories, listProducts } from '../../products/infrastructure/productsRepository'
 import { listPizzaCatalog, pizzaCatalogSchema } from '../../pizza/infrastructure/pizzaRepository'
@@ -31,6 +32,7 @@ export const authenticatedOrdersSource: OrdersSource = {
   addOrderItems,
   cancelOrder,
   setOrderNotes,
+  subscribe: subscribeKitchenChanges,
 }
 
 const catalogSchema = z.object({
@@ -138,5 +140,7 @@ export function createDeviceOrdersSource(
       })
       return parseRpcResult(orderIdResultSchema, data, error, 'No se pudo guardar la nota.').order_id
     },
+
+    subscribe: subscribeKitchenChanges,
   }
 }
