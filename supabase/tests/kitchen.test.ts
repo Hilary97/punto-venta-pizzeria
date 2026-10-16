@@ -666,3 +666,55 @@ describe('authenticated variants', () => {
     await expect(rpc(db, `public.list_kitchen_orders($1)`, ['bar'])).rejects.toThrow('Estación inválida.')
   })
 })
+
+describe('realtime change signal', () => {
+  const SIGNAL = { payload: {}, event: 'changed', topic: 'kitchen', private: false }
+
+  beforeEach(async () => {
+    await asSuperuser(db)
+    await db.query(`update public.categories set kitchen_station = 'grill' where name in ('Hamburguesas','Botanas')`)
+  })
+
+  async function takeSignals(): Promise<Json[]> {
+    await asSuperuser(db)
+    const res = await db.query<Json>(`delete from realtime.sent returning payload, event, topic, private`)
+    return res.rows
+  }
+
+  it('sends an empty public signal when an order is created, made ready, delivered or cancelled', async () => {
+    await takeSignals()
+    const id = await createOrder([{ product_id: burgerId, quantity: 1 }])
+    const created = await takeSignals()
+    expect(created.length).toBeGreaterThan(0)
+    for (const signal of created) expect(signal).toEqual(SIGNAL)
+
+    await asAnon(db)
+    await markReady(grillSecret, id)
+    expect(await takeSignals()).toContainEqual(SIGNAL)
+
+    await asAnon(db)
+    await markDelivered(id)
+    expect(await takeSignals()).toContainEqual(SIGNAL)
+
+    await addItems(id, [{ product_id: drinkId, quantity: 1 }])
+    expect(await takeSignals()).toContainEqual(SIGNAL)
+
+    await asAnon(db)
+    await rpc(db, 'public.device_cancel_order($1, $2, $3)', [waiterSecret, token, id])
+    expect(await takeSignals()).toContainEqual(SIGNAL)
+  })
+
+  it('still saves the order when the realtime signal fails', async () => {
+    await asSuperuser(db)
+    await db.exec(`
+      create or replace function realtime.send(payload jsonb, event text, topic text, private boolean default true)
+      returns void language plpgsql as $$ begin raise exception 'realtime down'; end $$;
+    `)
+    const id = await createOrder([{ product_id: burgerId, quantity: 1 }])
+    await asAnon(db)
+    expect((await kitchen(grillSecret)).map((o: Json) => o.id)).toEqual([id])
+    await markReady(grillSecret, id)
+    await asAnon(db)
+    expect((await ready()).map((o: Json) => o.id)).toEqual([id])
+  })
+})

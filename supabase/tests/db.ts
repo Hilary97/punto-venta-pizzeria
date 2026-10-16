@@ -32,6 +32,15 @@ $$;
 
 grant usage on schema public, auth, extensions to anon, authenticated;
 grant execute on function auth.uid(), auth.role() to anon, authenticated;
+
+-- Supabase Realtime stub: records every broadcast so tests can assert on it.
+create schema realtime;
+create table realtime.sent (payload jsonb, event text, topic text, private boolean);
+create function realtime.send(payload jsonb, event text, topic text, private boolean default true)
+returns void
+language sql as $$
+  insert into realtime.sent values (payload, event, topic, private)
+$$;
 `
 
 export type TestDb = PGlite
