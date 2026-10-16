@@ -9,6 +9,10 @@
 -- A failing broadcast must never block an order write, so errors are
 -- swallowed.
 --
+-- One write may run several statements (and cascades run one per parent
+-- row), so the signal is sent at most once per transaction. Realtime delivers
+-- it after commit; a rolled-back write sends nothing.
+--
 -- Runs as one script (Supabase SQL Editor).
 
 create or replace function public.notify_kitchen_changed()
@@ -18,6 +22,11 @@ security definer
 set search_path = ''
 as $$
 begin
+  if current_setting('app.kitchen_signal_sent', true) = 'on' then
+    return null;
+  end if;
+  perform set_config('app.kitchen_signal_sent', 'on', true);
+
   begin
     perform realtime.send('{}'::jsonb, 'changed', 'kitchen', false);
   exception when others then

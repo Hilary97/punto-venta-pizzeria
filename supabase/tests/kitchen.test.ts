@@ -681,27 +681,33 @@ describe('realtime change signal', () => {
     return res.rows
   }
 
-  it('sends an empty public signal when an order is created, made ready, delivered or cancelled', async () => {
+  it('sends one empty public signal per write when an order is created, made ready, delivered or cancelled', async () => {
     await takeSignals()
     const id = await createOrder([{ product_id: burgerId, quantity: 1 }])
-    const created = await takeSignals()
-    expect(created.length).toBeGreaterThan(0)
-    for (const signal of created) expect(signal).toEqual(SIGNAL)
+    expect(await takeSignals()).toEqual([SIGNAL])
 
     await asAnon(db)
     await markReady(grillSecret, id)
-    expect(await takeSignals()).toContainEqual(SIGNAL)
+    expect(await takeSignals()).toEqual([SIGNAL])
 
     await asAnon(db)
     await markDelivered(id)
-    expect(await takeSignals()).toContainEqual(SIGNAL)
+    expect(await takeSignals()).toEqual([SIGNAL])
 
     await addItems(id, [{ product_id: drinkId, quantity: 1 }])
-    expect(await takeSignals()).toContainEqual(SIGNAL)
+    expect(await takeSignals()).toEqual([SIGNAL])
 
     await asAnon(db)
     await rpc(db, 'public.device_cancel_order($1, $2, $3)', [waiterSecret, token, id])
-    expect(await takeSignals()).toContainEqual(SIGNAL)
+    expect(await takeSignals()).toEqual([SIGNAL])
+  })
+
+  it('sends one signal when deleting several orders cascades to their lines', async () => {
+    const a = await createOrder([{ product_id: burgerId, quantity: 1 }], 1)
+    const b = await createOrder([{ product_id: drinkId, quantity: 2 }], 3)
+    await takeSignals()
+    await db.query(`delete from public.orders where id = any($1::uuid[])`, [[a, b]])
+    expect(await takeSignals()).toEqual([SIGNAL])
   })
 
   it('still saves the order when the realtime signal fails', async () => {
