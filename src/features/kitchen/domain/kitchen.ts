@@ -31,34 +31,6 @@ export interface KitchenLine {
   station?: KitchenStation | null
 }
 
-/** Lines picked up in one place, labelled with the token colour used there. */
-export interface PickupGroup {
-  station: KitchenStation | null
-  label: string
-  lines: KitchenLine[]
-}
-
-/** Each kitchen leaves plates in its own pickup area with its own token colour. */
-export const PICKUP_LABELS: Record<KitchenStation, string> = {
-  pizza: 'Recoger en Pizzas (ficha roja)',
-  grill: 'Recoger en Hamburguesas y botanas (ficha azul)',
-}
-
-const OTHER_PICKUP_LABEL = 'Bebidas y otros'
-
-/** Groups delivery lines by pickup place: pizzas, then grill, then uncooked lines; empty groups are dropped. */
-export function pickupGroups(lines: KitchenLine[]): PickupGroup[] {
-  const groups: PickupGroup[] = [
-    { station: 'pizza', label: PICKUP_LABELS.pizza, lines: [] },
-    { station: 'grill', label: PICKUP_LABELS.grill, lines: [] },
-    { station: null, label: OTHER_PICKUP_LABEL, lines: [] },
-  ]
-  for (const line of lines) {
-    groups.find((group) => group.station === (line.station ?? null))!.lines.push(line)
-  }
-  return groups.filter((group) => group.lines.length > 0)
-}
-
 /**
  * An open order seen by a station or by delivery. A station sees one ticket per arrival batch
  * (`createdAt` is when those lines arrived), so one order may appear twice; delivery sees one per order.

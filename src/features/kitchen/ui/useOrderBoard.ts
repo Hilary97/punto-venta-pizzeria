@@ -83,8 +83,17 @@ export function useOrderBoard({ list, act, subscribe, pollIntervalMs }: OrderBoa
     setPendingIds((ids) => new Set(ids).add(key))
     setError(null)
     try {
-      await act(order.id, order.lines.map((line) => line.id))
-      if (mounted.current) setOrders((current) => current?.filter((o) => ticketKey(o) !== key) ?? null)
+      const acted = new Set(order.lines.map((line) => line.id))
+      await act(order.id, [...acted])
+      // Drop only the acted lines: a card may show part of a ticket (one delivery section).
+      if (mounted.current) {
+        setOrders(
+          (current) =>
+            current
+              ?.map((o) => (ticketKey(o) === key ? { ...o, lines: o.lines.filter((line) => !acted.has(line.id)) } : o))
+              .filter((o) => o.lines.length > 0) ?? null,
+        )
+      }
     } catch (e) {
       if (mounted.current) {
         await load()
