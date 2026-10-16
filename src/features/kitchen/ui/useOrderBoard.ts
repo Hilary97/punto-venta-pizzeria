@@ -6,7 +6,7 @@ import { ticketKey, type KitchenOrder, type SubscribeChanges } from '../domain/k
 export const POLL_INTERVAL_MS = 10_000
 /** Fallback polling interval while the realtime signal drives the reloads. */
 export const REALTIME_FALLBACK_POLL_MS = 60_000
-/** Signals arriving within this window cause a single reload. */
+/** A signal reloads after this delay; signals arriving meanwhile join that same reload. */
 const SIGNAL_DEBOUNCE_MS = 300
 
 function byOldest(a: KitchenOrder, b: KitchenOrder): number {
@@ -56,8 +56,12 @@ export function useOrderBoard({ list, act, subscribe, pollIntervalMs }: OrderBoa
     if (subscribe) {
       try {
         unsubscribe = subscribe(() => {
-          clearTimeout(debounce)
-          debounce = setTimeout(() => void load(), SIGNAL_DEBOUNCE_MS)
+          // Not restarted by later signals, so a steady stream cannot postpone the reload.
+          if (debounce !== undefined) return
+          debounce = setTimeout(() => {
+            debounce = undefined
+            void load()
+          }, SIGNAL_DEBOUNCE_MS)
         })
       } catch {
         // No realtime (e.g. misconfigured client): fall back to regular polling.

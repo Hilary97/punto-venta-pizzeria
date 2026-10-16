@@ -4,10 +4,9 @@ import {
   authenticatedKitchenSource,
   createDeviceDeliverySource,
   createDeviceKitchenSource,
-  subscribeKitchenChanges,
 } from './kitchenRepository'
 
-const { rpc, channel, removeChannel, realtime } = vi.hoisted(() => {
+const { rpc, channel, removeChannel, realtime, clientError } = vi.hoisted(() => {
   const realtime = {
     onBroadcast: null as null | ((message: unknown) => void),
     onStatus: null as null | ((status: string) => void),
@@ -25,13 +24,17 @@ const { rpc, channel, removeChannel, realtime } = vi.hoisted(() => {
   return {
     rpc: vi.fn(),
     channel: vi.fn(() => fakeChannel),
+    clientError: { current: null as Error | null },
     removeChannel: vi.fn().mockResolvedValue('ok'),
     realtime,
   }
 })
 
 vi.mock('../../../shared/supabase/client', () => ({
-  getSupabaseClient: () => ({ rpc, channel, removeChannel }),
+  getSupabaseClient: () => {
+    if (clientError.current) throw clientError.current
+    return { rpc, channel, removeChannel }
+  },
 }))
 
 const row = {
@@ -156,9 +159,16 @@ describe('delivery sources', () => {
 })
 
 describe('subscribeKitchenChanges', () => {
-  beforeEach(() => {
+  // The shared channel is module state: give every test a fresh module.
+  let repo: typeof import('./kitchenRepository')
+  let subscribeKitchenChanges: typeof repo.subscribeKitchenChanges
+
+  beforeEach(async () => {
     channel.mockClear()
     removeChannel.mockClear()
+    vi.resetModules()
+    repo = await import('./kitchenRepository')
+    subscribeKitchenChanges = repo.subscribeKitchenChanges
   })
 
   it('shares one public kitchen channel and notifies every listener on a change signal', () => {
@@ -176,13 +186,13 @@ describe('subscribeKitchenChanges', () => {
     expect(second).toHaveBeenCalledTimes(1)
 
     stopFirst()
-    expect(removeChannel).not.toHaveBeenCalled()
     realtime.onBroadcast!({ event: 'changed', payload: {} })
     expect(first).toHaveBeenCalledTimes(1)
     expect(second).toHaveBeenCalledTimes(2)
 
     stopSecond()
-    expect(removeChannel).toHaveBeenCalledWith(fakeChannel)
+    realtime.onBroadcast!({ event: 'changed', payload: {} })
+    expect(second).toHaveBeenCalledTimes(2)
   })
 
   it('notifies when the channel (re)subscribes, but not on errors', () => {
@@ -196,17 +206,37 @@ describe('subscribeKitchenChanges', () => {
     stop()
   })
 
-  it('opens a new channel after the last listener left', () => {
+  it('keeps the channel open for the next board after the last listener left', () => {
+    // realtime-js returns the same (still leaving) channel for the topic, so removing and
+    // re-creating it quickly would leave the next board on a dead channel.
     subscribeKitchenChanges(vi.fn())()
-    subscribeKitchenChanges(vi.fn())()
-    expect(channel).toHaveBeenCalledTimes(2)
-    expect(removeChannel).toHaveBeenCalledTimes(2)
+    const next = vi.fn()
+    const stop = subscribeKitchenChanges(next)
+    expect(channel).toHaveBeenCalledTimes(1)
+    expect(removeChannel).not.toHaveBeenCalled()
+    realtime.onBroadcast!({ event: 'changed', payload: {} })
+    expect(next).toHaveBeenCalledTimes(1)
+    stop()
+  })
+
+  it('does not keep the listener when the client cannot subscribe', () => {
+    const failed = vi.fn()
+    clientError.current = new Error('no configurada')
+    try {
+      expect(() => subscribeKitchenChanges(failed)).toThrow('no configurada')
+    } finally {
+      clientError.current = null
+    }
+    const stop = subscribeKitchenChanges(vi.fn())
+    realtime.onBroadcast!({ event: 'changed', payload: {} })
+    expect(failed).not.toHaveBeenCalled()
+    stop()
   })
 
   it('is exposed by every kitchen and delivery source', () => {
-    expect(createDeviceKitchenSource('s').subscribe).toBe(subscribeKitchenChanges)
-    expect(authenticatedKitchenSource('pizza').subscribe).toBe(subscribeKitchenChanges)
-    expect(createDeviceDeliverySource('s', () => 't').subscribe).toBe(subscribeKitchenChanges)
-    expect(authenticatedDeliverySource.subscribe).toBe(subscribeKitchenChanges)
+    expect(repo.createDeviceKitchenSource('s').subscribe).toBe(subscribeKitchenChanges)
+    expect(repo.authenticatedKitchenSource('pizza').subscribe).toBe(subscribeKitchenChanges)
+    expect(repo.createDeviceDeliverySource('s', () => 't').subscribe).toBe(subscribeKitchenChanges)
+    expect(repo.authenticatedDeliverySource.subscribe).toBe(subscribeKitchenChanges)
   })
 })

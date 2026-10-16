@@ -73,9 +73,12 @@ function notifyChangeListeners() {
 /**
  * Listens for the database's order-change signal on one channel shared by every board.
  * Also notifies when the channel (re)subscribes, so changes missed while offline are reloaded.
+ *
+ * The channel stays open for the app's lifetime: realtime-js hands back the same channel for a
+ * topic while it is still leaving, so removing and re-creating it (e.g. switching station) would
+ * leave the next board on a dead channel.
  */
 export function subscribeKitchenChanges(onChange: () => void): () => void {
-  changeListeners.add(onChange)
   if (!kitchenChannel) {
     kitchenChannel = getSupabaseClient()
       .channel(KITCHEN_CHANNEL)
@@ -84,12 +87,9 @@ export function subscribeKitchenChanges(onChange: () => void): () => void {
         if (status === 'SUBSCRIBED') notifyChangeListeners()
       })
   }
+  changeListeners.add(onChange)
   return () => {
     changeListeners.delete(onChange)
-    if (changeListeners.size === 0 && kitchenChannel) {
-      void getSupabaseClient().removeChannel(kitchenChannel)
-      kitchenChannel = null
-    }
   }
 }
 
