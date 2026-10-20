@@ -221,6 +221,94 @@ describe('dough on orders', () => {
     expect(await dayRow('chica')).toEqual({ prepared: 1, used: 0 })
   })
 
+  it('counts a zero-padded quantity in the pre-check and deducts it once', async () => {
+    await setDough('chica', 1)
+    await expect(createOrder([pizza('chica', '0000000001' as unknown as number), pizza('chica', 1)])).rejects.toThrow(
+      'No hay masas de pizza Chica: quedan 1.',
+    )
+    expect(await dayRow('chica')).toEqual({ prepared: 1, used: 0 })
+
+    const orderId = await createOrder([pizza('chica', '0000000001' as unknown as number)])
+    expect(await dayRow('chica')).toEqual({ prepared: 1, used: 1 })
+    expect(await doughDays(orderId)).toEqual([await today()])
+  })
+
+  it.each([2000000000, '1000000000', '0001000000000'])(
+    'rejects the quantity %s as invalid before taking any dough, so no path skips the pre-check',
+    async (quantity) => {
+      await setDough('chica', 5)
+      const orders = await countRows('orders')
+      await expect(createOrder([pizza('chica', quantity as number)])).rejects.toThrow('Uno de los artículos del pedido es inválido.')
+      expect(await dayRow('chica')).toEqual({ prepared: 5, used: 0 })
+      expect(await countRows('orders')).toBe(orders)
+    },
+  )
+
+  it('treats a size whose row appeared after the pre-check as unlimited: no lock, no deduction, no dough_day', async () => {
+    // The trigger plays the admin loading the size while the order is being written.
+    await asSuperuser(db)
+    await db.query(`
+      create function public.test_late_dough() returns trigger language plpgsql as $$
+      begin
+        insert into public.pizza_dough_days (business_day, size_code, prepared)
+        values (public.pizza_business_day(), 'chica', 0) on conflict do nothing;
+        return new;
+      end $$`)
+    await db.query(`
+      create trigger test_late_dough after insert on public.order_items
+      for each row execute function public.test_late_dough()`)
+    const orderId = await createOrder([soda(1), pizza('chica', 1)])
+    expect(await doughDays(orderId)).toEqual([null, null])
+    expect(await dayRow('chica')).toEqual({ prepared: 0, used: 0 })
+  })
+
+  it('never deducts a product whose tracking was switched on after the pre-check locked it as untracked', async () => {
+    // The trigger plays the admin switching tracking on while the order is being written.
+    await asSuperuser(db)
+    await db.query(`
+      create function public.test_late_tracking() returns trigger language plpgsql as $$
+      begin
+        update public.products set track_stock = true, stock = 10 where id = '${fx.sodaId}';
+        return new;
+      end $$`)
+    await db.query(`
+      create trigger test_late_tracking after insert on public.order_items
+      for each row when (new.product_id = '${fx.pizzaId}') execute function public.test_late_tracking()`)
+    const orderId = await createOrder([{ product_id: fx.pizzaId, quantity: 1 }, soda(1)])
+    await asSuperuser(db)
+    const soldSoda = await db.query<{ stocked_quantity: number }>(
+      `select stocked_quantity from public.order_items where order_id = $1 and product_id = $2`,
+      [orderId, fx.sodaId],
+    )
+    expect(soldSoda.rows).toEqual([{ stocked_quantity: 0 }])
+    const stock = await db.query<{ stock: number }>(`select stock from public.products where id = $1`, [fx.sodaId])
+    expect(stock.rows[0].stock).toBe(10)
+  })
+
+  it('locks every product of the payload before any dough row (structure of insert_order_lines)', async () => {
+    await asSuperuser(db)
+    const def = (await db.query<{ d: string }>(`select pg_get_functiondef('public.insert_order_lines(uuid, jsonb)'::regprocedure) as d`)).rows[0].d
+    const trackedLock = def.indexOf('for no key update of p')
+    const untrackedLock = def.indexOf('for share of p')
+    const doughLock = def.indexOf('for no key update of d')
+    expect(trackedLock).toBeGreaterThan(-1)
+    expect(untrackedLock).toBeGreaterThan(-1)
+    expect(doughLock).toBeGreaterThan(-1)
+    // The up-front loops come first: tracked and untracked product locks, then the dough rows.
+    expect(Math.max(trackedLock, untrackedLock)).toBeLessThan(doughLock)
+    // The per-line dough read never locks: only rows the pre-check locked are touched.
+    expect(def.match(/for no key update/g)).toHaveLength(2)
+  })
+
+  it('keeps ordering an untracked product alongside tracked ones and pizzas', async () => {
+    await asSuperuser(db)
+    await db.query(`update public.products set track_stock = false where id = $1`, [fx.sodaId])
+    await setDough('chica', 2)
+    const orderId = await createOrder([soda(3), pizza('chica', 2)])
+    expect((await doughDays(orderId)).sort()).toEqual([await today(), null].sort())
+    expect(await dayRow('chica')).toEqual({ prepared: 2, used: 2 })
+  })
+
   it('works through device_create_order and device_add_order_items', async () => {
     await setDough('mediana', 2)
     await asUser(db, admin)
@@ -326,6 +414,17 @@ describe('admin_set_pizza_dough', () => {
     await expect(rpc(db, 'public.admin_set_pizza_dough($1, $2)', ['chica', -1])).rejects.toThrow('La cantidad de masas no es válida.')
     await expect(rpc(db, 'public.admin_set_pizza_dough($1, $2)', ['chica', null])).rejects.toThrow('La cantidad de masas no es válida.')
     expect(await dayRow('chica')).toBeUndefined()
+  })
+
+  it('rejects more than 100000 doughs and changes nothing', async () => {
+    await setDough('chica', 3)
+    await asUser(db, admin)
+    await expect(rpc(db, 'public.admin_set_pizza_dough($1, $2)', ['chica', 100001])).rejects.toThrow('La cantidad de masas no es válida.')
+    await expect(rpc(db, 'public.admin_set_pizza_dough($1, $2)', ['grande', 2147483647])).rejects.toThrow('La cantidad de masas no es válida.')
+    expect(await dayRow('chica')).toEqual({ prepared: 3, used: 0 })
+    expect(await dayRow('grande')).toBeUndefined()
+    await setDough('chica', 100000)
+    expect(await dayRow('chica')).toEqual({ prepared: 100000, used: 0 })
   })
 
   it('rejects unknown sizes', async () => {

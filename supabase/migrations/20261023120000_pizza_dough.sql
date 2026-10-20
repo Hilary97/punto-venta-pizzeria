@@ -81,43 +81,55 @@ declare
   v_size text;
   v_dough_left integer;
   v_dough_day date;
+  v_locked_sizes text[] := '{}';
+  v_tracked_products uuid[] := '{}';
 begin
-  -- Lock every tracked product of the payload up front, in id order, so
-  -- concurrent orders, payments and cancels never wait on each other in a
-  -- cycle, and check the total asked per product against the real stock.
-  -- Malformed items are skipped here; the per-line loop rejects them.
+  -- Lock every product of the payload up front, in id order: tracked ones for
+  -- update (and check the total asked per product against the real stock),
+  -- untracked ones for share. All product locks come before any dough lock,
+  -- so concurrent orders, payments and cancels never wait on each other in a
+  -- cycle. Malformed items are skipped here; the per-line loop rejects them.
   for v_short in
-    select p.name, p.stock, wanted.quantity
+    select p.id, p.track_stock, wanted.quantity
     from (
       select (i ->> 'product_id')::uuid as product_id, sum((i ->> 'quantity')::integer) as quantity
       from jsonb_array_elements(case when jsonb_typeof(p_items) = 'array' then p_items else '[]'::jsonb end) as i
       where jsonb_typeof(i) = 'object'
         and coalesce(i ->> 'type', 'product') = 'product'
         and i ->> 'product_id' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
-        and i ->> 'quantity' ~ '^[0-9]{1,9}$'
+        and i ->> 'quantity' ~ '^0*[0-9]{1,9}$'
       group by 1
     ) wanted
-    join public.products p on p.id = wanted.product_id and p.track_stock = true and p.active = true
+    join public.products p on p.id = wanted.product_id and p.active = true
     order by p.id
-    for no key update of p
   loop
-    if v_short.stock < v_short.quantity then
-      raise exception 'No hay suficiente %: quedan %.', v_short.name, v_short.stock;
+    if v_short.track_stock then
+      select p.name, p.stock into v_product_name, v_stock
+      from public.products p
+      where p.id = v_short.id
+      for no key update of p;
+      if v_stock < v_short.quantity then
+        raise exception 'No hay suficiente %: quedan %.', v_product_name, v_stock;
+      end if;
+      v_tracked_products := v_tracked_products || v_short.id;
+    else
+      perform 1 from public.products p where p.id = v_short.id for share of p;
     end if;
   end loop;
 
   -- Then lock today's dough rows of the sizes in the payload, in size_code
-  -- order (always after the products), and check the total pizzas asked per
-  -- size. Sizes without a row are unlimited. Malformed items are skipped here
-  -- too; the per-line loop rejects them.
+  -- order (always after every product), check the total pizzas asked per
+  -- size, and remember which sizes were locked. Sizes without a row are
+  -- unlimited, and so is any size without a recorded lock later on. Malformed
+  -- items are skipped here too; the per-line loop rejects them.
   for v_short in
-    select s.name, d.prepared - d.used as dough_left, wanted.quantity
+    select s.name, d.size_code, d.prepared - d.used as dough_left, wanted.quantity
     from (
       select i -> 'pizza' ->> 'size' as size_code, sum((i ->> 'quantity')::integer)::bigint as quantity
       from jsonb_array_elements(case when jsonb_typeof(p_items) = 'array' then p_items else '[]'::jsonb end) as i
       where jsonb_typeof(i) = 'object'
         and i ->> 'type' = 'pizza'
-        and i ->> 'quantity' ~ '^[0-9]{1,9}$'
+        and i ->> 'quantity' ~ '^0*[0-9]{1,9}$'
       group by 1
     ) wanted
     join public.pizza_dough_days d on d.size_code = wanted.size_code and d.business_day = v_day
@@ -128,6 +140,7 @@ begin
     if v_short.dough_left < v_short.quantity then
       raise exception 'No hay masas de pizza %: quedan %.', v_short.name, v_short.dough_left;
     end if;
+    v_locked_sizes := v_locked_sizes || v_short.size_code;
   end loop;
 
   for v_item in select * from jsonb_array_elements(p_items)
@@ -142,7 +155,7 @@ begin
     end if;
 
     v_raw_quantity := v_item ->> 'quantity';
-    if v_raw_quantity is null or v_raw_quantity !~ '^[0-9]+$' then
+    if v_raw_quantity is null or v_raw_quantity !~ '^0*[0-9]{1,9}$' then
       raise exception 'Uno de los artículos del pedido es inválido.';
     end if;
     v_quantity := v_raw_quantity::integer;
@@ -161,16 +174,17 @@ begin
     if v_type = 'pizza' then
       v_config := public.validate_pizza(v_item -> 'pizza');
 
-      -- Take the dough of the size from today's row, if there is one. The row
-      -- is locked already when it existed at the up-front check; the re-check
-      -- also covers a row the admin created in between.
+      -- Take the dough of the size only from a row the up-front check locked.
+      -- Any other size (no row then, or a row the admin created in between) is
+      -- unlimited: locking it here would break the lock order.
       v_size := v_config ->> 'size';
       v_dough_day := null;
       v_dough_left := null;
-      select d.prepared - d.used into v_dough_left
-      from public.pizza_dough_days d
-      where d.business_day = v_day and d.size_code = v_size
-      for no key update;
+      if v_size = any (v_locked_sizes) then
+        select d.prepared - d.used into v_dough_left
+        from public.pizza_dough_days d
+        where d.business_day = v_day and d.size_code = v_size;
+      end if;
 
       if v_dough_left is not null then
         if v_dough_left < v_quantity then
@@ -232,8 +246,10 @@ begin
         raise exception '% no tiene opciones', v_product_name;
       end if;
 
+      -- Only products the pre-check locked as tracked take stock; tracking
+      -- switched on mid-order leaves this line untracked, like a late dough row.
       v_stocked := 0;
-      if v_track_stock then
+      if v_track_stock and v_product_id = any (v_tracked_products) then
         if v_stock < v_quantity then
           raise exception 'No hay suficiente %: quedan %.', v_product_name, v_stock;
         end if;
@@ -464,7 +480,7 @@ begin
   if not public.is_admin() then
     raise exception 'Solo un administrador puede cargar las masas.';
   end if;
-  if p_prepared is null or p_prepared < 0 then
+  if p_prepared is null or p_prepared < 0 or p_prepared > 100000 then
     raise exception 'La cantidad de masas no es válida.';
   end if;
   if not exists (select 1 from public.pizza_sizes where code = p_size_code) then

@@ -82,7 +82,7 @@ describe('PizzaDoughSection loading doughs (S3)', () => {
     expect(screen.getByLabelText('Masas preparadas')).toHaveValue('')
   })
 
-  it.each(['', '-1', '2.5', 'abc'])('rejects "%s" without calling the server', async (text) => {
+  it.each(['', '-1', '2.5', 'abc', '100001', '2147483648'])('rejects "%s" without calling the server', async (text) => {
     const user = userEvent.setup()
     render(<PizzaDoughSection />)
     await screen.findByRole('heading', { name: 'Masas del día' })

@@ -5,6 +5,8 @@ import { ErrorBanner } from '../../../shared/ui/ErrorBanner'
 import { Input } from '../../../shared/ui/Input'
 import { Modal } from '../../../shared/ui/Modal'
 
+const MAX_PREPARED = 100000
+
 interface PizzaDoughModalProps {
   sizeName: string
   prepared: number | null
@@ -20,7 +22,7 @@ export function PizzaDoughModal({ sizeName, prepared, onSubmit, onClose }: Pizza
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const text = input.trim()
-    if (!/^\d+$/.test(text) || !Number.isSafeInteger(Number(text))) {
+    if (!/^\d+$/.test(text) || Number(text) > MAX_PREPARED) {
       setError('La cantidad de masas no es válida.')
       return
     }
