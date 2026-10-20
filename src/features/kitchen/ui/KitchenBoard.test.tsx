@@ -273,4 +273,12 @@ describe('KitchenBoard', () => {
     expect(card).toHaveAttribute('data-delay', 'late')
     expect(card).toHaveClass('bg-red-100')
   })
+
+  it('shows the order information in large text so cooks read it fast', async () => {
+    render(<KitchenBoard source={makeSource()} stationLabel="Pizzas" />)
+    expect(await screen.findByText('M-4 · Ana')).toHaveClass('text-3xl')
+    expect(screen.getByText('2 × Hamburguesa (Doble)').closest('ul')).toHaveClass('text-3xl')
+    expect(screen.getByText(/Bien cocida/)).toHaveClass('text-xl')
+    expect(screen.getByText(/Sin cebolla en todo/)).toHaveClass('text-xl')
+  })
 })

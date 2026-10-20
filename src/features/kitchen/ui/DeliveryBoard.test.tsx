@@ -212,4 +212,12 @@ describe('DeliveryBoard', () => {
     expect(await card('M-3')).toHaveAttribute('data-delay', 'late')
     expect(await card('M-3')).toHaveClass('bg-red-100')
   })
+
+  it('keeps the normal text size on delivery cards', async () => {
+    render(<DeliveryBoard source={makeSource()} />)
+    expect(await screen.findByText('M-4 · Ana')).toHaveClass('text-2xl')
+    expect(screen.getByText('2 × Hamburguesa (Doble)').closest('ul')).toHaveClass('text-lg')
+    expect(screen.getByText(/Bien cocida/)).toHaveClass('text-base')
+    expect(screen.getByText(/Sin cebolla en todo/)).toHaveClass('text-base')
+  })
 })

@@ -27,16 +27,24 @@ function formatTime(iso: string): string {
   return `${hours % 12 || 12}:${minutes} ${hours < 12 ? 'am' : 'pm'}`
 }
 
-function LineList({ lines }: { lines: KitchenLine[] }) {
+type TextSize = 'normal' | 'large'
+
+const TEXT: Record<TextSize, { title: string; time: string; token: string; waiter: string; lines: string; note: string }> = {
+  normal: { title: 'text-2xl', time: 'text-sm', token: 'text-xl', waiter: 'text-sm', lines: 'space-y-2 text-lg', note: 'text-base' },
+  large: { title: 'text-3xl', time: 'text-base', token: 'text-2xl', waiter: 'text-base', lines: 'space-y-3 text-3xl leading-tight', note: 'text-xl' },
+}
+
+function LineList({ lines, size }: { lines: KitchenLine[]; size: TextSize }) {
+  const text = TEXT[size]
   return (
-    <ul className="space-y-2 text-lg text-slate-800">
+    <ul className={`${text.lines} text-slate-800`}>
       {lines.map((line) => (
         <li key={line.id} className="break-words">
           <span className="font-semibold">
             {line.quantity} × {productLineLabel(line.productName, line.variant)}
           </span>
           {line.notes && (
-            <span className="mt-1 block rounded-lg bg-amber-100 px-2 py-1 text-base font-medium text-amber-900">
+            <span className={`mt-1 block rounded-lg bg-amber-100 px-2 py-1 font-medium text-amber-900 ${text.note}`}>
               Nota: {line.notes}
             </span>
           )}
@@ -50,6 +58,8 @@ interface OrderTicketCardProps {
   order: KitchenOrder
   /** Position in the station queue (1 = cook first); omitted on boards without a queue. */
   turn?: number
+  /** `large` for the kitchen, where cooks read the ticket from a distance. */
+  textSize?: TextSize
   actionLabel: string
   actionContent: ReactNode
   actionClassName: string
@@ -61,6 +71,7 @@ interface OrderTicketCardProps {
 export function OrderTicketCard({
   order,
   turn,
+  textSize = 'normal',
   actionLabel,
   actionContent,
   actionClassName,
@@ -68,6 +79,7 @@ export function OrderTicketCard({
   onAction,
 }: OrderTicketCardProps) {
   const delay = delayLevel(order.createdAt, useNow())
+  const text = TEXT[textSize]
   return (
     <li
       data-delay={delay}
@@ -83,21 +95,21 @@ export function OrderTicketCard({
               #{turn}
             </span>
           )}
-          <h3 className="min-w-0 break-words text-2xl font-bold text-slate-900">{orderLabel(order)}</h3>
+          <h3 className={`min-w-0 break-words font-bold text-slate-900 ${text.title}`}>{orderLabel(order)}</h3>
         </div>
-        <span className="shrink-0 rounded-lg bg-slate-100 px-2 py-1 text-sm font-semibold text-slate-700">
+        <span className={`shrink-0 rounded-lg bg-slate-100 px-2 py-1 font-semibold text-slate-700 ${text.time}`}>
           {formatTime(order.createdAt)}
         </span>
       </div>
-      <p className="self-start rounded-lg border-2 border-amber-500 bg-amber-50 px-3 py-1 text-xl font-bold text-amber-900">
+      <p className={`self-start rounded-lg border-2 border-amber-500 bg-amber-50 px-3 py-1 font-bold text-amber-900 ${text.token}`}>
         {tokenLabel(order.token)}
       </p>
-      {order.waiterName && <p className="text-sm text-slate-500">Atendió: {order.waiterName}</p>}
+      {order.waiterName && <p className={`text-slate-500 ${text.waiter}`}>Atendió: {order.waiterName}</p>}
       <div className="flex-1">
-        <LineList lines={order.lines} />
+        <LineList lines={order.lines} size={textSize} />
       </div>
       {order.notes && (
-        <p className="break-words rounded-lg bg-amber-100 px-3 py-2 text-base font-medium text-amber-900">
+        <p className={`break-words rounded-lg bg-amber-100 px-3 py-2 font-medium text-amber-900 ${text.note}`}>
           Nota del pedido: {order.notes}
         </p>
       )}
