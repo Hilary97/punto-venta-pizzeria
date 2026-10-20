@@ -535,9 +535,9 @@ describe('device flow', () => {
     expect(catalog.categories).toBeTruthy()
     expect(catalog.products).toBeTruthy()
     expect(catalog.pizza.sizes).toEqual([
-      { code: 'grande', name: 'Grande', allowed_portions: [1, 2, 3, 4], sort_order: 1 },
-      { code: 'mediana', name: 'Mediana', allowed_portions: [1, 2], sort_order: 2 },
-      { code: 'chica', name: 'Chica', allowed_portions: [1], sort_order: 3 },
+      { code: 'grande', name: 'Grande', allowed_portions: [1, 2, 3, 4], sort_order: 1, dough_left: null },
+      { code: 'mediana', name: 'Mediana', allowed_portions: [1, 2], sort_order: 2, dough_left: null },
+      { code: 'chica', name: 'Chica', allowed_portions: [1], sort_order: 3, dough_left: null },
     ])
     expect(catalog.pizza.styles).toHaveLength(17)
     expect(catalog.pizza.styles[0].name).toBe(CUSTOM)
