@@ -11,6 +11,10 @@ vi.mock('../infrastructure/productsRepository', () => ({
   countStock: vi.fn(),
 }))
 
+vi.mock('../../pizza/ui/PizzaDoughSection', () => ({
+  PizzaDoughSection: () => <section aria-label="Masas del día" />,
+}))
+
 function product(overrides: Partial<Product>): Product {
   return {
     id: 'p',
@@ -52,6 +56,11 @@ describe('AdminInventoryPage listing', () => {
     expect(within(rowOf('Refresco')).getByText('12')).toBeInTheDocument()
     expect(within(rowOf('Refresco')).getByText('Stock bajo')).toBeInTheDocument()
     expect(within(rowOf('Cerveza')).getByText('Agotado')).toBeInTheDocument()
+  })
+
+  it('renders the pizza dough section below the products', async () => {
+    render(<AdminInventoryPage />)
+    expect(await screen.findByRole('region', { name: 'Masas del día' })).toBeInTheDocument()
   })
 
   it('shows the low-stock alert with sorted names', async () => {

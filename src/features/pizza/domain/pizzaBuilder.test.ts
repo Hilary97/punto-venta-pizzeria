@@ -13,7 +13,7 @@ import {
 
 const special: PizzaStyle = { id: 'varas', name: 'Varas', description: '', kind: 'special', includedIngredients: 0, sortOrder: 1 }
 const custom: PizzaStyle = { id: 'custom', name: 'Arma', description: '', kind: 'custom', includedIngredients: 2, sortOrder: 2 }
-const chica: PizzaSize = { code: 'chica', name: 'Chica', allowedPortions: [1, 2], sortOrder: 1 }
+const chica: PizzaSize = { code: 'chica', name: 'Chica', allowedPortions: [1, 2], sortOrder: 1, doughLeft: null }
 
 const empty: PizzaPortion = { styleId: 'varas', ingredientIds: [], extraIngredientIds: [], extraCheese: false }
 

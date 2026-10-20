@@ -5,10 +5,12 @@ interface ToggleChipProps {
   pressed: boolean
   onToggle: () => void
   disabled?: boolean
+  /** Small secondary text under the label, e.g. `Agotado`. */
+  hint?: string
 }
 
 /** Touch-sized toggle button used for sizes, divisions, ingredients and extras. */
-export function ToggleChip({ label, pressed, onToggle, disabled = false }: ToggleChipProps) {
+export function ToggleChip({ label, pressed, onToggle, disabled = false, hint }: ToggleChipProps) {
   return (
     <button
       type="button"
@@ -21,6 +23,7 @@ export function ToggleChip({ label, pressed, onToggle, disabled = false }: Toggl
       )}
     >
       {label}
+      {hint && <span className="block text-xs font-medium">{hint}</span>}
     </button>
   )
 }

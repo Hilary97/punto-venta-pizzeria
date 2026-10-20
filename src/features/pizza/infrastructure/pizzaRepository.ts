@@ -13,6 +13,7 @@ export const pizzaCatalogSchema = z
         name: z.string(),
         allowed_portions: z.array(z.number().int()),
         sort_order: z.number(),
+        dough_left: z.number().int().nullable().default(null),
       }),
     ),
     styles: z.array(
@@ -34,6 +35,7 @@ export const pizzaCatalogSchema = z
         name: size.name,
         allowedPortions: size.allowed_portions,
         sortOrder: size.sort_order,
+        doughLeft: size.dough_left,
       })),
       styles: raw.styles.map((style) => ({
         id: style.id,
@@ -89,10 +91,12 @@ export function toRpcPizzaConfig(config: PizzaConfig) {
   }
 }
 
+const doughLeftSchema = z.array(z.object({ size_code: z.string(), dough_left: z.number().int().nullable() }))
+
 /** Sizes, active styles and active ingredients for a signed-in user. No prices. */
 export async function listPizzaCatalog(): Promise<PizzaCatalog> {
   const client = getSupabaseClient()
-  const [sizes, styles, ingredients] = await Promise.all([
+  const [sizes, styles, ingredients, doughLeft] = await Promise.all([
     client.from('pizza_sizes').select('code, name, allowed_portions, sort_order').order('sort_order', { ascending: true }),
     client
       .from('pizza_styles')
@@ -106,13 +110,17 @@ export async function listPizzaCatalog(): Promise<PizzaCatalog> {
       .eq('active', true)
       .order('sort_order', { ascending: true })
       .order('name', { ascending: true }),
+    client.rpc('list_pizza_dough_left'),
   ])
 
-  if (sizes.error || styles.error || ingredients.error) {
+  if (sizes.error || styles.error || ingredients.error || doughLeft.error) {
     throw new Error('No se pudo cargar el catálogo de pizzas.')
   }
+  const left = doughLeftSchema.safeParse(doughLeft.data)
+  if (!left.success) throw new Error('No se pudo cargar el catálogo de pizzas.')
+  const leftBySize = new Map(left.data.map((entry) => [entry.size_code, entry.dough_left]))
   const parsed = pizzaCatalogSchema.safeParse({
-    sizes: sizes.data,
+    sizes: (sizes.data ?? []).map((size) => ({ ...size, dough_left: leftBySize.get(size.code) ?? null })),
     styles: styles.data,
     ingredients: ingredients.data,
   })

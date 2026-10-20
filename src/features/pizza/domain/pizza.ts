@@ -5,6 +5,13 @@ export interface PizzaSize {
   name: string
   allowedPortions: number[]
   sortOrder: number
+  /** Doughs left today for this size; `null` means unlimited. */
+  doughLeft: number | null
+}
+
+/** True when the size has a dough limit for today and none is left. */
+export function isSizeSoldOut(size: PizzaSize): boolean {
+  return size.doughLeft !== null && size.doughLeft <= 0
 }
 
 export interface PizzaStyle {

@@ -1,12 +1,18 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
+import type { PizzaCatalog, PizzaSize } from '../domain/pizza'
 import { pizzaCatalogFixture } from './pizzaCatalogFixture'
 import { PizzaBuilderModal } from './PizzaBuilderModal'
 
-function renderBuilder() {
+function withDough(chica: number | null, grande: number | null): PizzaCatalog {
+  const [first, second] = pizzaCatalogFixture.sizes as [PizzaSize, PizzaSize]
+  return { ...pizzaCatalogFixture, sizes: [{ ...first, doughLeft: chica }, { ...second, doughLeft: grande }] }
+}
+
+function renderBuilder(catalog: PizzaCatalog = pizzaCatalogFixture) {
   const onAdd = vi.fn()
-  render(<PizzaBuilderModal catalog={pizzaCatalogFixture} onAdd={onAdd} onClose={vi.fn()} />)
+  render(<PizzaBuilderModal catalog={catalog} onAdd={onAdd} onClose={vi.fn()} />)
   return { onAdd, user: userEvent.setup() }
 }
 
@@ -67,5 +73,39 @@ describe('PizzaBuilderModal', () => {
       { styleId: 'varas', ingredientIds: [], extraIngredientIds: [], extraCheese: false },
       { styleId: 'varas', ingredientIds: [], extraIngredientIds: ['jal'], extraCheese: true },
     ])
+  })
+
+  describe('pizza dough', () => {
+    it('shows a sold-out size as Agotado and cannot select it', async () => {
+      const { user } = renderBuilder(withDough(null, 0))
+      const grande = screen.getByRole('button', { name: /Grande/ })
+      expect(within(grande).getByText('Agotado')).toBeVisible()
+      expect(grande).toBeDisabled()
+      await user.click(grande)
+      expect(screen.getByText('Pizza Chica: Estilo Varas')).toBeVisible()
+      expect(screen.getByRole('button', { name: /Chica/ })).toHaveAttribute('aria-pressed', 'true')
+    })
+
+    it('starts on the first available size when the first one is sold out', async () => {
+      const { onAdd, user } = renderBuilder(withDough(0, 5))
+      expect(screen.getByText('Pizza Grande: Estilo Varas')).toBeVisible()
+      expect(screen.getByRole('button', { name: /Chica/ })).toBeDisabled()
+      await user.click(screen.getByRole('button', { name: 'Agregar pizza' }))
+      expect(onAdd.mock.calls[0]?.[0].config.size).toBe('grande')
+    })
+
+    it('shows how many doughs remain for a limited size and nothing for an unlimited one', () => {
+      renderBuilder(withDough(3, null))
+      expect(within(screen.getByRole('button', { name: /Chica/ })).getByText('Quedan 3')).toBeVisible()
+      expect(screen.queryByText('Agotado')).not.toBeInTheDocument()
+      expect(within(screen.getByRole('button', { name: /Grande/ })).queryByText(/Quedan/)).not.toBeInTheDocument()
+    })
+
+    it('blocks confirming when every size is sold out', () => {
+      renderBuilder(withDough(0, 0))
+      expect(screen.getByText('No hay masas de pizza disponibles.')).toBeVisible()
+      expect(screen.getByRole('button', { name: 'Agregar pizza' })).toBeDisabled()
+      expect(screen.getAllByText('Agotado')).toHaveLength(2)
+    })
   })
 })

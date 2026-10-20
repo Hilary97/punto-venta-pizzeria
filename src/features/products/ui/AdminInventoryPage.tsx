@@ -5,6 +5,7 @@ import { Spinner } from '../../../shared/ui/Spinner'
 import { toUserMessage } from '../../../shared/errors'
 import { stockStatus, type Product, type StockStatus } from '../domain/product'
 import { countStock, listProducts, receiveStock } from '../infrastructure/productsRepository'
+import { PizzaDoughSection } from '../../pizza/ui/PizzaDoughSection'
 import { StockAdjustModal, type StockAdjustMode } from './StockAdjustModal'
 
 const STATUS_LABEL: Partial<Record<StockStatus, string>> = { ok: 'OK', low: 'Stock bajo', out: 'Agotado' }
@@ -120,6 +121,8 @@ export function AdminInventoryPage() {
           </div>
         )
       )}
+
+      <PizzaDoughSection />
 
       {adjust && (
         <StockAdjustModal

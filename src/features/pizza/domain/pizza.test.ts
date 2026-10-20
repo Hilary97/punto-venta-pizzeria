@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { describePizza, portionLabel, validatePizzaConfig } from './pizza'
+import { describePizza, isSizeSoldOut, portionLabel, validatePizzaConfig } from './pizza'
 import type { PizzaCatalog, PizzaConfig, PizzaPortion } from './pizza'
 
 const catalog: PizzaCatalog = {
   sizes: [
-    { code: 'chica', name: 'Chica', allowedPortions: [1, 2], sortOrder: 1 },
-    { code: 'mediana', name: 'Mediana', allowedPortions: [1, 2, 3], sortOrder: 2 },
-    { code: 'grande', name: 'Grande', allowedPortions: [1, 2, 3, 4], sortOrder: 3 },
+    { code: 'chica', name: 'Chica', allowedPortions: [1, 2], sortOrder: 1, doughLeft: null },
+    { code: 'mediana', name: 'Mediana', allowedPortions: [1, 2, 3], sortOrder: 2, doughLeft: null },
+    { code: 'grande', name: 'Grande', allowedPortions: [1, 2, 3, 4], sortOrder: 3, doughLeft: null },
   ],
   styles: [
     { id: 'varas', name: 'Estilo Varas', description: '', kind: 'special', includedIngredients: 0, sortOrder: 1 },
@@ -129,5 +129,16 @@ describe('validatePizzaConfig', () => {
 
     const unknown: PizzaConfig = { size: 'chica', portions: [portion({ styleId: 'varas', extraIngredientIds: ['zzz'] })] }
     expect(validatePizzaConfig(unknown, catalog)).toEqual(['Uno de los ingredientes no existe o no está activo.'])
+  })
+})
+
+describe('isSizeSoldOut', () => {
+  const chica = catalog.sizes[0]!
+
+  it('treats null as unlimited and only zero or less as sold out', () => {
+    expect(isSizeSoldOut({ ...chica, doughLeft: null })).toBe(false)
+    expect(isSizeSoldOut({ ...chica, doughLeft: 3 })).toBe(false)
+    expect(isSizeSoldOut({ ...chica, doughLeft: 0 })).toBe(true)
+    expect(isSizeSoldOut({ ...chica, doughLeft: -1 })).toBe(true)
   })
 })

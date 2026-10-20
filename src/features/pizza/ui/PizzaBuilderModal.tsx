@@ -3,8 +3,8 @@ import { Button } from '../../../shared/ui/Button'
 import { Modal } from '../../../shared/ui/Modal'
 import { Textarea } from '../../../shared/ui/Textarea'
 import { MAX_ITEM_NOTES_LENGTH } from '../../orders/domain/order'
-import { describePizza, portionLabel, validatePizzaConfig } from '../domain/pizza'
-import type { PizzaCatalog, PizzaConfig, PizzaPortion, PizzaSizeCode } from '../domain/pizza'
+import { describePizza, isSizeSoldOut, portionLabel, validatePizzaConfig } from '../domain/pizza'
+import type { PizzaCatalog, PizzaConfig, PizzaPortion, PizzaSize, PizzaSizeCode } from '../domain/pizza'
 import { buildConfig, initialPortions, resizePortions } from '../domain/pizzaBuilder'
 import { PortionEditor } from './PortionEditor'
 import { ToggleChip } from './ToggleChip'
@@ -27,6 +27,11 @@ function portionTitle(count: number, index: number): string {
   return count === 2 ? `Mitad ${index + 1}` : `Porción ${index + 1}`
 }
 
+function sizeHint(size: PizzaSize): string | undefined {
+  if (isSizeSoldOut(size)) return 'Agotado'
+  return size.doughLeft === null ? undefined : `Quedan ${size.doughLeft}`
+}
+
 export function PizzaBuilderModal({ catalog, onAdd, onClose }: PizzaBuilderModalProps) {
   const notesId = useId()
   const sizes = useMemo(() => [...catalog.sizes].sort((a, b) => a.sortOrder - b.sortOrder), [catalog.sizes])
@@ -41,12 +46,16 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose }: PizzaBuilderModal
   const [portions, setPortions] = useState<PizzaPortion[]>(() => initialPortions(1, defaultStyleId))
   const [notes, setNotes] = useState('')
 
-  const size = sizes.find((candidate) => candidate.code === sizeCode) ?? sizes[0]
-  if (!size) return null
+  if (sizes.length === 0) return null
 
-  const config = buildConfig(size.code, portions)
-  const errors = validatePizzaConfig(config, catalog)
-  const description = describePizza(config, catalog)
+  // A sold-out size is never the current one, even if it was selected before the catalog refreshed.
+  const available = sizes.filter((candidate) => !isSizeSoldOut(candidate))
+  const size = available.find((candidate) => candidate.code === sizeCode) ?? available[0]
+  const noDough = size === undefined
+
+  const config = buildConfig(size?.code ?? sizeCode, portions)
+  const errors = noDough ? [] : validatePizzaConfig(config, catalog)
+  const description = noDough ? '' : describePizza(config, catalog)
 
   function selectSize(code: PizzaSizeCode) {
     const next = sizes.find((candidate) => candidate.code === code)
@@ -77,14 +86,16 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose }: PizzaBuilderModal
               <ToggleChip
                 key={candidate.code}
                 label={candidate.name}
-                pressed={candidate.code === size.code}
+                pressed={candidate.code === size?.code}
+                disabled={isSizeSoldOut(candidate)}
+                hint={sizeHint(candidate)}
                 onToggle={() => selectSize(candidate.code)}
               />
             ))}
           </div>
         </fieldset>
 
-        {size.allowedPortions.length > 1 && (
+        {size && size.allowedPortions.length > 1 && (
           <fieldset className="flex flex-col gap-2">
             <legend className="text-sm font-medium text-slate-700">División</legend>
             <div className="flex flex-wrap gap-2">
@@ -121,7 +132,11 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose }: PizzaBuilderModal
 
         <div className="flex flex-col gap-1 rounded-xl bg-slate-50 p-4">
           <p className="text-sm font-medium text-slate-500">Resumen</p>
-          <p className="break-words font-semibold text-slate-900">{description}</p>
+          {noDough ? (
+            <p className="font-semibold text-amber-700">No hay masas de pizza disponibles.</p>
+          ) : (
+            <p className="break-words font-semibold text-slate-900">{description}</p>
+          )}
           {errors.length > 0 && (
             <ul className="list-disc pl-5 text-sm text-amber-700">
               {errors.map((error) => (
@@ -131,7 +146,7 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose }: PizzaBuilderModal
           )}
         </div>
 
-        <Button size="lg" disabled={errors.length > 0} onClick={() => onAdd({ config, name: description, notes })}>
+        <Button size="lg" disabled={noDough || errors.length > 0} onClick={() => onAdd({ config, name: description, notes })}>
           Agregar pizza
         </Button>
       </div>
