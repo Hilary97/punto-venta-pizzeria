@@ -22,8 +22,8 @@ Manual inventory of supplies (cheese, flour, meat, boxes): admins register purch
 
 ## Tasks
 
-- T1 (S1-S5) — migration + PGlite tests: tables, constraints, RLS, the three RPCs. Route: gentle-ai-worker (context backstop). Commit: pending.
-- T2 (S3-S5) — domain (units, status, form schemas, money), repository + tests. Route: same worker as T1. Commit: pending.
+- T1 (S1-S5) — migration + PGlite tests: tables, constraints, RLS, the three RPCs. Route: gentle-ai-worker (context backstop). Commit: `69ef9e2` (done; PGlite RED 27 -> GREEN). Deviations accepted: column-level grants (clients insert/update only name, unit, stock_min, active; no delete; supply_movements select-only), purchase/count RPCs return {supply_id, stock}, extra checks (non-blank name, stock_after >= 0, per-kind quantity/cost rules), quantities beyond 3 decimals rounded by numeric(12,3).
+- T2 (S3-S5) — domain (units, status, form schemas, money), repository + tests. Route: same worker as T1. Commit: `c209fcb` (done; 631 tests, tsc 0, oxlint 11).
 - T3 (S2-S4) — `/admin/insumos`: supplies table with stock, minimum, status, "Para comprar" alert, new/edit supply form, "Compra" and "Conteo" modals, nav link "Insumos". Route: gentle-ai-worker. Commit: pending.
 - T4 (S5) — purchases history on `/admin/insumos`: date range (default this month), list and total spent. Route: same worker as T3. Commit: pending.
 - T5 — verify. Route: verify (high risk: new stored data and admin-only permissions). Pending.
