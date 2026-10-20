@@ -10,6 +10,7 @@ import { CashHistoryPage } from './features/cash-register/ui/CashHistoryPage'
 import { CashSessionDetailPage } from './features/cash-register/ui/CashSessionDetailPage'
 import { OpenRegisterPage } from './features/cash-register/ui/OpenRegisterPage'
 import { RequireOpenSession } from './features/cash-register/ui/RequireOpenSession'
+import { AdminInventoryPage } from './features/products/ui/AdminInventoryPage'
 import { AdminProductsPage } from './features/products/ui/AdminProductsPage'
 import { DeliveryPage } from './features/kitchen/ui/DeliveryPage'
 import { KitchenEntry } from './features/kitchen/ui/KitchenEntry'
@@ -86,6 +87,14 @@ function App() {
               element={
                 <RequireRole role="admin">
                   <AdminProductsPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="admin/inventario"
+              element={
+                <RequireRole role="admin">
+                  <AdminInventoryPage />
                 </RequireRole>
               }
             />

@@ -26,8 +26,8 @@ Products bought ready to sell (drinks, extras) can track stock. Taking an order 
 ## Tasks
 
 - T1 (S1-S3, S5) — migration + PGlite tests: columns, deduction, block, cancel restore, admin stock RPCs, catalog fields. Route: inline. Commit: `b154f3b` (done; PGlite RED 16/16 -> GREEN, 547 tests; mutation check: dropping the merged-line `stocked_quantity` sum fails the restore test). Slice is ~630 lines because the migration must restate the full bodies of `insert_order_lines`, `cancel_order_core` and `device_list_catalog`; one migration cannot be split without shipping half a schema. Residual: the `for no key update` row lock is not exercised (PGlite has one connection).
-- T2 (S1, S3, S4) — domain, repositories and product form (tracking + minimum); waiter and cashier grids show "Agotado" disabled. Route: inline. Commit: `1c6098d` (done; RED 12 -> GREEN, 560 tests, tsc clean, oxlint 10 warnings same as main). The form never sends `stock`; a hidden minimum keeps its saved value.
-- T3 (S4, S5) — `/admin/inventario`: tracked products with stock, minimum and status (OK / Stock bajo / Agotado), low-stock alert, "Entrada" and "Conteo" actions, nav link. Route: inline. Commit: pending.
+- T2 (S1, S3, S4) — domain, repositories and product form (tracking + minimum); waiter and cashier grids show "Agotado" disabled. Route: inline. Commit: `f1f95c0` (done; RED 12 -> GREEN, 560 tests, tsc clean, oxlint 10 warnings same as main). The form never sends `stock`; a hidden minimum keeps its saved value.
+- T3 (S4, S5) — `/admin/inventario`: tracked products with stock, minimum and status (OK / Stock bajo / Agotado), low-stock alert, "Entrada" and "Conteo" actions, nav link. Route: gentle-ai-worker (context backstop). Commit: see `feat(products): admin inventory page` (done; 577 tests, tsc clean; oxlint 11 warnings: the new page adds the same set-state-in-effect warning AdminProductsPage already has, suppression removed on purpose). Alert uses a labelled region, not role="alert", because ErrorBanner owns that role.
 - T4 — verify: tests, tsc, lint, build, per-S# verdict. Route: verify (high risk: stored data and concurrent stock writes). Pending.
 
 ## Log

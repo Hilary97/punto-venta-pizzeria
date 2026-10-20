@@ -1,4 +1,6 @@
+import { z } from 'zod'
 import { getSupabaseClient } from '../../../shared/supabase/client'
+import { parseRpcResult } from '../../../shared/supabase/rpc'
 import type { Category, CategoryFormValues, Product, ProductFormValues } from '../domain/product'
 
 export async function listCategories(): Promise<Category[]> {
@@ -81,4 +83,31 @@ export async function updateProduct(id: string, values: ProductFormValues): Prom
 export async function setProductActive(id: string, active: boolean): Promise<void> {
   const { error } = await getSupabaseClient().from('products').update({ active }).eq('id', id)
   if (error) throw new Error('No se pudo cambiar el estado del producto.')
+}
+
+const stockResultSchema = z
+  .object({ product_id: z.string(), stock: z.number().int() })
+  .transform((row) => ({ productId: row.product_id, stock: row.stock }))
+
+export interface StockResult {
+  productId: string
+  stock: number
+}
+
+/** Adds received units to the stock atomically (admin only). */
+export async function receiveStock(productId: string, quantity: number): Promise<StockResult> {
+  const { data, error } = await getSupabaseClient().rpc('admin_receive_stock', {
+    p_product_id: productId,
+    p_quantity: quantity,
+  })
+  return parseRpcResult(stockResultSchema, data, error, 'No se pudo registrar la entrada.')
+}
+
+/** Sets the stock to the counted value (admin only). */
+export async function countStock(productId: string, stock: number): Promise<StockResult> {
+  const { data, error } = await getSupabaseClient().rpc('admin_count_stock', {
+    p_product_id: productId,
+    p_stock: stock,
+  })
+  return parseRpcResult(stockResultSchema, data, error, 'No se pudo registrar el conteo.')
 }
