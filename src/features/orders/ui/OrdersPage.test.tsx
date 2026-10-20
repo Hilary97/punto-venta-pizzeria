@@ -646,3 +646,26 @@ describe('OrdersPage pizza builder and notes', () => {
     })
   })
 })
+
+describe('stock in the product grid', () => {
+  it('shows a sold-out product as Agotado and does not add it', async () => {
+    const user = userEvent.setup()
+    vi.mocked(listProducts).mockResolvedValue([
+      { id: 'soda', categoryId: 'pizza', name: 'Refresco', priceCents: 2000, active: true, variants: [], trackStock: true, stock: 0, stockMin: 6 },
+      { id: 'beer', categoryId: 'pizza', name: 'Cerveza', priceCents: 4000, active: true, variants: [], trackStock: true, stock: 2, stockMin: 6 },
+    ])
+    renderPage()
+    await showCategory(user)
+    const soda = screen.getByRole('button', { name: /Refresco/ })
+    expect(soda).toBeDisabled()
+    expect(within(soda).getByText('Agotado')).toBeVisible()
+    const beer = screen.getByRole('button', { name: /Cerveza/ })
+    expect(beer).toBeEnabled()
+    expect(within(beer).queryByText('Agotado')).not.toBeInTheDocument()
+    await user.click(soda)
+    expect(soda).not.toHaveClass('border-emerald-600')
+    await user.click(beer)
+    expect(beer).toHaveClass('border-emerald-600')
+  })
+})
+

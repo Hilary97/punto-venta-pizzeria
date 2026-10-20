@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Input } from "../../../shared/ui/Input";
 import { cn } from "../../../shared/ui/cn";
 import { MoneyText } from "../../../shared/ui/MoneyText";
-import type { Category, Product } from "../../products/domain/product";
+import { isSoldOut, type Category, type Product } from "../../products/domain/product";
 
 interface ProductGridProps {
   categories: Category[];
@@ -139,11 +139,12 @@ export function ProductGrid({
         <div className="grid grid-cols-1 gap-3 min-[360px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3">
           {visibleProducts.map((product) => {
             const isInCart = cartProductIds.has(product.id);
+            const soldOut = isSoldOut(product);
             return (
               <button
                 key={product.id}
                 type="button"
-                disabled={disabled}
+                disabled={disabled || soldOut}
                 onClick={() => onSelectProduct(product)}
                 className={cn(
                   "flex min-w-0 min-h-28 break-words disabled:opacity-50 flex-col justify-between rounded-2xl border-2 p-4 text-left shadow-sm transition-colors transition-transform hover:shadow-md active:scale-95",
@@ -155,6 +156,11 @@ export function ProductGrid({
                 <span className="font-semibold text-slate-900">
                   {product.name}
                 </span>
+                {soldOut && (
+                  <span className="self-start rounded-full bg-slate-200 px-2 py-0.5 text-xs font-bold uppercase text-slate-700">
+                    Agotado
+                  </span>
+                )}
                 {showPrices && (
                   <MoneyText
                     cents={product.priceCents}

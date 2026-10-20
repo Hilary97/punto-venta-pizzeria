@@ -68,6 +68,9 @@ export interface Database {
           price_cents: number
           active: boolean
           variants: string[]
+          track_stock: boolean
+          stock: number
+          stock_min: number
           created_at: string
         }
         Insert: {
@@ -77,6 +80,9 @@ export interface Database {
           price_cents: number
           active?: boolean
           variants?: string[]
+          track_stock?: boolean
+          stock?: number
+          stock_min?: number
         }
         Update: {
           category_id?: string
@@ -84,6 +90,9 @@ export interface Database {
           price_cents?: number
           active?: boolean
           variants?: string[]
+          track_stock?: boolean
+          stock?: number
+          stock_min?: number
         }
       }
       cash_sessions: EmptyRelationships & {
@@ -337,6 +346,8 @@ export interface Database {
       admin_revoke_device: { Args: { p_device_id: string }; Returns: unknown }
       admin_delete_waiter: { Args: { p_waiter_id: string }; Returns: unknown }
       admin_delete_device: { Args: { p_device_id: string }; Returns: unknown }
+      admin_receive_stock: { Args: { p_product_id: string; p_quantity: number }; Returns: unknown }
+      admin_count_stock: { Args: { p_product_id: string; p_stock: number }; Returns: unknown }
       device_info: { Args: { p_device_secret: string }; Returns: unknown }
       device_list_waiters: { Args: { p_device_secret: string }; Returns: unknown }
       device_start_shift: {

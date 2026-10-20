@@ -43,6 +43,8 @@ const catalogSchema = z.object({
       name: z.string(),
       category_id: z.string(),
       variants: z.array(z.string()).default([]),
+      track_stock: z.boolean().default(false),
+      stock: z.number().int().default(0),
     }),
   ),
   pizza: pizzaCatalogSchema,
@@ -82,6 +84,8 @@ export function createDeviceOrdersSource(
           priceCents: 0,
           active: true,
           variants: product.variants,
+          trackStock: product.track_stock,
+          stock: product.stock,
         })),
         pizza: result.pizza,
       }

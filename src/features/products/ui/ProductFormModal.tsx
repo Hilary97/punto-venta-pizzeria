@@ -20,6 +20,8 @@ export function ProductFormModal({ categories, initial, onSubmit, onClose }: Pro
   const [variantsInput, setVariantsInput] = useState(initial?.variants.join(', ') ?? '')
   const [variantsError, setVariantsError] = useState<string | null>(null)
   const [active, setActive] = useState(initial?.active ?? true)
+  const [trackStock, setTrackStock] = useState(initial?.trackStock ?? false)
+  const [stockMinInput, setStockMinInput] = useState(String(initial?.stockMin ?? 0))
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -31,12 +33,22 @@ export function ProductFormModal({ categories, initial, onSubmit, onClose }: Pro
       return
     }
 
+    // Hidden while tracking is off: keep the saved minimum instead of validating it.
+    const stockMinText = stockMinInput.trim()
+    const stockMin = !trackStock ? (initial?.stockMin ?? 0) : stockMinText === '' ? 0 : Number(stockMinText)
+    if (Number.isNaN(stockMin)) {
+      setError('El mínimo debe ser un número entero de 0 o más.')
+      return
+    }
+
     const parsed = productFormSchema.safeParse({
       name,
       categoryId,
       priceCents,
       active,
       variants: parseVariantsInput(variantsInput),
+      trackStock,
+      stockMin,
     })
     if (!parsed.success) {
       const variantsIssue = parsed.error.issues.find((issue) => issue.path[0] === 'variants')
@@ -121,6 +133,31 @@ export function ProductFormModal({ categories, initial, onSubmit, onClose }: Pro
           />
           Producto activo
         </label>
+
+        <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+          <input
+            type="checkbox"
+            checked={trackStock}
+            onChange={(e) => setTrackStock(e.target.checked)}
+            className="h-4 w-4 rounded border-slate-300 text-red-700 focus:ring-red-500"
+          />
+          Controlar inventario
+        </label>
+
+        {trackStock && (
+          <div className="flex flex-col gap-1">
+            <Input
+              id="product-stock-min"
+              label="Stock mínimo"
+              inputMode="numeric"
+              value={stockMinInput}
+              onChange={(e) => setStockMinInput(e.target.value)}
+            />
+            <p className="text-xs text-slate-500">
+              Con esta cantidad o menos, el producto aparece como stock bajo. Las existencias se cargan en Inventario.
+            </p>
+          </div>
+        )}
 
         <div className="flex justify-end gap-2">
           <Button type="button" variant="ghost" onClick={onClose}>

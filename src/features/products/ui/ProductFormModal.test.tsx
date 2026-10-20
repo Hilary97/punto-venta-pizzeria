@@ -70,3 +70,38 @@ describe('ProductsTable variants', () => {
     expect(screen.getAllByText(/·/)).toHaveLength(1)
   })
 })
+
+describe('ProductFormModal stock', () => {
+  it('hides the minimum until tracking is on and submits untracked by default', async () => {
+    const { onSubmit } = setup(product)
+    expect(screen.getByLabelText('Controlar inventario')).not.toBeChecked()
+    expect(screen.queryByLabelText('Stock mínimo')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar' }))
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ trackStock: false, stockMin: 0 }))
+  })
+
+  it('submits tracking with its minimum', async () => {
+    const { onSubmit } = setup(product)
+    await userEvent.click(screen.getByLabelText('Controlar inventario'))
+    await userEvent.type(screen.getByLabelText('Stock mínimo'), '12')
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar' }))
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ trackStock: true, stockMin: 12 }))
+    expect(onSubmit.mock.calls[0]![0]).not.toHaveProperty('stock')
+  })
+
+  it('shows the saved tracking and minimum when editing', () => {
+    setup({ ...product, trackStock: true, stock: 30, stockMin: 24 })
+    expect(screen.getByLabelText('Controlar inventario')).toBeChecked()
+    expect(screen.getByLabelText('Stock mínimo')).toHaveValue('24')
+  })
+
+  it('rejects an invalid minimum without submitting', async () => {
+    const { onSubmit } = setup(product)
+    await userEvent.click(screen.getByLabelText('Controlar inventario'))
+    await userEvent.type(screen.getByLabelText('Stock mínimo'), '1.5')
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar' }))
+    expect(await screen.findByText('El mínimo debe ser un número entero de 0 o más.')).toBeInTheDocument()
+    expect(onSubmit).not.toHaveBeenCalled()
+  })
+})
+
