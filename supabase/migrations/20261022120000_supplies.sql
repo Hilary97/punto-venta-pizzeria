@@ -86,8 +86,14 @@ begin
   if p_quantity is null or p_quantity <= 0 then
     raise exception 'La cantidad debe ser mayor a cero.';
   end if;
+  if p_quantity > 999999999.999 then
+    raise exception 'La cantidad es demasiado grande.';
+  end if;
   if p_cost_cents is null or p_cost_cents < 0 then
     raise exception 'El monto pagado no es válido.';
+  end if;
+  if p_cost_cents > 2000000000 then
+    raise exception 'El monto pagado es demasiado grande.';
   end if;
 
   perform 1 from public.supplies where id = p_supply_id and active = true for no key update;
@@ -100,8 +106,9 @@ begin
   where id = p_supply_id
   returning stock into v_stock;
 
-  insert into public.supply_movements (supply_id, kind, quantity, cost_cents, stock_after)
-  values (p_supply_id, 'purchase', p_quantity, p_cost_cents, v_stock);
+  -- clock_timestamp() so movement times follow the row-lock order, not the transaction start.
+  insert into public.supply_movements (supply_id, kind, quantity, cost_cents, stock_after, created_at)
+  values (p_supply_id, 'purchase', p_quantity, p_cost_cents, v_stock, clock_timestamp());
 
   return jsonb_build_object('supply_id', p_supply_id, 'stock', v_stock);
 end;
@@ -122,6 +129,9 @@ begin
   if p_counted is null or p_counted < 0 then
     raise exception 'El conteo no puede ser negativo.';
   end if;
+  if p_counted > 999999999.999 then
+    raise exception 'La cantidad es demasiado grande.';
+  end if;
 
   perform 1 from public.supplies where id = p_supply_id and active = true for no key update;
   if not found then
@@ -133,8 +143,8 @@ begin
   where id = p_supply_id
   returning stock into v_stock;
 
-  insert into public.supply_movements (supply_id, kind, quantity, cost_cents, stock_after)
-  values (p_supply_id, 'count', p_counted, null, v_stock);
+  insert into public.supply_movements (supply_id, kind, quantity, cost_cents, stock_after, created_at)
+  values (p_supply_id, 'count', p_counted, null, v_stock, clock_timestamp());
 
   return jsonb_build_object('supply_id', p_supply_id, 'stock', v_stock);
 end;

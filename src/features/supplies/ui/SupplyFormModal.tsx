@@ -89,6 +89,7 @@ export function SupplyFormModal({ initial, onSubmit, onClose }: SupplyFormModalP
           <p className="text-xs text-slate-500">
             Con esta cantidad o menos, el insumo aparece en Para comprar. Las existencias se cargan con Compra y Conteo.
           </p>
+          <p className="text-xs text-slate-500">Usa punto o coma para decimales, sin separador de miles.</p>
         </div>
 
         <label className="flex items-center gap-2 text-sm font-medium text-slate-700">

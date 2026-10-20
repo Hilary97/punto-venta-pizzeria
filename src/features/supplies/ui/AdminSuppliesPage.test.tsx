@@ -108,7 +108,7 @@ describe('AdminSuppliesPage listing (S2, S4)', () => {
       .getAllByRole('row')
       .slice(1)
       .map((row) => within(row).getAllByRole('cell')[0]!.textContent)
-    expect(names).toEqual(['Aceite', 'AzúcarInactivo', 'Cajas', 'Harina', 'Queso'])
+    expect(names).toEqual(['Aceite', 'Azúcar', 'Cajas', 'Harina', 'Queso'])
   })
 
   it('formats quantities with up to 3 decimals and the unit label', async () => {
@@ -124,9 +124,14 @@ describe('AdminSuppliesPage listing (S2, S4)', () => {
     expect(within(rowOf('Cajas')).getByText('OK')).toBeInTheDocument()
   })
 
-  it('marks inactive supplies', async () => {
+  it('shows inactive supplies as Inactivo with only the Editar action', async () => {
     await renderPage()
-    expect(within(rowOf('Azúcar')).getByText('Inactivo')).toBeInTheDocument()
+    expect(cellsOf('Azúcar')).toEqual(['Azúcar', 'g', '0 g', '10 g', 'Inactivo', 'Editar'])
+    const row = within(rowOf('Azúcar'))
+    expect(row.queryByRole('button', { name: 'Compra' })).not.toBeInTheDocument()
+    expect(row.queryByRole('button', { name: 'Conteo' })).not.toBeInTheDocument()
+    expect(row.queryByText('Por comprar')).not.toBeInTheDocument()
+    expect(row.getByRole('button', { name: 'Editar' })).toBeInTheDocument()
     expect(within(rowOf('Harina')).queryByText('Inactivo')).not.toBeInTheDocument()
   })
 
@@ -268,7 +273,14 @@ describe('AdminSuppliesPage Compra (S4)', () => {
     expect(recordPurchase).toHaveBeenCalledWith('cajas', 1, 0)
   })
 
-  it.each([[''], ['0'], ['abc'], ['1.2345']])('rejects quantity %j without calling', async (quantity) => {
+  it('shows the decimal hint under the quantity', async () => {
+    const user = setup()
+    await renderPage()
+    await openCompra(user)
+    expect(screen.getByText('Usa punto o coma para decimales, sin separador de miles.')).toBeInTheDocument()
+  })
+
+  it.each([[''], ['0'], ['abc'], ['1.2345'], ['1,000']])('rejects quantity %j without calling', async (quantity) => {
     const user = setup()
     await renderPage()
     await openCompra(user)
@@ -276,6 +288,28 @@ describe('AdminSuppliesPage Compra (S4)', () => {
     await user.type(screen.getByLabelText('Monto pagado (MXN)'), '10')
     await user.click(screen.getByRole('button', { name: 'Guardar' }))
     expect(await screen.findByText('La cantidad debe ser mayor a cero.')).toBeInTheDocument()
+    expect(recordPurchase).not.toHaveBeenCalled()
+  })
+
+  it('rejects a quantity beyond the column range without calling', async () => {
+    const user = setup()
+    await renderPage()
+    await openCompra(user)
+    await user.type(screen.getByLabelText('Cantidad recibida (kg)'), '1000000000')
+    await user.type(screen.getByLabelText('Monto pagado (MXN)'), '10')
+    await user.click(screen.getByRole('button', { name: 'Guardar' }))
+    expect(await screen.findByText('La cantidad es demasiado grande.')).toBeInTheDocument()
+    expect(recordPurchase).not.toHaveBeenCalled()
+  })
+
+  it('rejects an amount beyond the integer range without calling', async () => {
+    const user = setup()
+    await renderPage()
+    await openCompra(user)
+    await user.type(screen.getByLabelText('Cantidad recibida (kg)'), '2')
+    await user.type(screen.getByLabelText('Monto pagado (MXN)'), '20000000.01')
+    await user.click(screen.getByRole('button', { name: 'Guardar' }))
+    expect(await screen.findByText('El monto pagado es demasiado grande.')).toBeInTheDocument()
     expect(recordPurchase).not.toHaveBeenCalled()
   })
 
@@ -323,6 +357,17 @@ describe('AdminSuppliesPage Conteo (S4)', () => {
     expect(countSupply).toHaveBeenCalledWith('harina', 3.25)
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(vi.mocked(listSupplies).mock.calls.length).toBe(suppliesCalls + 1)
+  })
+
+  it('rejects a count beyond the column range without calling', async () => {
+    const user = setup()
+    await renderPage()
+    await openConteo(user)
+    await user.clear(screen.getByLabelText('Existencias contadas (kg)'))
+    await user.type(screen.getByLabelText('Existencias contadas (kg)'), '1000000000')
+    await user.click(screen.getByRole('button', { name: 'Guardar' }))
+    expect(await screen.findByText('La cantidad es demasiado grande.')).toBeInTheDocument()
+    expect(countSupply).not.toHaveBeenCalled()
   })
 
   it('accepts a count of zero', async () => {

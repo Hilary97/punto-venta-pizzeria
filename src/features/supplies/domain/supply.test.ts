@@ -72,6 +72,14 @@ describe('parseQuantityInput', () => {
     expect(parseQuantityInput('2,5')).toBe(2.5)
   })
 
+  it('rejects thousands-looking commas instead of guessing a decimal', () => {
+    for (const text of ['1,000', '12,500', '1,000,000', '1,000.5']) {
+      expect(parseQuantityInput(text), text).toBeNull()
+    }
+    expect(parseQuantityInput('0,250')).toBe(0.25)
+    expect(parseQuantityInput('2,50')).toBe(2.5)
+  })
+
   it('returns null for empty, negative, invalid or over-precise input', () => {
     for (const text of ['', '  ', '-1', '-0.5', 'abc', '1.2.3', '1,2,3', '0.0001', '2,5555', '.', ',']) {
       expect(parseQuantityInput(text), text).toBeNull()

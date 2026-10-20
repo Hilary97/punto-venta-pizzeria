@@ -8,6 +8,10 @@ import { parseMoneyInput } from '../../../shared/money'
 import { parseQuantityInput, SUPPLY_UNIT_LABELS, type Supply } from '../domain/supply'
 import { formatQuantity } from './formatQuantity'
 
+const MAX_QUANTITY = 999999999.999
+const MAX_COST_CENTS = 2000000000
+const QUANTITY_HINT = 'Usa punto o coma para decimales, sin separador de miles.'
+
 interface SupplyMovementModalProps {
   mode: 'purchase' | 'count'
   supply: Supply
@@ -33,15 +37,27 @@ export function SupplyMovementModal({ mode, supply, onPurchase, onCount, onClose
         setError('La cantidad debe ser mayor a cero.')
         return
       }
+      if (quantity > MAX_QUANTITY) {
+        setError('La cantidad es demasiado grande.')
+        return
+      }
       const costCents = parseMoneyInput(costInput)
       if (costCents === null) {
         setError('El monto pagado no es válido.')
+        return
+      }
+      if (costCents > MAX_COST_CENTS) {
+        setError('El monto pagado es demasiado grande.')
         return
       }
       save = () => onPurchase(quantity, costCents)
     } else {
       if (quantity === null) {
         setError('El conteo no puede ser negativo.')
+        return
+      }
+      if (quantity > MAX_QUANTITY) {
+        setError('La cantidad es demasiado grande.')
         return
       }
       save = () => onCount(quantity)
@@ -63,13 +79,16 @@ export function SupplyMovementModal({ mode, supply, onPurchase, onCount, onClose
     <Modal title={`${mode === 'purchase' ? 'Compra de' : 'Conteo de'} ${supply.name}`} onClose={onClose}>
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         {error && <ErrorBanner message={error} />}
-        <Input
-          id="supply-movement-quantity"
-          label={mode === 'purchase' ? `Cantidad recibida (${unitLabel})` : `Existencias contadas (${unitLabel})`}
-          inputMode="decimal"
-          value={quantityInput}
-          onChange={(e) => setQuantityInput(e.target.value)}
-        />
+        <div className="flex flex-col gap-1">
+          <Input
+            id="supply-movement-quantity"
+            label={mode === 'purchase' ? `Cantidad recibida (${unitLabel})` : `Existencias contadas (${unitLabel})`}
+            inputMode="decimal"
+            value={quantityInput}
+            onChange={(e) => setQuantityInput(e.target.value)}
+          />
+          <p className="text-xs text-slate-500">{QUANTITY_HINT}</p>
+        </div>
         {mode === 'purchase' && (
           <Input
             id="supply-movement-cost"

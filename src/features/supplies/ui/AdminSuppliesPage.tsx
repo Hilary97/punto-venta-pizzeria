@@ -110,37 +110,37 @@ export function AdminSuppliesPage() {
               </thead>
               <tbody className="divide-y divide-slate-200 bg-white">
                 {supplies.map((supply) => {
-                  const needsBuying = supplyStatus(supply) === 'buy'
+                  const needsBuying = supply.active && supplyStatus(supply) === 'buy'
+                  const badge = !supply.active
+                    ? { label: 'Inactivo', className: 'bg-slate-200 text-slate-600' }
+                    : needsBuying
+                      ? { label: 'Por comprar', className: 'bg-amber-100 text-amber-800' }
+                      : { label: 'OK', className: 'bg-emerald-100 text-emerald-800' }
                   return (
                     <tr key={supply.id}>
                       <td className="px-4 py-3 font-medium text-slate-900">
                         {supply.name}
-                        {!supply.active && (
-                          <span className="ml-2 rounded-full bg-slate-200 px-2 py-1 text-xs font-semibold text-slate-600">
-                            Inactivo
-                          </span>
-                        )}
                       </td>
                       <td className="px-4 py-3">{SUPPLY_UNIT_LABELS[supply.unit]}</td>
                       <td className="px-4 py-3">{formatQuantityWithUnit(supply.stock, supply.unit)}</td>
                       <td className="px-4 py-3">{formatQuantityWithUnit(supply.stockMin, supply.unit)}</td>
                       <td className="px-4 py-3">
-                        <span
-                          className={`rounded-full px-2 py-1 text-xs font-semibold ${
-                            needsBuying ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
-                          }`}
-                        >
-                          {needsBuying ? 'Por comprar' : 'OK'}
+                        <span className={`rounded-full px-2 py-1 text-xs font-semibold ${badge.className}`}>
+                          {badge.label}
                         </span>
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex gap-2">
-                          <Button variant="ghost" size="md" onClick={() => setModal({ kind: 'purchase', supply })}>
-                            Compra
-                          </Button>
-                          <Button variant="ghost" size="md" onClick={() => setModal({ kind: 'count', supply })}>
-                            Conteo
-                          </Button>
+                          {supply.active && (
+                            <>
+                              <Button variant="ghost" size="md" onClick={() => setModal({ kind: 'purchase', supply })}>
+                                Compra
+                              </Button>
+                              <Button variant="ghost" size="md" onClick={() => setModal({ kind: 'count', supply })}>
+                                Conteo
+                              </Button>
+                            </>
+                          )}
                           <Button variant="ghost" size="md" onClick={() => setModal({ kind: 'edit-supply', supply })}>
                             Editar
                           </Button>

@@ -61,9 +61,11 @@ export type SupplyFormValues = z.infer<typeof supplyFormSchema>
 /**
  * Parses a typed quantity ("10", "2.5", "0.250", "2,5") into a number.
  * Returns `null` when empty, negative, not a number or with more than 3 decimals.
+ * A comma that looks like a thousands separator ("1,000") is rejected as ambiguous; "0,250" stays a decimal.
  */
 export function parseQuantityInput(text: string): number | null {
   const cleaned = text.trim()
+  if (/^[1-9]\d{0,2}(,\d{3})+$/.test(cleaned)) return null
   if (!/^\d+([.,]\d{1,3})?$/.test(cleaned)) return null
   return Number.parseFloat(cleaned.replace(',', '.'))
 }

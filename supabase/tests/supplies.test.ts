@@ -154,6 +154,48 @@ describe('S4 count', () => {
   })
 })
 
+describe('S4 overflow and movement time', () => {
+  it('rejects a purchase quantity or cost beyond the column ranges and changes nothing', async () => {
+    await expect(purchase(cheese, 1000000000, 100)).rejects.toThrow('La cantidad es demasiado grande.')
+    await expect(purchase(cheese, 1, 2000000001)).rejects.toThrow('El monto pagado es demasiado grande.')
+    const empty = await addSupply('Harina')
+    await expect(purchase(empty, 999999999.999, 2000000000)).resolves.toBeDefined()
+    expect(await countMovements()).toBe(1)
+  })
+
+  it('leaves stock and movements untouched when a purchase overflows', async () => {
+    await expect(purchase(cheese, 1000000000, 100)).rejects.toThrow('La cantidad es demasiado grande.')
+    await expect(purchase(cheese, 1, 2000000001)).rejects.toThrow('El monto pagado es demasiado grande.')
+    expect(await stockOf(cheese)).toBe(3)
+    expect(await countMovements()).toBe(0)
+  })
+
+  it('rejects a counted value beyond the column range and changes nothing', async () => {
+    await expect(count(cheese, 1000000000)).rejects.toThrow('La cantidad es demasiado grande.')
+    expect(await stockOf(cheese)).toBe(3)
+    expect(await countMovements()).toBe(0)
+    await expect(count(cheese, 999999999.999)).resolves.toBeDefined()
+  })
+
+  it('stamps movements with the statement clock, not the transaction start', async () => {
+    await asUser(db, admin)
+    await db.exec('begin')
+    try {
+      await rpc(db, 'public.admin_record_supply_purchase($1, 1, 100)', [cheese])
+      await db.query('select pg_sleep(0.01)')
+      await rpc(db, 'public.admin_count_supply($1, 2)', [cheese])
+    } finally {
+      await db.exec('commit')
+    }
+    await asSuperuser(db)
+    const mv = await db.query<{ kind: string; created_at: string }>(
+      `select kind, created_at from public.supply_movements order by created_at`,
+    )
+    expect(mv.rows.map((r) => r.kind)).toEqual(['purchase', 'count'])
+    expect(new Date(mv.rows[1].created_at).getTime()).toBeGreaterThan(new Date(mv.rows[0].created_at).getTime())
+  })
+})
+
 describe('S2 permissions', () => {
   it('lets only admins call the three RPCs', async () => {
     const msg = 'Solo un administrador puede gestionar insumos.'
