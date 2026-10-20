@@ -24,8 +24,8 @@ Manual inventory of supplies (cheese, flour, meat, boxes): admins register purch
 
 - T1 (S1-S5) — migration + PGlite tests: tables, constraints, RLS, the three RPCs. Route: gentle-ai-worker (context backstop). Commit: `69ef9e2` (done; PGlite RED 27 -> GREEN). Deviations accepted: column-level grants (clients insert/update only name, unit, stock_min, active; no delete; supply_movements select-only), purchase/count RPCs return {supply_id, stock}, extra checks (non-blank name, stock_after >= 0, per-kind quantity/cost rules), quantities beyond 3 decimals rounded by numeric(12,3).
 - T2 (S3-S5) — domain (units, status, form schemas, money), repository + tests. Route: same worker as T1. Commit: `c209fcb` (done; 631 tests, tsc 0, oxlint 11).
-- T3 (S2-S4) — `/admin/insumos`: supplies table with stock, minimum, status, "Para comprar" alert, new/edit supply form, "Compra" and "Conteo" modals, nav link "Insumos". Route: gentle-ai-worker. Commit: pending.
-- T4 (S5) — purchases history on `/admin/insumos`: date range (default this month), list and total spent. Route: same worker as T3. Commit: pending.
+- T3 (S2-S4) — `/admin/insumos`: supplies table with stock, minimum, status, "Para comprar" alert, new/edit supply form, "Compra" and "Conteo" modals, nav link "Insumos". Route: gentle-ai-worker. Commit: see `feat(supplies): admin supplies page with purchases history` (done; 670 tests, tsc 0, oxlint 12: the page adds the same set-state-in-effect warning as AdminProductsPage). Parent fix: a duplicate name now reads "Ya existe un insumo con ese nombre." (unique violation 23505) instead of the generic write error. Dates use toLocaleString('es-MX') like CashHistoryPage.
+- T4 (S5) — purchases history on `/admin/insumos`: date range (default this month), list and total spent. Route: same worker as T3. Commit: same commit as T3 (done).
 - T5 — verify. Route: verify (high risk: new stored data and admin-only permissions). Pending.
 
 ## Log

@@ -12,6 +12,7 @@ import { OpenRegisterPage } from './features/cash-register/ui/OpenRegisterPage'
 import { RequireOpenSession } from './features/cash-register/ui/RequireOpenSession'
 import { AdminInventoryPage } from './features/products/ui/AdminInventoryPage'
 import { AdminProductsPage } from './features/products/ui/AdminProductsPage'
+import { AdminSuppliesPage } from './features/supplies/ui/AdminSuppliesPage'
 import { DeliveryPage } from './features/kitchen/ui/DeliveryPage'
 import { KitchenEntry } from './features/kitchen/ui/KitchenEntry'
 import { OrdersEntry } from './features/orders/ui/OrdersEntry'
@@ -95,6 +96,14 @@ function App() {
               element={
                 <RequireRole role="admin">
                   <AdminInventoryPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="admin/insumos"
+              element={
+                <RequireRole role="admin">
+                  <AdminSuppliesPage />
                 </RequireRole>
               }
             />

@@ -24,6 +24,13 @@ export async function listSupplies(): Promise<Supply[]> {
   }))
 }
 
+const UNIQUE_VIOLATION = '23505'
+
+/** The unique index on the name is the only one a form can hit. */
+function writeErrorMessage(error: { code?: string }, fallback: string): string {
+  return error.code === UNIQUE_VIOLATION ? 'Ya existe un insumo con ese nombre.' : fallback
+}
+
 export async function createSupply(values: SupplyFormValues): Promise<void> {
   const { error } = await getSupabaseClient().from('supplies').insert({
     name: values.name,
@@ -31,7 +38,7 @@ export async function createSupply(values: SupplyFormValues): Promise<void> {
     stock_min: values.stockMin,
     active: values.active,
   })
-  if (error) throw new Error('No se pudo crear el insumo.')
+  if (error) throw new Error(writeErrorMessage(error, 'No se pudo crear el insumo.'))
 }
 
 export async function updateSupply(id: string, values: SupplyFormValues): Promise<void> {
@@ -44,7 +51,7 @@ export async function updateSupply(id: string, values: SupplyFormValues): Promis
       active: values.active,
     })
     .eq('id', id)
-  if (error) throw new Error('No se pudo actualizar el insumo.')
+  if (error) throw new Error(writeErrorMessage(error, 'No se pudo actualizar el insumo.'))
 }
 
 const supplyStockResultSchema = z

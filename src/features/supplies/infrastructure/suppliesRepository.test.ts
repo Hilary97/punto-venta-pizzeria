@@ -65,6 +65,13 @@ describe('supplies repository writes', () => {
     }
   })
 
+  it('says the name is taken when the unique name is violated on create or edit', async () => {
+    insert.mockResolvedValue({ error: { code: '23505', message: 'duplicate key value' } })
+    update.mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: { code: '23505', message: 'duplicate key value' } }) })
+    await expect(createSupply(values)).rejects.toThrow('Ya existe un insumo con ese nombre.')
+    await expect(updateSupply('s1', values)).rejects.toThrow('Ya existe un insumo con ese nombre.')
+  })
+
   it('throws Spanish messages when a write fails', async () => {
     insert.mockResolvedValue({ error: { message: 'duplicate' } })
     await expect(createSupply(values)).rejects.toThrow('No se pudo crear el insumo.')
