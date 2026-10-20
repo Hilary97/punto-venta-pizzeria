@@ -292,6 +292,44 @@ export interface Database {
           extra_cheese_cents?: number
         }
       }
+      supplies: EmptyRelationships & {
+        Row: {
+          id: string
+          name: string
+          unit: string
+          stock: number | string
+          stock_min: number | string
+          active: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          unit: string
+          stock_min?: number
+          active?: boolean
+        }
+        Update: {
+          name?: string
+          unit?: string
+          stock_min?: number
+          active?: boolean
+        }
+      }
+      supply_movements: EmptyRelationships & {
+        Row: {
+          id: string
+          supply_id: string
+          kind: 'purchase' | 'count'
+          quantity: number | string
+          cost_cents: number | null
+          stock_after: number | string
+          created_by: string | null
+          created_at: string
+        }
+        Insert: never
+        Update: never
+      }
     }
     Views: Record<string, never>
     Functions: {
@@ -346,6 +384,12 @@ export interface Database {
       admin_revoke_device: { Args: { p_device_id: string }; Returns: unknown }
       admin_delete_waiter: { Args: { p_waiter_id: string }; Returns: unknown }
       admin_delete_device: { Args: { p_device_id: string }; Returns: unknown }
+      admin_record_supply_purchase: {
+        Args: { p_supply_id: string; p_quantity: number; p_cost_cents: number }
+        Returns: unknown
+      }
+      admin_count_supply: { Args: { p_supply_id: string; p_counted: number }; Returns: unknown }
+      admin_list_supply_purchases: { Args: { p_from: string; p_to: string }; Returns: unknown }
       admin_receive_stock: { Args: { p_product_id: string; p_quantity: number }; Returns: unknown }
       admin_count_stock: { Args: { p_product_id: string; p_stock: number }; Returns: unknown }
       device_info: { Args: { p_device_secret: string }; Returns: unknown }
