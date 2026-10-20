@@ -1,6 +1,22 @@
-import type { ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { orderLabel, productLineLabel, tokenLabel } from '../../orders/domain/order'
-import type { KitchenLine, KitchenOrder } from '../domain/kitchen'
+import { delayLevel, type DelayLevel, type KitchenLine, type KitchenOrder } from '../domain/kitchen'
+
+const DELAY_CLASSES: Record<DelayLevel, string> = {
+  ok: 'border-slate-200 bg-white',
+  warning: 'border-yellow-400 bg-yellow-100',
+  late: 'border-red-500 bg-red-100',
+}
+
+/** Current time, refreshed every `intervalMs` so delay colours change while the board stays open. */
+function useNow(intervalMs = 15_000): Date {
+  const [now, setNow] = useState(() => new Date())
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), intervalMs)
+    return () => clearInterval(id)
+  }, [intervalMs])
+  return now
+}
 
 /** Local time in 12-hour format, e.g. "3:05 pm". */
 function formatTime(iso: string): string {
@@ -51,8 +67,12 @@ export function OrderTicketCard({
   pending,
   onAction,
 }: OrderTicketCardProps) {
+  const delay = delayLevel(order.createdAt, useNow())
   return (
-    <li className="flex min-w-0 flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+    <li
+      data-delay={delay}
+      className={`flex min-w-0 flex-col gap-3 rounded-xl border-2 p-4 shadow-sm transition-colors ${DELAY_CLASSES[delay]}`}
+    >
       <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 items-center gap-3">
           {turn !== undefined && (

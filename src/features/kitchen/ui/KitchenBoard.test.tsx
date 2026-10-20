@@ -258,4 +258,19 @@ describe('KitchenBoard', () => {
     unmount()
     expect(unsubscribe).toHaveBeenCalledTimes(1)
   })
+
+  it('turns the card yellow at 15 minutes and red at 25 while the board stays open', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    vi.setSystemTime(new Date('2026-01-01T15:14:00Z'))
+    render(<KitchenBoard source={makeSource([[order({ createdAt: '2026-01-01T15:00:00Z' })]])} stationLabel="Pizzas" />)
+    const card = (await screen.findByText('M-4 · Ana')).closest('li')!
+    expect(card).toHaveAttribute('data-delay', 'ok')
+    expect(card).toHaveClass('bg-white')
+    await act(async () => { await vi.advanceTimersByTimeAsync(60_000) })
+    expect(card).toHaveAttribute('data-delay', 'warning')
+    expect(card).toHaveClass('bg-yellow-100')
+    await act(async () => { await vi.advanceTimersByTimeAsync(10 * 60_000) })
+    expect(card).toHaveAttribute('data-delay', 'late')
+    expect(card).toHaveClass('bg-red-100')
+  })
 })

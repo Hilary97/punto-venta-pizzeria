@@ -194,4 +194,22 @@ describe('DeliveryBoard', () => {
     unmount()
     expect(unsubscribe).toHaveBeenCalledTimes(1)
   })
+
+  it('colours the card by how long the order has waited', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    vi.setSystemTime(new Date('2026-01-01T15:30:00Z'))
+    const orders = [
+      order({ id: 'a', tableNumber: 1, customerName: null, createdAt: '2026-01-01T15:20:00Z' }),
+      order({ id: 'b', tableNumber: 2, customerName: null, createdAt: '2026-01-01T15:10:00Z' }),
+      order({ id: 'c', tableNumber: 3, customerName: null, createdAt: '2026-01-01T15:00:00Z' }),
+    ]
+    render(<DeliveryBoard source={makeSource([orders])} />)
+    const card = async (label: string) => (await screen.findByText(label)).closest('li')!
+    expect(await card('M-1')).toHaveAttribute('data-delay', 'ok')
+    expect(await card('M-1')).toHaveClass('bg-white')
+    expect(await card('M-2')).toHaveAttribute('data-delay', 'warning')
+    expect(await card('M-2')).toHaveClass('bg-yellow-100')
+    expect(await card('M-3')).toHaveAttribute('data-delay', 'late')
+    expect(await card('M-3')).toHaveClass('bg-red-100')
+  })
 })

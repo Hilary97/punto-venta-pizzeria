@@ -52,6 +52,18 @@ export function ticketKey(order: Pick<KitchenOrder, 'id' | 'createdAt'>): string
   return `${order.id}@${order.createdAt}`
 }
 
+/** How long a ticket has waited: `warning` (yellow) from 15 minutes, `late` (red) from 25. */
+export type DelayLevel = 'ok' | 'warning' | 'late'
+
+const WARNING_AFTER_MS = 15 * 60_000
+const LATE_AFTER_MS = 25 * 60_000
+
+export function delayLevel(createdAt: string, now: Date): DelayLevel {
+  const waited = now.getTime() - Date.parse(createdAt)
+  if (Number.isNaN(waited) || waited < WARNING_AFTER_MS) return 'ok'
+  return waited < LATE_AFTER_MS ? 'warning' : 'late'
+}
+
 export type { SubscribeChanges } from '../../../shared/realtime/useChangeSignal'
 
 export interface KitchenSource {
