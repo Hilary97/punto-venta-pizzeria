@@ -91,6 +91,20 @@ describe('stock on orders', () => {
     expect(await countRows('order_items')).toBe(items)
   })
 
+  it('checks the total asked for a product across lines and reports the real stock', async () => {
+    await track(fx.sodaId, 23)
+    const items = await countRows('order_items')
+    await expect(createOrder([soda(12), soda(12, 'Sin hielo')])).rejects.toThrow('No hay suficiente Refresco: quedan 23.')
+    expect(await stockOf(fx.sodaId)).toBe(23)
+    expect(await countRows('order_items')).toBe(items)
+  })
+
+  it('takes stock across several lines of one product when it is enough', async () => {
+    await track(fx.sodaId, 23)
+    await createOrder([soda(12), soda(11, 'Sin hielo')])
+    expect(await stockOf(fx.sodaId)).toBe(0)
+  })
+
   it('blocks a product at zero with the same message', async () => {
     await track(fx.sodaId, 1)
     await createOrder([soda(1)])

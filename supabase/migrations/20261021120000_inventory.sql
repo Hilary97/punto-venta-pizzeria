@@ -39,7 +39,32 @@ declare
   v_track_stock boolean;
   v_stock integer;
   v_stocked integer;
+  v_short record;
 begin
+  -- Lock every tracked product of the payload up front, in id order, so
+  -- concurrent orders, payments and cancels never wait on each other in a
+  -- cycle, and check the total asked per product against the real stock.
+  -- Malformed items are skipped here; the per-line loop rejects them.
+  for v_short in
+    select p.name, p.stock, wanted.quantity
+    from (
+      select (i ->> 'product_id')::uuid as product_id, sum((i ->> 'quantity')::integer) as quantity
+      from jsonb_array_elements(case when jsonb_typeof(p_items) = 'array' then p_items else '[]'::jsonb end) as i
+      where jsonb_typeof(i) = 'object'
+        and coalesce(i ->> 'type', 'product') = 'product'
+        and i ->> 'product_id' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+        and i ->> 'quantity' ~ '^[0-9]{1,9}$'
+      group by 1
+    ) wanted
+    join public.products p on p.id = wanted.product_id and p.track_stock = true and p.active = true
+    order by p.id
+    for no key update of p
+  loop
+    if v_short.stock < v_short.quantity then
+      raise exception 'No hay suficiente %: quedan %.', v_short.name, v_short.stock;
+    end if;
+  end loop;
+
   for v_item in select * from jsonb_array_elements(p_items)
   loop
     if jsonb_typeof(v_item) <> 'object' then
@@ -91,14 +116,12 @@ begin
 
       v_product_name := null;
       v_station := null;
-      -- Locked for update: concurrent orders of a tracked product queue here
-      -- instead of both reading the same stock.
       select p.name, p.variants, c.kitchen_station, p.track_stock, p.stock
       into v_product_name, v_product_variants, v_station, v_track_stock, v_stock
       from public.products p
       left join public.categories c on c.id = p.category_id
       where p.id = v_product_id and p.active = true
-      for no key update of p;
+      for share of p;
 
       if v_product_name is null then
         raise exception 'Uno de los productos no existe o no está activo.';
@@ -185,6 +208,16 @@ begin
   end if;
 
   -- Give back exactly what the order took, whatever the product's tracking is now.
+  -- Rows are locked in id order first, like every other stock writer.
+  perform 1
+  from public.products
+  where id in (
+    select product_id from public.order_items
+    where order_id = p_order_id and stocked_quantity > 0 and product_id is not null
+  )
+  order by id
+  for no key update;
+
   update public.products p
   set stock = p.stock + taken.quantity
   from (
@@ -366,3 +399,86 @@ revoke all on function public.admin_receive_stock(uuid, integer) from public, an
 revoke all on function public.admin_count_stock(uuid, integer) from public, anon;
 grant execute on function public.admin_receive_stock(uuid, integer) to authenticated;
 grant execute on function public.admin_count_stock(uuid, integer) to authenticated;
+
+-- F. order_lines_priced (pay_order, quote_order): products share-locked in id order first
+create or replace function public.order_lines_priced(p_order_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_row public.order_items%rowtype;
+  v_lines jsonb := '[]'::jsonb;
+  v_name text;
+  v_unit integer;
+  v_reason text;
+  v_config jsonb;
+  v_current_name text;
+begin
+  -- Share-lock the order's products in id order before the per-line locks
+  -- (taken in name order) so payments never deadlock with stock writers.
+  perform 1
+  from public.products
+  where id in (select product_id from public.order_items where order_id = p_order_id and product_id is not null)
+  order by id
+  for share;
+
+  for v_row in
+    select * from public.order_items where order_id = p_order_id order by product_name, variant nulls first, id
+  loop
+    v_name := v_row.product_name;
+    if v_row.variant is not null then
+      v_name := v_name || ' (' || v_row.variant || ')';
+    end if;
+    v_unit := null;
+    v_reason := null;
+
+    if v_row.item_type = 'pizza' then
+      begin
+        v_config := public.validate_pizza(v_row.pizza);
+        v_unit := public.price_pizza(v_config);
+        v_name := public.describe_pizza(v_config);
+      exception
+        when raise_exception then
+          v_unit := null;
+          v_reason := sqlerrm;
+      end;
+    else
+      v_current_name := null;
+      if v_row.product_id is not null then
+        select name, price_cents into v_current_name, v_unit
+        from public.products
+        where id = v_row.product_id and active = true
+        for share;
+      end if;
+
+      if v_current_name is null then
+        v_unit := null;
+        v_reason := 'Producto no disponible';
+      else
+        v_name := v_current_name;
+        if v_row.variant is not null then
+          v_name := v_name || ' (' || v_row.variant || ')';
+        end if;
+      end if;
+    end if;
+
+    v_lines := v_lines || jsonb_build_object(
+      'order_item_id', v_row.id,
+      'item_type', v_row.item_type,
+      'name', v_name,
+      'notes', v_row.notes,
+      'quantity', v_row.quantity,
+      'unit_price_cents', v_unit,
+      'line_total_cents', v_unit * v_row.quantity,
+      'available', v_unit is not null,
+      'reason', v_reason
+    );
+  end loop;
+
+  return v_lines;
+end;
+$$;
+
+revoke all on function public.order_lines_priced(uuid) from public, anon, authenticated;
