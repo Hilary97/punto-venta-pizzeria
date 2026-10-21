@@ -220,7 +220,7 @@ describe('entering the kitchen queue', () => {
   })
 
   it('is released by the waiter open orders list as well', async () => {
-    const id = await createOrder(at('14:00'))
+    await createOrder(at('14:00'))
     await setClock('13:50')
     const [open] = await openOrders()
     expect(open.token).toBe(1)
