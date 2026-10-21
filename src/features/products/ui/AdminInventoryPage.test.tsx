@@ -15,6 +15,10 @@ vi.mock('../../pizza/ui/PizzaDoughSection', () => ({
   PizzaDoughSection: () => <section aria-label="Masas del día" />,
 }))
 
+vi.mock('../../orders/ui/ScheduledLeadSection', () => ({
+  ScheduledLeadSection: () => <section aria-label="Pedidos programados" />,
+}))
+
 function product(overrides: Partial<Product>): Product {
   return {
     id: 'p',

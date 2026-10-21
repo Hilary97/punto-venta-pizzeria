@@ -410,6 +410,8 @@ export interface Database {
       device_list_catalog: { Args: { p_device_secret: string }; Returns: unknown }
       admin_set_pizza_dough: { Args: { p_size_code: string; p_prepared: number }; Returns: unknown }
       admin_list_pizza_dough: { Args: Record<PropertyKey, never>; Returns: unknown }
+      get_order_settings: { Args: Record<PropertyKey, never>; Returns: unknown }
+      admin_set_scheduled_lead_minutes: { Args: { p_minutes: number }; Returns: unknown }
       list_pizza_dough_left: { Args: Record<PropertyKey, never>; Returns: unknown }
       device_list_open_orders: { Args: { p_device_secret: string }; Returns: unknown }
       device_create_order: {
