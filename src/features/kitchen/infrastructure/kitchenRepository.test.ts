@@ -58,6 +58,7 @@ const mapped = {
   waiterName: 'Luis',
   notes: 'sin prisa',
   createdAt: '2026-10-10T10:00:00Z',
+  scheduledFor: null,
   lines: [
     { id: 'l1', productName: 'Hamburguesa', quantity: 2, type: 'product', pizza: null, notes: null, variant: 'Res', station: 'grill' },
   ],
@@ -70,6 +71,14 @@ describe('device kitchen source', () => {
     rpc.mockResolvedValue({ data: [row], error: null })
     expect(await createDeviceKitchenSource('sec').listOrders()).toEqual([mapped])
     expect(rpc).toHaveBeenCalledWith('device_list_kitchen_orders', { p_device_secret: 'sec' })
+  })
+
+  it('maps scheduled_for to scheduledFor and a missing one to null', async () => {
+    const scheduledFor = new Date(2026, 9, 21, 14, 30).toISOString()
+    rpc.mockResolvedValue({ data: [{ ...row, scheduled_for: scheduledFor }, row], error: null })
+    const orders = await createDeviceKitchenSource('sec').listOrders()
+    expect(orders[0]!.scheduledFor).toBe(scheduledFor)
+    expect(orders[1]!.scheduledFor).toBeNull()
   })
 
   it('maps a missing token to null', async () => {

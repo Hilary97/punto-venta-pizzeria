@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { orderLabel, productLineLabel, tokenLabel } from '../../orders/domain/order'
+import { orderLabel, pickupTimeLabel, productLineLabel, tokenLabel } from '../../orders/domain/order'
 import { delayLevel, type DelayLevel, type KitchenLine, type KitchenOrder } from '../domain/kitchen'
 
 const DELAY_CLASSES: Record<DelayLevel, string> = {
@@ -104,6 +104,7 @@ export function OrderTicketCard({
       <p className={`self-start rounded-lg border-2 border-amber-500 bg-amber-50 px-3 py-1 font-bold text-amber-900 ${text.token}`}>
         {tokenLabel(order.token)}
       </p>
+      {order.scheduledFor && <p className={`font-bold text-slate-700 ${text.waiter}`}>{pickupTimeLabel(order.scheduledFor)}</p>}
       {order.waiterName && <p className={`text-slate-500 ${text.waiter}`}>Atendió: {order.waiterName}</p>}
       <div className="flex-1">
         <LineList lines={order.lines} size={textSize} />

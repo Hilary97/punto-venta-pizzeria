@@ -70,6 +70,19 @@ describe('KitchenBoard', () => {
     }
   })
 
+  it('shows the pickup time of a scheduled ticket and nothing for an ordinary one', async () => {
+    const scheduledFor = new Date(2026, 9, 21, 14, 30).toISOString()
+    const orders = [
+      order({ id: 'a', tableNumber: 1, customerName: null, scheduledFor }),
+      order({ id: 'b', tableNumber: 2, customerName: null, scheduledFor: null }),
+      order({ id: 'c', tableNumber: 3, customerName: null }),
+    ]
+    render(<KitchenBoard source={makeSource([orders])} stationLabel="Pizzas" />)
+    await screen.findByText('M-1')
+    expect(screen.getAllByText(/Para las/)).toHaveLength(1)
+    expect(screen.getByText('Para las 14:30')).toBeVisible()
+  })
+
   it('shows the token, or Sin ficha when the order has none', async () => {
     const orders = [order(), order({ id: 'o2', tableNumber: 5, customerName: null, token: null })]
     render(<KitchenBoard source={makeSource([orders])} stationLabel="Pizzas" />)

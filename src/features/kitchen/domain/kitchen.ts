@@ -44,6 +44,8 @@ export interface KitchenOrder {
   waiterName: string | null
   notes: string | null
   createdAt: string
+  /** Pickup time (ISO) of a scheduled order; `null` (or omitted) for an ordinary one. */
+  scheduledFor?: string | null
   lines: KitchenLine[]
 }
 
