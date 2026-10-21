@@ -10,7 +10,7 @@ vi.mock('../infrastructure/pizzaDoughRepository', () => ({
 }))
 
 const loaded = {
-  businessDay: '2026-10-20',
+  shiftStartedAt: '2026-10-20T23:15:00Z',
   sizes: [
     { sizeCode: 'grande' as const, name: 'Grande', prepared: 10, used: 4, left: 6 },
     { sizeCode: 'mediana' as const, name: 'Mediana', prepared: 0, used: 0, left: 0 },
@@ -29,10 +29,13 @@ beforeEach(() => {
 })
 
 describe('PizzaDoughSection listing (S5)', () => {
-  it('shows the heading with the business day without timezone shifting', async () => {
+  it('shows the heading, when the current shift started and that closing the register resets it', async () => {
     render(<PizzaDoughSection />)
     expect(await screen.findByRole('heading', { name: 'Masas del día' })).toBeVisible()
-    expect(screen.getByText('Día 20/10/2026')).toBeVisible()
+    expect(screen.getByText(`Desde ${new Date('2026-10-20T23:15:00Z').toLocaleString('es-MX')}`)).toBeVisible()
+    expect(
+      screen.getByText('Se reinician al cerrar la caja: hasta que vuelvas a cargarlas, las pizzas quedan sin límite.'),
+    ).toBeVisible()
   })
 
   it('shows prepared, made and left per size, and Sin límite for sizes without a row', async () => {

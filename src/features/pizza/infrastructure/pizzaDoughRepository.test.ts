@@ -10,10 +10,10 @@ beforeEach(() => {
 })
 
 describe('listPizzaDough', () => {
-  it('maps the day and per-size counts, keeping nulls for sizes without a row', async () => {
+  it('maps the shift start and per-size counts, keeping nulls for sizes without a row', async () => {
     rpc.mockResolvedValue({
       data: {
-        business_day: '2026-10-20',
+        shift_started_at: '2026-10-20T23:15:00+00:00',
         sizes: [
           { size_code: 'grande', name: 'Grande', prepared: 10, used: 4, left: 6 },
           { size_code: 'chica', name: 'Chica', prepared: null, used: null, left: null },
@@ -22,7 +22,7 @@ describe('listPizzaDough', () => {
       error: null,
     })
     await expect(listPizzaDough()).resolves.toEqual({
-      businessDay: '2026-10-20',
+      shiftStartedAt: '2026-10-20T23:15:00+00:00',
       sizes: [
         { sizeCode: 'grande', name: 'Grande', prepared: 10, used: 4, left: 6 },
         { sizeCode: 'chica', name: 'Chica', prepared: null, used: null, left: null },

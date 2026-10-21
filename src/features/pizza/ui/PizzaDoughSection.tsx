@@ -3,12 +3,11 @@ import { toUserMessage } from '../../../shared/errors'
 import { Button } from '../../../shared/ui/Button'
 import { ErrorBanner } from '../../../shared/ui/ErrorBanner'
 import { Spinner } from '../../../shared/ui/Spinner'
-import { formatBusinessDay } from '../domain/pizzaDough'
 import type { PizzaDoughDay, PizzaDoughSize } from '../domain/pizzaDough'
 import { listPizzaDough, setPizzaDough } from '../infrastructure/pizzaDoughRepository'
 import { PizzaDoughModal } from './PizzaDoughModal'
 
-/** Admin view of today's doughs per pizza size, with the action to load them. */
+/** Admin view of the current shift's doughs per pizza size, with the action to load them. */
 export function PizzaDoughSection() {
   const [day, setDay] = useState<PizzaDoughDay | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -52,8 +51,11 @@ export function PizzaDoughSection() {
         <h2 id="pizza-dough-heading" className="text-xl font-bold text-slate-900">
           Masas del día
         </h2>
-        {day && <p className="text-sm text-slate-500">Día {formatBusinessDay(day.businessDay)}</p>}
+        {day && <p className="text-sm text-slate-500">Desde {new Date(day.shiftStartedAt).toLocaleString('es-MX')}</p>}
       </div>
+      <p className="text-sm text-slate-500">
+        Se reinician al cerrar la caja: hasta que vuelvas a cargarlas, las pizzas quedan sin límite.
+      </p>
 
       {errorMessage && <ErrorBanner message={errorMessage} />}
       {isLoading && <Spinner label="Cargando masas…" />}
