@@ -30,3 +30,24 @@ describe('device catalog', () => {
     expect(catalog.products[1]).toMatchObject({ id: 'old', trackStock: false, stock: 0 })
   })
 })
+
+describe('creating orders', () => {
+  const items = [{ type: 'product' as const, productId: 'p', quantity: 1 }]
+
+  it('sends the pickup time only when there is one', async () => {
+    rpc.mockResolvedValue({ data: { order_id: 'o' }, error: null })
+    const device = createDeviceOrdersSource('s', () => 't')
+
+    await device.createOrder(2, null, items, null, '2026-10-21T20:30:00.000Z')
+    expect(rpc).toHaveBeenLastCalledWith('device_create_order', expect.objectContaining({ p_scheduled_for: '2026-10-21T20:30:00.000Z' }))
+
+    await device.createOrder(2, null, items, null)
+    expect(rpc.mock.lastCall![1]).not.toHaveProperty('p_scheduled_for')
+
+    await authenticatedOrdersSource.createOrder(2, null, items, null, '2026-10-21T20:30:00.000Z')
+    expect(rpc).toHaveBeenLastCalledWith('create_order', expect.objectContaining({ p_scheduled_for: '2026-10-21T20:30:00.000Z' }))
+
+    await authenticatedOrdersSource.createOrder(2, null, items, null)
+    expect(rpc.mock.lastCall![1]).not.toHaveProperty('p_scheduled_for')
+  })
+})

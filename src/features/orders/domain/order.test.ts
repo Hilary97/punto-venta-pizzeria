@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   canRegisterOrder,
+  isFuturePickupTime,
   isValidCustomerName,
   MAX_CUSTOMER_NAME_LENGTH,
   MAX_ITEM_NOTES_LENGTH,
@@ -8,6 +9,8 @@ import {
   normalizeCustomerName,
   normalizeNotes,
   orderLabel,
+  pickupTimeLabel,
+  pickupTimeToIso,
   productLineLabel,
   TABLE_NUMBERS,
   tableLabel,
@@ -119,5 +122,29 @@ describe('productLineLabel', () => {
 
   it('returns the name alone without a variant', () => {
     expect(productLineLabel('Monster', null)).toBe('Monster')
+  })
+})
+
+describe('pickup time', () => {
+  const now = new Date(2026, 9, 21, 12, 0, 30)
+
+  it('turns HH:MM into that time today on this device, null when blank', () => {
+    expect(pickupTimeToIso('14:30', now)).toBe(new Date(2026, 9, 21, 14, 30).toISOString())
+    expect(pickupTimeToIso('', now)).toBeNull()
+    expect(pickupTimeToIso('   ', now)).toBeNull()
+  })
+
+  it('accepts only a later minute today', () => {
+    expect(isFuturePickupTime('12:01', now)).toBe(true)
+    expect(isFuturePickupTime('23:59', now)).toBe(true)
+    expect(isFuturePickupTime('12:00', now)).toBe(false)
+    expect(isFuturePickupTime('09:15', now)).toBe(false)
+    expect(isFuturePickupTime('25:00', now)).toBe(false)
+    expect(isFuturePickupTime('ab', now)).toBe(false)
+  })
+
+  it('labels the time in 24-hour format', () => {
+    expect(pickupTimeLabel(new Date(2026, 9, 21, 14, 5).toISOString())).toBe('Para las 14:05')
+    expect(pickupTimeLabel(new Date(2026, 9, 21, 9, 30).toISOString())).toBe('Para las 09:30')
   })
 })

@@ -363,6 +363,7 @@ export interface Database {
           p_customer_name: string | null
           p_items: unknown
           p_notes?: string | null
+          p_scheduled_for?: string | null
         }
         Returns: unknown
       }
@@ -419,6 +420,7 @@ export interface Database {
           p_customer_name: string | null
           p_items: unknown
           p_notes?: string | null
+          p_scheduled_for?: string | null
         }
         Returns: unknown
       }

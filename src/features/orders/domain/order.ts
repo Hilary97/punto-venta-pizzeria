@@ -32,6 +32,10 @@ export interface Order {
   createdAt: string
   waiterName: string | null
   notes: string | null
+  /** Pickup time (ISO) of a scheduled order; `null` (or omitted) for ordinary orders. */
+  scheduledFor?: string | null
+  /** When the order entered the kitchen queue (ISO); `null` while a scheduled order waits. */
+  queuedAt?: string | null
   items: OrderItem[]
 }
 
@@ -56,6 +60,43 @@ export function tableLabel(tableNumber: number): string {
 export function tokenLabel(token: number | null): string {
   return token === null ? 'Sin ficha' : `Ficha ${token}`
 }
+
+/** A scheduled order that has not entered the kitchen queue yet (no token so far). */
+export function isWaitingScheduled(order: Pick<Order, 'scheduledFor' | 'queuedAt'>): boolean {
+  return order.scheduledFor != null && order.queuedAt == null
+}
+
+function parsePickupTime(hhmm: string): { hours: number; minutes: number } | null {
+  const match = /^(\d{2}):(\d{2})$/.exec(hhmm.trim())
+  if (!match) return null
+  const hours = Number(match[1])
+  const minutes = Number(match[2])
+  return hours < 24 && minutes < 60 ? { hours, minutes } : null
+}
+
+/** Pickup time `HH:MM` as that time today on this device (ISO); `null` when blank or invalid. */
+export function pickupTimeToIso(hhmm: string, now: Date): string | null {
+  const time = parsePickupTime(hhmm)
+  if (!time) return null
+  const date = new Date(now)
+  date.setHours(time.hours, time.minutes, 0, 0)
+  return date.toISOString()
+}
+
+/** A pickup time must be a later minute today, as the server requires. */
+export function isFuturePickupTime(hhmm: string, now: Date): boolean {
+  const iso = pickupTimeToIso(hhmm, now)
+  return iso !== null && Date.parse(iso) > now.getTime()
+}
+
+/** Label for a pickup time in 24-hour device time, e.g. `Para las 14:30`. */
+export function pickupTimeLabel(iso: string): string {
+  const date = new Date(iso)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `Para las ${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+export const PICKUP_TIME_ERROR = 'La hora del pedido debe ser más tarde hoy.'
 
 /** Trims the name and collapses any inner whitespace run into a single space. */
 export function normalizeCustomerName(raw: string): string {

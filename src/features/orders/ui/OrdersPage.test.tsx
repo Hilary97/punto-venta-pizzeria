@@ -1,7 +1,7 @@
 import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { listPizzaCatalog } from '../../pizza/infrastructure/pizzaRepository'
 import { listCategories, listProducts } from '../../products/infrastructure/productsRepository'
 import type { Order } from '../domain/order'
@@ -248,6 +248,78 @@ describe('OrdersPage', () => {
     expect(within(card).getByText(/pizza queso × 2/i)).toBeVisible()
   })
 
+
+  describe('pickup time', () => {
+    const at = (h: number, m: number) => new Date(2026, 9, 21, h, m)
+
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ['Date'] })
+      vi.setSystemTime(at(12, 0))
+    })
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    async function fillOrder(user: ReturnType<typeof userEvent.setup>) {
+      await user.click(await screen.findByRole('button', { name: 'M-4' }))
+      await showCategory(user)
+      await user.click(screen.getByRole('button', { name: /pizza queso/i }))
+    }
+
+    it('sends the pickup time for today and clears it after registering', async () => {
+      const user = userEvent.setup()
+      renderPage()
+      await fillOrder(user)
+      const time = screen.getByLabelText('Hora para recoger (opcional)')
+      await user.type(time, '14:30')
+      await user.click(screen.getByRole('button', { name: /registrar pedido/i }))
+
+      expect(createOrder).toHaveBeenCalledWith(
+        4,
+        null,
+        [{ type: 'product', productId: 'p', quantity: 1 }],
+        null,
+        at(14, 30).toISOString(),
+      )
+      expect(await screen.findByRole('status')).toHaveTextContent(/pedido registrado/i)
+      expect(screen.getByLabelText('Hora para recoger (opcional)')).toHaveValue('')
+    })
+
+    it('rejects a time that is not later today and keeps the draft', async () => {
+      const user = userEvent.setup()
+      renderPage()
+      await fillOrder(user)
+      await user.type(screen.getByLabelText('Hora para recoger (opcional)'), '11:00')
+      await user.click(screen.getByRole('button', { name: /registrar pedido/i }))
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('La hora del pedido debe ser más tarde hoy.')
+      expect(createOrder).not.toHaveBeenCalled()
+      expect(screen.getByLabelText('Hora para recoger (opcional)')).toHaveValue('11:00')
+    })
+
+    it('is not offered when adding products to an existing order', async () => {
+      const user = userEvent.setup()
+      renderPage()
+      await user.click(await screen.findByRole('button', { name: /agregar productos/i }))
+      expect(screen.queryByLabelText('Hora para recoger (opcional)')).not.toBeInTheDocument()
+    })
+
+    it('shows scheduled orders with their time, waiting ones as Programado', async () => {
+      vi.mocked(listOpenOrders).mockResolvedValue([
+        { ...openOrder, token: null, scheduledFor: at(14, 30).toISOString(), queuedAt: null },
+        { ...openOrder, id: 'order-2', customerName: 'Beto', token: 3, scheduledFor: at(13, 0).toISOString(), queuedAt: at(12, 40).toISOString() },
+      ])
+      renderPage()
+      const waiting = (await screen.findByText('Ana')).closest('li')!
+      expect(within(waiting).getByText('Programado')).toBeVisible()
+      expect(within(waiting).getByText('Para las 14:30')).toBeVisible()
+      expect(within(waiting).queryByText('Sin ficha')).not.toBeInTheDocument()
+
+      const queued = screen.getByText('Beto').closest('li')!
+      expect(within(queued).getByText('Ficha 3')).toBeVisible()
+      expect(within(queued).getByText('Para las 13:00')).toBeVisible()
+    })
+  })
 
   it('shows Cobrar linking to the POS with the order id', async () => {
     const user = userEvent.setup()

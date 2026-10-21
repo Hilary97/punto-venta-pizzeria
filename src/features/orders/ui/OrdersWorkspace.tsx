@@ -15,11 +15,14 @@ import type { WaiterShift } from '../../waiters/domain/waiter'
 import {
   MAX_CUSTOMER_NAME_LENGTH,
   MAX_ORDER_NOTES_LENGTH,
+  PICKUP_TIME_ERROR,
   TABLE_NUMBERS,
   canRegisterOrder,
+  isFuturePickupTime,
   normalizeCustomerName,
   normalizeNotes,
   orderLabel,
+  pickupTimeToIso,
   tableLabel,
   type Order,
 } from '../domain/order'
@@ -61,6 +64,7 @@ function isShiftError(error: unknown): boolean {
 export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onShiftExpired }: OrdersWorkspaceProps) {
   const nameId = useId()
   const filterId = useId()
+  const pickupId = useId()
   const [categories, setCategories] = useState<Category[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [pizzaCatalog, setPizzaCatalog] = useState<PizzaCatalog | null>(null)
@@ -72,6 +76,7 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
   const [tableNumber, setTableNumber] = useState<number | null>(null)
   const [customerName, setCustomerName] = useState('')
   const [orderNotes, setOrderNotes] = useState('')
+  const [pickupTime, setPickupTime] = useState('')
   const [isBuilderOpen, setIsBuilderOpen] = useState(false)
   const [notesOrder, setNotesOrder] = useState<Order | null>(null)
   const [notesText, setNotesText] = useState('')
@@ -212,12 +217,23 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
   async function handleSubmit(event: { preventDefault: () => void }) {
     event.preventDefault()
     if (!canSubmit || pending.current) return
+    const now = new Date()
+    const scheduledFor = addingToOrder ? null : pickupTimeToIso(pickupTime, now)
+    if (!addingToOrder && pickupTime.trim() !== '' && !isFuturePickupTime(pickupTime, now)) {
+      setMessage(null)
+      setActionError(PICKUP_TIME_ERROR)
+      return
+    }
     const items = draftToPayload(draft)
     const succeeded = await runGuarded(async () => {
       if (addingToOrder) {
         await source.addOrderItems(addingToOrder.id, items)
       } else {
-        await source.createOrder(tableNumber, normalizeCustomerName(customerName) || null, items, normalizeNotes(orderNotes))
+        const name = normalizeCustomerName(customerName) || null
+        const notes = normalizeNotes(orderNotes)
+        // Ordinary orders keep the four-argument call.
+        if (scheduledFor === null) await source.createOrder(tableNumber, name, items, notes)
+        else await source.createOrder(tableNumber, name, items, notes, scheduledFor)
       }
     })
     if (!succeeded) return
@@ -228,6 +244,7 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
     if (!addingToOrder) {
       setCustomerName('')
       setOrderNotes('')
+      setPickupTime('')
       setTableNumber(null)
     }
     await reloadOrders()
@@ -300,6 +317,16 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
             onChange={(event) => setOrderNotes(event.target.value)}
           />
         </label>
+      )}
+      {!addingToOrder && (
+        <Input
+          id={pickupId}
+          type="time"
+          label="Hora para recoger (opcional)"
+          value={pickupTime}
+          disabled={isSubmitting}
+          onChange={(event) => setPickupTime(event.target.value)}
+        />
       )}
       {actionError && <ErrorBanner message={actionError} />}
       <Button type="submit" size="lg" disabled={!canSubmit || isSubmitting}>

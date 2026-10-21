@@ -14,6 +14,7 @@ import {
   mapOrderRow,
   orderIdResultSchema,
   orderRowSchema,
+  scheduledArg,
   setOrderNotes,
   toRpcItems,
 } from './ordersRepository'
@@ -100,7 +101,7 @@ export function createDeviceOrdersSource(
       )
     },
 
-    async createOrder(tableNumber, customerName, items: OrderItemPayload[], notes = null) {
+    async createOrder(tableNumber, customerName, items: OrderItemPayload[], notes = null, scheduledFor = null) {
       const shiftToken = requireShiftToken()
       const { data, error } = await getSupabaseClient().rpc('device_create_order', {
         p_device_secret: secret,
@@ -109,6 +110,7 @@ export function createDeviceOrdersSource(
         p_customer_name: customerName,
         p_items: toRpcItems(items),
         p_notes: notes,
+        ...scheduledArg(scheduledFor),
       })
       return parseRpcResult(orderIdResultSchema, data, error, 'No se pudo crear el pedido.').order_id
     },

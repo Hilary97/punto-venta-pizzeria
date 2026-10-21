@@ -78,6 +78,20 @@ describe('mapOrderRow', () => {
     expect(mapOrderRow(orderRowSchema.parse({ ...base, order_items: [] })).token).toBeNull()
   })
 
+  it('maps the pickup time and queue entry, defaulting to null when omitted', () => {
+    const scheduled = orderRowSchema.parse({
+      ...base,
+      scheduled_for: '2026-10-21T20:30:00Z',
+      queued_at: null,
+      order_items: [],
+    })
+    expect(mapOrderRow(scheduled)).toMatchObject({ scheduledFor: '2026-10-21T20:30:00Z', queuedAt: null })
+    expect(mapOrderRow(orderRowSchema.parse({ ...base, order_items: [] }))).toMatchObject({
+      scheduledFor: null,
+      queuedAt: null,
+    })
+  })
+
   it('defaults them to null when the rpc omits them', () => {
     const row = orderRowSchema.parse({ ...base, order_items: [line] })
     expect(mapOrderRow(row).items[0]).toMatchObject({ station: null, readyAt: null, deliveredAt: null })

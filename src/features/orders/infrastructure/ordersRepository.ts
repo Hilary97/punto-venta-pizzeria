@@ -14,6 +14,8 @@ export const orderRowSchema = z.object({
   created_at: z.string(),
   waiter_name: z.string().nullable(),
   notes: z.string().nullable(),
+  scheduled_for: z.string().nullable().default(null),
+  queued_at: z.string().nullable().default(null),
   order_items: z.array(
     z.object({
       id: z.string(),
@@ -31,7 +33,7 @@ export const orderRowSchema = z.object({
   ),
 })
 
-const ORDER_SELECT = 'id, token, table_number, customer_name, status, created_at, waiter_name, notes, order_items(id, product_id, product_name, quantity, item_type, pizza, notes, variant, station, ready_at, delivered_at)'
+const ORDER_SELECT = 'id, token, table_number, customer_name, status, created_at, waiter_name, notes, scheduled_for, queued_at, order_items(id, product_id, product_name, quantity, item_type, pizza, notes, variant, station, ready_at, delivered_at)'
 
 export function mapOrderRow(row: z.infer<typeof orderRowSchema>): Order {
   return {
@@ -43,6 +45,8 @@ export function mapOrderRow(row: z.infer<typeof orderRowSchema>): Order {
     createdAt: row.created_at,
     waiterName: row.waiter_name,
     notes: row.notes,
+    scheduledFor: row.scheduled_for,
+    queuedAt: row.queued_at,
     items: row.order_items.map((item) => ({
       id: item.id,
       productId: item.product_id,
@@ -75,6 +79,11 @@ export function toRpcItems(items: OrderItemPayload[]) {
       ...(variant === null ? {} : { variant }),
     }
   })
+}
+
+/** The pickup time argument, sent only for scheduled orders. */
+export function scheduledArg(scheduledFor: string | null | undefined): { p_scheduled_for?: string } {
+  return scheduledFor ? { p_scheduled_for: scheduledFor } : {}
 }
 
 /** Open orders, oldest first. Visible to every signed-in user (RLS). */
@@ -120,12 +129,14 @@ export async function createOrder(
   customerName: string | null,
   items: OrderItemPayload[],
   notes: string | null = null,
+  scheduledFor: string | null = null,
 ): Promise<string> {
   const { data, error } = await getSupabaseClient().rpc('create_order', {
     p_table_number: tableNumber,
     p_customer_name: customerName,
     p_items: toRpcItems(items),
     p_notes: notes,
+    ...scheduledArg(scheduledFor),
   })
   return parseRpcResult(orderIdResultSchema, data, error, 'No se pudo crear el pedido.').order_id
 }

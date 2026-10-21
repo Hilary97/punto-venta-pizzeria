@@ -19,6 +19,8 @@ export interface OrdersSource {
     customerName: string | null,
     items: OrderItemPayload[],
     notes?: string | null,
+    /** Pickup time (ISO, today) of a scheduled order; omitted for ordinary orders. */
+    scheduledFor?: string | null,
   ): Promise<string>
   addOrderItems(orderId: string, items: OrderItemPayload[]): Promise<string>
   cancelOrder(orderId: string): Promise<string>
