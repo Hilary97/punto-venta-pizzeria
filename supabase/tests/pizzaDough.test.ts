@@ -36,13 +36,25 @@ async function setDough(size: string, prepared: number) {
   return rpc(db, 'public.admin_set_pizza_dough($1, $2)', [size, prepared])
 }
 
+/** The size's row of the current dough shift. */
 async function dayRow(size: string): Promise<{ prepared: number; used: number } | undefined> {
   await asSuperuser(db)
   const res = await db.query<{ prepared: number; used: number }>(
-    `select prepared, used from public.pizza_dough_days where business_day = public.pizza_business_day() and size_code = $1`,
+    `select prepared, used from public.pizza_dough_days
+     where shift_id = (select max(id) from public.pizza_dough_shifts) and size_code = $1`,
     [size],
   )
   return res.rows[0]
+}
+
+async function openRegister() {
+  await asUser(db, cashier)
+  return (await rpc(db, 'public.open_cash_session($1)', [0])).session_id as string
+}
+
+async function closeRegister() {
+  await asUser(db, cashier)
+  await rpc(db, 'public.close_cash_session($1)', [0])
 }
 
 async function countRows(table: string): Promise<number> {
@@ -67,18 +79,20 @@ async function cancel(orderId: string) {
   await rpc(db, 'public.cancel_order($1)', [orderId])
 }
 
-async function doughDays(orderId: string): Promise<(string | null)[]> {
+/** The dough shift each line of the order took (null when the line took no dough). */
+async function doughDays(orderId: string): Promise<(number | null)[]> {
   await asSuperuser(db)
-  const res = await db.query<{ d: string | null }>(
-    `select dough_day::text as d from public.order_items where order_id = $1 order by id`,
+  const res = await db.query<{ d: number | null }>(
+    `select dough_shift::int as d from public.order_items where order_id = $1 order by id`,
     [orderId],
   )
   return res.rows.map((r) => r.d)
 }
 
-async function today(): Promise<string> {
+/** The current dough shift. */
+async function today(): Promise<number> {
   await asSuperuser(db)
-  return (await db.query<{ d: string }>(`select public.pizza_business_day()::text as d`)).rows[0].d
+  return (await db.query<{ d: number }>(`select max(id)::int as d from public.pizza_dough_shifts`)).rows[0].d
 }
 
 async function sodaStock(): Promise<number> {
@@ -250,8 +264,8 @@ describe('dough on orders', () => {
     await db.query(`
       create function public.test_late_dough() returns trigger language plpgsql as $$
       begin
-        insert into public.pizza_dough_days (business_day, size_code, prepared)
-        values (public.pizza_business_day(), 'chica', 0) on conflict do nothing;
+        insert into public.pizza_dough_days (shift_id, size_code, prepared)
+        values ((select max(id) from public.pizza_dough_shifts), 'chica', 0) on conflict do nothing;
         return new;
       end $$`)
     await db.query(`
@@ -366,26 +380,30 @@ describe('dough on cancel', () => {
     expect(await dayRow('chica')).toEqual({ prepared: 5, used: 0 })
   })
 
-  it('restores to the business day the line took, not to today', async () => {
+  it('restores to the shift the line took, even after the register was closed', async () => {
+    await openRegister()
     await setDough('chica', 5)
     const id = await createOrder([pizza('chica', 2)])
-    await asSuperuser(db)
-    await db.query(`update public.pizza_dough_days set business_day = business_day - 1`)
-    await db.query(`update public.order_items set dough_day = dough_day - 1 where order_id = $1`, [id])
-    await db.query(`insert into public.pizza_dough_days (business_day, size_code, prepared, used) values (public.pizza_business_day(), 'chica', 4, 1)`)
+    const tookShift = await today()
+    await closeRegister()
+    await setDough('chica', 4)
+    await createOrder([pizza('chica', 1)], 4)
     await cancel(id)
     await asSuperuser(db)
-    const rows = await db.query<{ d: string; used: number }>(
-      `select business_day::text as d, used from public.pizza_dough_days order by business_day`,
+    const rows = await db.query<{ s: number; prepared: number; used: number }>(
+      `select shift_id::int as s, prepared, used from public.pizza_dough_days order by shift_id`,
     )
-    expect(rows.rows.map((r) => r.used)).toEqual([0, 1])
+    expect(rows.rows).toEqual([
+      { s: tookShift, prepared: 5, used: 0 },
+      { s: await today(), prepared: 4, used: 1 },
+    ])
   })
 })
 
 describe('admin_set_pizza_dough', () => {
   it("creates today's row and returns the numbers", async () => {
     const res = await setDough('mediana', 12)
-    expect(res).toMatchObject({ business_day: await today(), size_code: 'mediana', prepared: 12, used: 0, left: 12 })
+    expect(res).toMatchObject({ shift_id: await today(), size_code: 'mediana', prepared: 12, used: 0, left: 12 })
     expect(await dayRow('mediana')).toEqual({ prepared: 12, used: 0 })
   })
 
@@ -452,7 +470,10 @@ describe('admin_list_pizza_dough', () => {
     await createOrder([pizza('mediana', 3)])
     await asUser(db, admin)
     const res = await rpc(db, 'public.admin_list_pizza_dough()')
-    expect(res.business_day).toBe(await today())
+    expect(res).not.toHaveProperty('business_day')
+    await asSuperuser(db)
+    const started = (await db.query<{ t: string }>(`select to_jsonb(started_at) #>> '{}' as t from public.pizza_dough_shifts order by id desc limit 1`)).rows[0].t
+    expect(res.shift_started_at).toBe(started)
     expect(res.sizes).toEqual([
       { size_code: 'grande', name: 'Grande', prepared: null, used: null, left: null },
       { size_code: 'mediana', name: 'Mediana', prepared: 8, used: 3, left: 5 },
@@ -460,10 +481,10 @@ describe('admin_list_pizza_dough', () => {
     ])
   })
 
-  it('ignores rows of other business days', async () => {
+  it('ignores rows of past shifts', async () => {
+    await openRegister()
     await setDough('chica', 5)
-    await asSuperuser(db)
-    await db.query(`update public.pizza_dough_days set business_day = business_day - 1`)
+    await closeRegister()
     await asUser(db, admin)
     const res = await rpc(db, 'public.admin_list_pizza_dough()')
     expect(res.sizes.find((s: Json) => s.size_code === 'chica')).toMatchObject({ prepared: null, left: null })
@@ -525,7 +546,7 @@ describe('table privileges', () => {
     expect((await db.query(`select * from public.pizza_dough_days`)).rows).toHaveLength(1)
     await expect(db.query(`update public.pizza_dough_days set prepared = 99`)).rejects.toThrow()
     await expect(
-      db.query(`insert into public.pizza_dough_days (business_day, size_code, prepared) values (current_date, 'grande', 5)`),
+      db.query(`insert into public.pizza_dough_days (shift_id, size_code, prepared) values (1, 'grande', 5)`),
     ).rejects.toThrow()
     await expect(db.query(`delete from public.pizza_dough_days`)).rejects.toThrow()
 
@@ -534,7 +555,7 @@ describe('table privileges', () => {
       expect((await db.query(`select * from public.pizza_dough_days`)).rows).toHaveLength(0)
       await expect(db.query(`update public.pizza_dough_days set prepared = 99`)).rejects.toThrow()
       await expect(
-        db.query(`insert into public.pizza_dough_days (business_day, size_code, prepared) values (current_date, 'grande', 5)`),
+        db.query(`insert into public.pizza_dough_days (shift_id, size_code, prepared) values (1, 'grande', 5)`),
       ).rejects.toThrow()
     }
 
@@ -548,10 +569,98 @@ describe('table privileges', () => {
   it('keeps used within prepared even for a superuser', async () => {
     await asSuperuser(db)
     await expect(
-      db.query(`insert into public.pizza_dough_days (business_day, size_code, prepared, used) values (current_date, 'chica', 1, 2)`),
+      db.query(`insert into public.pizza_dough_days (shift_id, size_code, prepared, used) values (1, 'chica', 1, 2)`),
     ).rejects.toThrow()
     await expect(
-      db.query(`insert into public.pizza_dough_days (business_day, size_code, prepared, used) values (current_date, 'chica', -1, 0)`),
+      db.query(`insert into public.pizza_dough_days (shift_id, size_code, prepared, used) values (1, 'chica', -1, 0)`),
     ).rejects.toThrow()
+  })
+
+  it('lets only the admin read the shifts, and nobody write them directly', async () => {
+    await asUser(db, admin)
+    expect((await db.query(`select * from public.pizza_dough_shifts`)).rows).toHaveLength(1)
+    await expect(db.query(`insert into public.pizza_dough_shifts default values`)).rejects.toThrow()
+    await expect(db.query(`delete from public.pizza_dough_shifts`)).rejects.toThrow()
+    for (const uid of [cashier, waiter]) {
+      await asUser(db, uid)
+      expect((await db.query(`select * from public.pizza_dough_shifts`)).rows).toHaveLength(0)
+      await expect(db.query(`insert into public.pizza_dough_shifts default values`)).rejects.toThrow()
+    }
+    await asAnon(db)
+    await expect(db.query(`select * from public.pizza_dough_shifts`)).rejects.toThrow()
+    expect(await countRows('pizza_dough_shifts')).toBe(1)
+  })
+})
+
+describe('dough shift ends when the register is closed', () => {
+  const allLeft = async () => {
+    await asUser(db, cashier)
+    return (await rpc(db, 'public.list_pizza_dough_left()')) as unknown as Json[]
+  }
+
+  it('makes every size unlimited after closing the register', async () => {
+    await openRegister()
+    await setDough('chica', 1)
+    await setDough('grande', 3)
+    await createOrder([pizza('chica', 1)])
+    await expect(createOrder([pizza('chica', 1)], 4)).rejects.toThrow('No hay masas de pizza Chica: quedan 0.')
+    await closeRegister()
+
+    expect(await allLeft()).toEqual([
+      { size_code: 'grande', dough_left: null },
+      { size_code: 'mediana', dough_left: null },
+      { size_code: 'chica', dough_left: null },
+    ])
+    const id = await createOrder([pizza('chica', 5)], 4)
+    expect(await doughDays(id)).toEqual([null])
+    expect(await dayRow('chica')).toBeUndefined()
+  })
+
+  it('keeps doughs loaded before opening the register for the shift that follows', async () => {
+    await openRegister()
+    await closeRegister()
+    await setDough('mediana', 2)
+    await openRegister()
+    await createOrder([pizza('mediana', 2)])
+    await expect(createOrder([pizza('mediana', 1)], 4)).rejects.toThrow('No hay masas de pizza Mediana: quedan 0.')
+    expect(await dayRow('mediana')).toEqual({ prepared: 2, used: 2 })
+  })
+
+  it('starts exactly one shift per close; opening and other updates of a session start none', async () => {
+    const first = await today()
+    const session = await openRegister()
+    expect(await today()).toBe(first)
+    await closeRegister()
+    expect(await today()).toBe(first + 1)
+    await asSuperuser(db)
+    await db.query(`update public.cash_sessions set counted_cents = counted_cents + 1 where id = $1`, [session])
+    expect(await today()).toBe(first + 1)
+    expect(await countRows('pizza_dough_shifts')).toBe(2)
+  })
+
+  it('does not change the current shift when a closed session is deleted', async () => {
+    const session = await openRegister()
+    await closeRegister()
+    await setDough('chica', 3)
+    const current = await today()
+    await asUser(db, admin)
+    await rpc(db, 'public.delete_closed_cash_session($1)', [session])
+    expect(await today()).toBe(current)
+    expect(await dayRow('chica')).toEqual({ prepared: 3, used: 0 })
+  })
+
+  it('no restated dough function reads the clock-based business day anymore', async () => {
+    await asSuperuser(db)
+    for (const fn of [
+      'public.insert_order_lines(uuid, jsonb)',
+      'public.cancel_order_core(uuid)',
+      'public.device_list_catalog(text)',
+      'public.admin_set_pizza_dough(text, integer)',
+      'public.admin_list_pizza_dough()',
+      'public.list_pizza_dough_left()',
+    ]) {
+      const def = (await db.query<{ d: string }>(`select pg_get_functiondef($1::regprocedure) as d`, [fn])).rows[0].d
+      expect(def, fn).not.toMatch(/pizza_business_day|\bbusiness_day\b|\bdough_day\b/)
+    }
   })
 })
