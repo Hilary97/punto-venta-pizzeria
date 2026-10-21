@@ -24,10 +24,11 @@ The daily dough limit (odd/tasks/pizza-dough.md) stops depending on the 05:00 cl
 
 - T1 (S2-S5) — migration `20261024120000_pizza_dough_cash_shift.sql` + PGlite tests (update pizzaDough.test.ts, add backfill test). Route: inline. Commit: `8713888` (done; RED 39/53 -> GREEN 53/53; trigger mutation fails 5; full suite 765/765 after fixing a uuid-order flake in the new test; tsc 0, build OK). Slice note: ~1000 lines, mostly the 6 restated functions copied from 20261023120000 with only the key changed (diff: 66 changed lines).
 - T2 (S6) — admin UI + repository: `shiftStartedAt`, subtitle. Route: inline. Commit: `b132e35` (done; RED then GREEN 97/97; `formatBusinessDay` and its test removed as unused). Deploy note: the frontend and the migration must go out together (old UI expects `business_day`).
-- T3 (S1-S6) — verify (high risk: data format change, order writes). Route: gentle-ai-verify. Commit: n/a.
+- T3 (S1-S6) — verify (high risk: data format change, order writes). Route: gentle-ai-verify. Done: PASS S1-S6; 110/110 focused, tsc 0; scratch PGlite backfill on realistic state and cancel-after-close confirmed; functions differ only in the dough key; trigger fires once per close. Findings: low — a load racing an uncommitted close lands in the old shift; low — migration and frontend must deploy together; info — backfill fires one extra kitchen refresh, converted shift shows 05:00 start. Not verified: real Postgres concurrency, run on a production copy.
 
 ## Log
 
 - L1: "Vamos a en el fueature de cargar masas en el día como funciona. Al cerrar cajas se vuelve a poner sin limite o que hace que cambie a sin limite?"
 - L2: "Si pues los horarios laborales no son precisos mejor cuando se reinicie la caja que se termino la venta que se reincie el limite de las pizzas"
 - L3: Migration 20261023120000_pizza_dough.sql already applied in production ("Sí, ya está aplicada"): new migration converting data.
+- L4: Verify T3 PASS S1-S6; findings accepted as low/info.
