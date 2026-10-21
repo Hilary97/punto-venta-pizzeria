@@ -336,7 +336,8 @@ grant execute on function public.device_create_order(text, uuid, integer, text, 
 -- ============================================================================
 
 -- Kitchen tickets (20261018120000): only queued orders; lines that arrived
--- before queue entry join the ticket timed at queue entry; plus `scheduled_for`.
+-- before queue entry join the ticket timed at queue entry; orders entering
+-- together are listed by pickup time; plus `scheduled_for`.
 create or replace function public.kitchen_orders_core(p_station text)
 returns jsonb
 language plpgsql
@@ -371,7 +372,7 @@ begin
               and greatest(i.created_at, o.queued_at) = t.ticket_at
           )
         )
-        order by t.ticket_at, o.id
+        order by t.ticket_at, o.scheduled_for nulls first, o.id
       )
       from (
         select distinct i.order_id, greatest(i.created_at, qo.queued_at) as ticket_at

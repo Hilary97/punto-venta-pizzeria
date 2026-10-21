@@ -261,6 +261,14 @@ describe('entering the kitchen queue', () => {
     expect(ms(tickets[0].created_at)).toBe(ms(at('13:40')))
   })
 
+  it('lists orders that enter together by pickup time', async () => {
+    const late = await createOrder(at('14:30'))
+    const early = await createOrder(at('14:00'))
+    const middle = await createOrder(at('14:10'))
+    await setClock('14:15')
+    expect((await kitchen()).map((t) => t.id)).toEqual([early, middle, late])
+  })
+
   it('never enters once cancelled', async () => {
     const id = await createOrder(at('14:00'))
     await asAnon(db)
