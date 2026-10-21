@@ -22,8 +22,8 @@ The daily dough limit (odd/tasks/pizza-dough.md) stops depending on the 05:00 cl
 
 ## Tasks
 
-- T1 (S2-S5) — migration `20261024120000_pizza_dough_cash_shift.sql` + PGlite tests (update pizzaDough.test.ts, add backfill test). Route: inline. Commit: pending.
-- T2 (S6) — admin UI + repository: `shiftStartedAt`, subtitle. Route: inline. Commit: pending.
+- T1 (S2-S5) — migration `20261024120000_pizza_dough_cash_shift.sql` + PGlite tests (update pizzaDough.test.ts, add backfill test). Route: inline. Commit: `8713888` (done; RED 39/53 -> GREEN 53/53; trigger mutation fails 5; full suite 765/765 after fixing a uuid-order flake in the new test; tsc 0, build OK). Slice note: ~1000 lines, mostly the 6 restated functions copied from 20261023120000 with only the key changed (diff: 66 changed lines).
+- T2 (S6) — admin UI + repository: `shiftStartedAt`, subtitle. Route: inline. Commit: `b132e35` (done; RED then GREEN 97/97; `formatBusinessDay` and its test removed as unused). Deploy note: the frontend and the migration must go out together (old UI expects `business_day`).
 - T3 (S1-S6) — verify (high risk: data format change, order writes). Route: gentle-ai-verify. Commit: n/a.
 
 ## Log
