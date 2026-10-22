@@ -201,27 +201,8 @@ describe('an order paid after it was delivered', () => {
   })
 })
 
-describe('an order paid with nothing left to cook', () => {
-  it('ends at payment when its cooked lines are ready but not delivered, as before', async () => {
-    const id = await createOrder()
-    await markReady(id)
-    await pay(id)
-
-    expect((await row(id)).served_at).not.toBeNull()
-    expect(await ready()).toEqual([])
-    expect((await row(await createOrder())).token).toBe(1)
-  })
-
-  it('ends at payment when it has only drinks, which never go to the kitchen', async () => {
-    const id = await createOrder(null, [{ type: 'product', product_id: drinkId, quantity: 2 }])
-    await pay(id)
-
-    expect((await row(id)).served_at).not.toBeNull()
-    expect(await kitchen()).toEqual([])
-    expect(await ready()).toEqual([])
-    expect((await row(await createOrder())).token).toBe(1)
-  })
-
+// Paid orders with lines ready but not delivered: freeTokenOnDelivery.test.ts (20261028120000).
+describe('an order paid with drinks', () => {
   it('keeps drinks of a prepaid order in Entrega with its food until delivered', async () => {
     const id = await createOrder(null, [...burger(), { type: 'product', product_id: drinkId, quantity: 1 }])
     await pay(id)

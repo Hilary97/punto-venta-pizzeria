@@ -216,6 +216,33 @@ describe('tokens that stay as before', () => {
   })
 })
 
+describe('an order paid with lines ready but not delivered', () => {
+  it('keeps its token and stays in Entrega until delivered', async () => {
+    const id = await createOrder()
+    await markReady(id)
+    await pay(id)
+
+    expect(await row(id)).toEqual({ status: 'paid', token: 1, served_at: null })
+    expect((await ready()).map((o) => [o.id, o.token])).toEqual([[id, 1]])
+    expect((await row(await createOrder())).token).toBe(2)
+
+    await markDelivered(id)
+    const done = await row(id)
+    expect(done.token).toBeNull()
+    expect(done.served_at).not.toBeNull()
+    expect((await ready()).map((o) => o.id)).not.toContain(id)
+  })
+
+  it('keeps the token of an order with only drinks until they are delivered', async () => {
+    const id = await createOrder(drink())
+    await pay(id)
+
+    expect(await row(id)).toEqual({ status: 'paid', token: 1, served_at: null })
+    await markDelivered(id)
+    expect((await row(id)).token).toBeNull()
+  })
+})
+
 describe('migration', () => {
   it('frees the tokens of open orders already delivered and keeps the others', async () => {
     await db.close()

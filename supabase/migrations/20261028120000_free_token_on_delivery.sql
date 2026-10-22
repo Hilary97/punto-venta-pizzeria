@@ -9,6 +9,9 @@
 --   * add_order_items_core gives an order that has no token (it was delivered,
 --     or none was free) the lowest free token again, so the new lines reach the
 --     kitchen with one. A waiting scheduled order still takes it when queued.
+--   * pay_order ends an order at payment only when every line was delivered
+--     (was: when nothing was left to cook). A paid order with plates waiting
+--     in Entrega keeps its token until they are delivered.
 --   * Orders in service whose lines are all delivered free their token now.
 --
 -- Runs as one script (Supabase SQL Editor).
@@ -114,6 +117,113 @@ begin
   perform public.insert_order_lines(p_order_id, p_items);
 
   return p_order_id;
+end;
+$$;
+
+-- pay_order (20261026120000): an order with lines not delivered stays in service.
+create or replace function public.pay_order(p_order_id uuid, p_received_cents integer)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_status text;
+  v_lines jsonb;
+  v_line jsonb;
+  v_unavailable text;
+  v_total integer;
+  v_session_id uuid;
+  v_change integer;
+  v_sale_id uuid;
+begin
+  if not public.can_operate_register() then
+    raise exception 'No tienes permiso para cobrar pedidos.' using errcode = '42501';
+  end if;
+
+  if p_order_id is null then
+    raise exception 'El pedido indicado no existe.';
+  end if;
+
+  if p_received_cents is null or p_received_cents < 0 then
+    raise exception 'El monto recibido no es válido.';
+  end if;
+
+  select status into v_status
+  from public.orders
+  where id = p_order_id
+  for update;
+
+  if v_status is null then
+    raise exception 'El pedido indicado no existe.';
+  end if;
+
+  if v_status <> 'open' then
+    raise exception 'El pedido ya no está abierto.';
+  end if;
+
+  v_lines := public.order_lines_priced(p_order_id);
+
+  if jsonb_array_length(v_lines) = 0 then
+    raise exception 'El pedido no tiene productos.';
+  end if;
+
+  select string_agg(l ->> 'name', ', ')
+  into v_unavailable
+  from jsonb_array_elements(v_lines) as l
+  where not (l ->> 'available')::boolean;
+
+  if v_unavailable is not null then
+    raise exception 'Hay productos no disponibles en el pedido: %. Corrígelo en Pedidos.', v_unavailable;
+  end if;
+
+  select id into v_session_id from public.cash_sessions where closed_at is null limit 1;
+  if v_session_id is null then
+    raise exception 'No hay una caja abierta. Abre la caja antes de vender.';
+  end if;
+
+  select sum((l ->> 'line_total_cents')::integer)
+  into v_total
+  from jsonb_array_elements(v_lines) as l;
+
+  if p_received_cents < v_total then
+    raise exception 'El monto recibido es menor al total de la venta.';
+  end if;
+
+  v_change := p_received_cents - v_total;
+
+  insert into public.sales (session_id, cashier_id, total_cents, received_cents, change_cents)
+  values (v_session_id, v_uid, v_total, p_received_cents, v_change)
+  returning id into v_sale_id;
+
+  for v_line in select * from jsonb_array_elements(v_lines)
+  loop
+    insert into public.sale_items (sale_id, product_id, product_name, unit_price_cents, quantity)
+    select
+      v_sale_id,
+      i.product_id,
+      (v_line ->> 'name') || coalesce(' — Nota: ' || (v_line ->> 'notes'), ''),
+      (v_line ->> 'unit_price_cents')::integer,
+      (v_line ->> 'quantity')::integer
+    from public.order_items i
+    where i.id = (v_line ->> 'order_item_id')::uuid;
+  end loop;
+
+  update public.orders
+  set status = 'paid', paid_sale_id = v_sale_id, paid_at = now(),
+      served_at = case
+        when exists (select 1 from public.order_items where order_id = p_order_id and delivered_at is null) then null
+        else now()
+      end
+  where id = p_order_id;
+
+  return jsonb_build_object(
+    'sale_id', v_sale_id,
+    'total_cents', v_total,
+    'change_cents', v_change,
+    'order_id', p_order_id
+  );
 end;
 $$;
 
