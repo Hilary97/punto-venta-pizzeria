@@ -248,6 +248,22 @@ describe('OrdersPage', () => {
     expect(within(card).getByText(/pizza queso × 2/i)).toBeVisible()
   })
 
+  it('shows Entregado instead of a token when every line was delivered', async () => {
+    const line = openOrder.items[0]!
+    vi.mocked(listOpenOrders).mockResolvedValue([
+      { ...openOrder, token: null, items: [{ ...line, deliveredAt: '2026-01-01T10:30:00Z' }] },
+      { ...openOrder, id: 'order-2', customerName: 'Beto', token: null, items: [{ ...line, deliveredAt: null }] },
+    ])
+    renderPage()
+    const delivered = (await screen.findByText('Ana')).closest('li')!
+    expect(within(delivered).getByText('Entregado')).toBeVisible()
+    expect(within(delivered).queryByText('Sin ficha')).not.toBeInTheDocument()
+
+    const pending = screen.getByText('Beto').closest('li')!
+    expect(within(pending).getByText('Sin ficha')).toBeVisible()
+    expect(within(pending).queryByText('Entregado')).not.toBeInTheDocument()
+  })
+
 
   describe('pickup time', () => {
     const at = (h: number, m: number) => new Date(2026, 9, 21, h, m)

@@ -61,6 +61,11 @@ export function tokenLabel(token: number | null): string {
   return token === null ? 'Sin ficha' : `Ficha ${token}`
 }
 
+/** Every line was delivered, so the order gave its token back. */
+export function isFullyDelivered(order: Pick<Order, 'items'>): boolean {
+  return order.items.length > 0 && order.items.every((item) => item.deliveredAt != null)
+}
+
 /** A scheduled order that has not entered the kitchen queue yet (no token so far). */
 export function isWaitingScheduled(order: Pick<Order, 'scheduledFor' | 'queuedAt'>): boolean {
   return order.scheduledFor != null && order.queuedAt == null

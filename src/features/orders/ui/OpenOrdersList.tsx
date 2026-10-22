@@ -1,6 +1,6 @@
 import { Link } from 'react-router'
 import { Button } from '../../../shared/ui/Button'
-import { isWaitingScheduled, pickupTimeLabel, productLineLabel, tableLabel, tokenLabel, type Order } from '../domain/order'
+import { isFullyDelivered, isWaitingScheduled, pickupTimeLabel, productLineLabel, tableLabel, tokenLabel, type Order } from '../domain/order'
 
 interface OpenOrdersListProps {
   orders: Order[]
@@ -29,6 +29,10 @@ export function OpenOrdersList({ orders, canCharge, disabled = false, onAddItems
           {isWaitingScheduled(order) ? (
             <p className="self-start rounded-lg border-2 border-sky-500 bg-sky-50 px-3 py-1 text-lg font-bold text-sky-900">
               Programado
+            </p>
+          ) : isFullyDelivered(order) ? (
+            <p className="self-start rounded-lg border-2 border-emerald-500 bg-emerald-50 px-3 py-1 text-lg font-bold text-emerald-900">
+              Entregado
             </p>
           ) : (
             order.token !== undefined && (

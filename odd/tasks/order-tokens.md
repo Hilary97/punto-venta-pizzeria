@@ -7,7 +7,7 @@ Each open order gets a physical token number (1-50) shown in Cocina, Entrega and
 
 - S1: "como vamos a solucinar las entregas para identificar los productos fisicos con a quin se entregara" — every order has a stable token number shown on its Cocina card, Entrega card and the waiter's open orders list, labelled `Ficha N`.
 - S2: "Si mejor las fichas numeradas" / "si unas 50 fichas" — tokens are 1..50.
-- S3: Design decision (stated to the user): a new order takes the lowest token not held by another open order; paying or cancelling an order frees its token; items added later keep the order's token. Two open orders never share a token, even when created at the same time.
+- S3: Design decision (stated to the user): a new order takes the lowest token not held by another order in service; delivering the order's last line, or cancelling it, frees its token (L7-L8). Items added while the order holds a token keep it; items added after it was freed take the lowest free token again (L8). Two orders in service never share a token, even when created at the same time. The waiter's open orders show `Entregado` instead of a token once every line was delivered.
 - S4: When all 50 tokens are held, the order is still created without a token and cards show `Sin ficha`.
 - S5: Existing open orders get tokens in creation order when the migration runs.
 - S6: "Estan separadas" / "Si haz el cambio con esos colores" — two token sets with the same numbers: red for Pizzas, blue for Hamburguesas y botanas. The Entrega card groups lines by pickup place: `Recoger en Pizzas (ficha roja)`, `Recoger en Hamburguesas y botanas (ficha azul)`, then `Bebidas y otros` for lines without a station; empty groups are hidden.
@@ -24,6 +24,7 @@ Each open order gets a physical token number (1-50) shown in Cocina, Entrega and
 - T1 (S2, S3, S4, S5) — migration + PGlite tests: column, unique index, trigger, backfill, token in list RPCs. Route: inline. Commit: see "feat(db): assign numbered tokens to open orders" (done; PGlite RED->GREEN, 105 db tests).
 - T2 (S1, S4) — UI: token in domain/repositories, `Ficha N` / `Sin ficha` on OrderTicketCard and OpenOrdersList. Route: inline. Commit: see "feat(orders): show the order token on kitchen and order cards" (done; RED->GREEN, 493 tests, tsc clean, oxlint 10 pre-existing warnings).
 - T3 — verify: tests, tsc, lint, build. Route: verify (high risk: migration, concurrency). Done: PASS S1-S5; 493 tests, tsc, oxlint (no new warnings), build OK. Fixed finding: re-running the script with tokenless open orders broke the unique index; backfill now runs only when no order holds a token (RED->GREEN). Residual: concurrency reasoned, not run concurrently (PGlite); apply the migration before deploying the app (ORDER_SELECT reads token); not run in Supabase.
+- T5 (S3) — migration `20261028120000_free_token_on_delivery.sql` (mark_delivered_core frees, add_order_items_core re-assigns, backfill) + `Entregado` on OpenOrdersList. Route: inline + verify (high risk: migration, concurrency). Commit: see "feat(orders): free the token when the order is delivered" (done; RED->GREEN 6 db + 1 UI, 835 tests, tsc clean, build OK, no new oxlint warnings; verify PASS S3. Residual: concurrency reasoned not run (PGlite); rare deadlock if a waiter is deleted mid add-items, Postgres aborts one tx; not run in Supabase).
 - T4 (S6) — `kitchen_line_json` returns `station` (new migration); Entrega card groups lines by pickup place with red/blue labels. Route: inline. Commit: see "feat(kitchen): group delivery lines by pickup place" (done; RED->GREEN, 497 tests, tsc clean, oxlint 10 pre-existing warnings, build OK).
 
 ## Log
@@ -34,3 +35,5 @@ Each open order gets a physical token number (1-50) shown in Cocina, Entrega and
 - L4: Decision: lowest free token among open orders instead of a daily folio wrapping at 50, so open orders never collide and no day boundary is needed.
 - L5: "Estan separadas" — the two kitchens leave plates in separate pickup areas.
 - L6: "Si haz el cambio con esos colores"
+- L7: "Como es que se liberan las fichas cuando se agrega un nuevo pedido. Necesito que se liberen cuando se entregue el pedido. Yo creo que si es lo mas recomedable no?"
+- L8: "Si que tomen la ficha libre mas baja es que lo importante es que fluya la cocina"
