@@ -7,14 +7,14 @@ interface OrderFabProps {
   onOpen: () => void
 }
 
-/** Compact pill bottom-right on phones; the open orders pill sits bottom-left on the same line. */
+/** Compact button bottom-right on phones; the open orders button sits bottom-left on the same line. */
 export function OrderFab({ itemCount, targetLabel = null, onOpen }: OrderFabProps) {
   return (
     <button
       type="button"
       onClick={onOpen}
       className={cn(
-        'fixed right-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-40 flex max-w-[calc(50%-1rem)] items-center gap-1 rounded-full px-4 py-2.5 text-sm font-semibold shadow-md lg:hidden',
+        'fixed right-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-40 flex max-w-[calc(50%-1rem)] items-center gap-1 rounded-xl px-4 py-2.5 text-sm font-semibold shadow-md lg:hidden',
         targetLabel ? 'bg-amber-500 text-amber-950' : 'bg-red-700 text-white',
       )}
     >

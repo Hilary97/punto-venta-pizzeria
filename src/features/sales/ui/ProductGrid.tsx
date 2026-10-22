@@ -113,8 +113,8 @@ export function ProductGrid({
             setAllScrollRequest((count) => count + 1);
           }}
           className={cn(
-            // Phones: a compact pill bottom-left, sharing the line with the order pill.
-            "fixed bottom-[calc(0.75rem+env(safe-area-inset-bottom))] left-3 z-30 max-w-[calc(50%-1rem)] truncate rounded-full px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-colors lg:bottom-[calc(1rem+env(safe-area-inset-bottom))] lg:left-auto lg:right-4 lg:w-80 lg:max-w-none lg:rounded-2xl lg:px-5 lg:py-4 lg:text-base lg:shadow-lg",
+            // Phones: a compact button bottom-left, sharing the line with the order button.
+            "fixed bottom-[calc(0.75rem+env(safe-area-inset-bottom))] left-3 z-30 max-w-[calc(50%-1rem)] truncate rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-colors lg:bottom-[calc(1rem+env(safe-area-inset-bottom))] lg:left-auto lg:right-4 lg:w-80 lg:max-w-none lg:rounded-2xl lg:px-5 lg:py-4 lg:text-base lg:shadow-lg",
             selectedCategoryId === "all" && query.trim() === ""
               ? "bg-emerald-800"
               : "bg-emerald-600 hover:bg-emerald-700",
