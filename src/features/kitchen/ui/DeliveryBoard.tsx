@@ -22,6 +22,18 @@ function inSection(orders: KitchenOrder[], section: DeliverySection): KitchenOrd
     .filter((order) => order.lines.length > 0)
 }
 
+/** Distinct tokens held by the given orders, in ascending order; orders without a token add none. */
+function tokensOf(orders: KitchenOrder[]): number[] {
+  const tokens = new Set(orders.flatMap((order) => (order.token === null ? [] : [order.token])))
+  return [...tokens].sort((a, b) => a - b)
+}
+
+const chipClass = (selected: boolean) =>
+  cn(
+    'min-w-14 rounded-xl px-4 py-3 text-lg font-bold transition-colors',
+    selected ? 'bg-red-700 text-white' : 'bg-slate-200 text-slate-800 hover:bg-slate-300',
+  )
+
 interface DeliveryBoardProps {
   source: DeliverySource
   /** Shows one section (pizzas, grill, others) at a time, chosen with buttons; otherwise every line together. */
@@ -35,7 +47,12 @@ export function DeliveryBoard({ source, sectioned = false, pollIntervalMs }: Del
   const act = useCallback((orderId: string, lineIds: string[]) => source.markDelivered(orderId, lineIds), [source])
   const { orders, error, pendingIds, reload, runAction } = useOrderBoard({ list, act, subscribe: source.subscribe, pollIntervalMs })
   const [section, setSection] = useState<DeliverySection>('pizza')
-  const shown = orders && sectioned ? inSection(orders, section) : orders
+  const [selectedToken, setSelectedToken] = useState<number | null>(null)
+  const visible = orders && sectioned ? inSection(orders, section) : orders
+  const tokens = visible ? tokensOf(visible) : []
+  // A token that was delivered or is absent from this section falls back to every order.
+  const activeToken = selectedToken !== null && tokens.includes(selectedToken) ? selectedToken : null
+  const shown = visible && (activeToken === null ? visible : visible.filter((order) => order.token === activeToken))
 
   return (
     <section aria-label="Entrega de pedidos" className="flex flex-col gap-4 p-4">
@@ -61,6 +78,34 @@ export function DeliveryBoard({ source, sectioned = false, pollIntervalMs }: Del
               {option.label}
             </button>
           ))}
+        </div>
+      )}
+      {tokens.length > 0 && (
+        <div className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+          <p className="text-sm font-semibold uppercase tracking-wide text-slate-600">Buscar por ficha</p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              aria-label="Todas las fichas"
+              aria-pressed={activeToken === null}
+              onClick={() => setSelectedToken(null)}
+              className={chipClass(activeToken === null)}
+            >
+              Todas
+            </button>
+            {tokens.map((token) => (
+              <button
+                key={token}
+                type="button"
+                aria-label={`Ficha ${token}`}
+                aria-pressed={activeToken === token}
+                onClick={() => setSelectedToken(activeToken === token ? null : token)}
+                className={chipClass(activeToken === token)}
+              >
+                {token}
+              </button>
+            ))}
+          </div>
         </div>
       )}
       {error && <ErrorBanner message={error} />}

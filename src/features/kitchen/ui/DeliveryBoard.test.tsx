@@ -226,6 +226,91 @@ describe('DeliveryBoard', () => {
     expect(await card('M-3')).toHaveClass('bg-red-100')
   })
 
+  describe('token buttons', () => {
+    const byToken = [
+      order({ id: 'a', token: 12, tableNumber: 2, customerName: null }),
+      order({ id: 'b', token: 1, tableNumber: 1, customerName: null }),
+      order({ id: 'c', token: null, tableNumber: 3, customerName: null }),
+    ]
+    const tokenButtons = () =>
+      screen.queryAllByRole('button', { name: /^(Ficha \d+|Todas las fichas)$/ }).map((button) => button.textContent)
+
+    it('shows one button per ready token in order, plus Todas selected', async () => {
+      render(<DeliveryBoard source={makeSource([byToken])} />)
+      await screen.findByText('M-1')
+      expect(screen.getByText('Buscar por ficha')).toBeVisible()
+      expect(tokenButtons()).toEqual(['Todas', '1', '12'])
+      expect(screen.getByRole('button', { name: 'Todas las fichas' })).toHaveAttribute('aria-pressed', 'true')
+      expect(screen.getByRole('button', { name: 'Ficha 1' })).toHaveAttribute('aria-pressed', 'false')
+    })
+
+    it('shows no token buttons when no ready order has a token', async () => {
+      render(<DeliveryBoard source={makeSource([[order({ token: null })]])} />)
+      await screen.findByText('M-4 · Ana')
+      expect(tokenButtons()).toEqual([])
+      expect(screen.queryByText('Buscar por ficha')).not.toBeInTheDocument()
+    })
+
+    it('shows only the tapped token and every order again when tapped twice or with Todas', async () => {
+      render(<DeliveryBoard source={makeSource([byToken])} />)
+      await screen.findByText('M-1')
+      await userEvent.click(screen.getByRole('button', { name: 'Ficha 1' }))
+      expect(screen.getByRole('button', { name: 'Ficha 1' })).toHaveAttribute('aria-pressed', 'true')
+      expect(screen.getByRole('button', { name: 'Todas las fichas' })).toHaveAttribute('aria-pressed', 'false')
+      expect(screen.getByText('M-1')).toBeVisible()
+      expect(screen.queryByText('M-2')).not.toBeInTheDocument()
+      expect(screen.queryByText('M-3')).not.toBeInTheDocument()
+
+      await userEvent.click(screen.getByRole('button', { name: 'Ficha 1' }))
+      expect(screen.getByText('M-2')).toBeVisible()
+      expect(screen.getByText('M-3')).toBeVisible()
+
+      await userEvent.click(screen.getByRole('button', { name: 'Ficha 12' }))
+      expect(screen.queryByText('M-1')).not.toBeInTheDocument()
+      await userEvent.click(screen.getByRole('button', { name: 'Todas las fichas' }))
+      expect(screen.getByText('M-1')).toBeVisible()
+      expect(screen.getByText('M-3')).toBeVisible()
+    })
+
+    it('drops the button of a delivered token and shows every order again', async () => {
+      const source = makeSource([byToken, byToken.slice(1)])
+      render(<DeliveryBoard source={source} />)
+      await screen.findByText('M-2')
+      await userEvent.click(screen.getByRole('button', { name: 'Ficha 12' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Marcar pedido entregado' }))
+      expect(source.markDelivered).toHaveBeenCalledWith('a', ['l1'])
+      await waitFor(() => expect(screen.queryByRole('button', { name: 'Ficha 12' })).not.toBeInTheDocument())
+      expect(screen.getByText('M-1')).toBeVisible()
+      expect(screen.getByText('M-3')).toBeVisible()
+    })
+
+    it('lists only the tokens of the selected section and keeps the choice where it exists', async () => {
+      const line = (id: string, productName: string, station: 'pizza' | 'grill') =>
+        ({ id, productName, quantity: 1, type: 'product', pizza: null, notes: null, variant: null, station }) as const
+      const orders = [
+        order({ id: 'p', token: 5, tableNumber: 1, customerName: null, lines: [line('p1', 'Pizza Pepperoni', 'pizza')] }),
+        order({ id: 'm', token: 9, tableNumber: 2, customerName: null, lines: [line('m1', 'Pizza Hawaiana', 'pizza'), line('m2', 'Alitas', 'grill')] }),
+        order({ id: 'g', token: 3, tableNumber: 3, customerName: null, lines: [line('g1', 'Hamburguesa', 'grill')] }),
+      ]
+      render(<DeliveryBoard source={makeSource([orders])} sectioned />)
+      await screen.findByText('1 × Pizza Pepperoni')
+      expect(tokenButtons()).toEqual(['Todas', '5', '9'])
+
+      await userEvent.click(screen.getByRole('button', { name: 'Ficha 9' }))
+      expect(screen.queryByText('1 × Pizza Pepperoni')).not.toBeInTheDocument()
+      await userEvent.click(screen.getByRole('button', { name: 'Hamburguesas y botanas' }))
+      expect(tokenButtons()).toEqual(['Todas', '3', '9'])
+      expect(screen.getByText('1 × Alitas')).toBeVisible()
+      expect(screen.queryByText('1 × Hamburguesa')).not.toBeInTheDocument()
+
+      await userEvent.click(screen.getByRole('button', { name: 'Ficha 3' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Pizzas' }))
+      expect(screen.getByRole('button', { name: 'Todas las fichas' })).toHaveAttribute('aria-pressed', 'true')
+      expect(screen.getByText('1 × Pizza Pepperoni')).toBeVisible()
+      expect(screen.getByText('1 × Pizza Hawaiana')).toBeVisible()
+    })
+  })
+
   it('keeps the normal text size on delivery cards', async () => {
     render(<DeliveryBoard source={makeSource()} />)
     expect(await screen.findByText('M-4 · Ana')).toHaveClass('text-2xl')
