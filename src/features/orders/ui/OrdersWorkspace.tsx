@@ -25,6 +25,7 @@ import {
   pickupTimeToIso,
   tableLabel,
   type Order,
+  type OrderService,
 } from '../domain/order'
 import {
   addPizzaToDraft,
@@ -43,6 +44,7 @@ import { AddingToOrderBar } from './AddingToOrderBar'
 import { OpenOrdersList } from './OpenOrdersList'
 import { OrderFab } from './OrderFab'
 import { OrderDraftPanel } from './OrderDraftPanel'
+import { ServiceSelector } from './ServiceSelector'
 import { TableSelector } from './TableSelector'
 import { VariantPickerModal } from './VariantPickerModal'
 
@@ -74,6 +76,7 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
   const [actionError, setActionError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [tableNumber, setTableNumber] = useState<number | null>(null)
+  const [service, setService] = useState<OrderService | null>(null)
   const [customerName, setCustomerName] = useState('')
   const [orderNotes, setOrderNotes] = useState('')
   const [pickupTime, setPickupTime] = useState('')
@@ -212,7 +215,8 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
     await reloadOrders()
   }
 
-  const canSubmit = draft.length > 0 && (addingToOrder !== null || canRegisterOrder(tableNumber, customerName))
+  const canSubmit =
+    draft.length > 0 && (addingToOrder !== null || (service !== null && canRegisterOrder(tableNumber, customerName)))
 
   async function handleSubmit(event: { preventDefault: () => void }) {
     event.preventDefault()
@@ -231,9 +235,8 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
       } else {
         const name = normalizeCustomerName(customerName) || null
         const notes = normalizeNotes(orderNotes)
-        // Ordinary orders keep the four-argument call.
-        if (scheduledFor === null) await source.createOrder(tableNumber, name, items, notes)
-        else await source.createOrder(tableNumber, name, items, notes, scheduledFor)
+        if (service === null) throw new Error('Elige si es para aquí o para llevar.')
+        await source.createOrder({ tableNumber, customerName: name, items, notes, scheduledFor, service })
       }
     })
     if (!succeeded) return
@@ -246,6 +249,7 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
       setOrderNotes('')
       setPickupTime('')
       setTableNumber(null)
+      setService(null)
     }
     await reloadOrders()
   }
@@ -328,6 +332,9 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
           onChange={(event) => setPickupTime(event.target.value)}
         />
       )}
+      {!addingToOrder && service === null && draft.length > 0 && (
+        <p className="text-sm font-medium text-amber-800">Elige si es para aquí o para llevar.</p>
+      )}
       {actionError && <ErrorBanner message={actionError} />}
       <Button type="submit" size="lg" disabled={!canSubmit || isSubmitting}>
         {isSubmitting ? 'Procesando…' : addingToOrder ? 'Agregar al pedido' : 'Registrar pedido'}
@@ -407,6 +414,7 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
           )}
           {addingToOrder === null && (
             <>
+              <ServiceSelector selected={service} onSelect={setService} disabled={isSubmitting} />
               <TableSelector selected={tableNumber} onSelect={setTableNumber} disabled={isSubmitting} />
               <Input
                 id={nameId}

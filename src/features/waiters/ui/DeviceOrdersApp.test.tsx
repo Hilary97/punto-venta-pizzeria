@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -107,8 +107,16 @@ describe('DeviceOrdersApp', () => {
     await user.click(await screen.findByRole('button', { name: 'M-4' }))
     await user.click(screen.getByRole('button', { name: 'Botanas' }))
     await user.click(screen.getByRole('button', { name: /pizza queso/i }))
+    await user.click(within(screen.getByRole('group', { name: 'Tipo de pedido' })).getByRole('button', { name: 'Aquí' }))
     await user.click(screen.getByRole('button', { name: /registrar pedido/i }))
-    expect(source.createOrder).toHaveBeenCalledWith(4, null, [{ type: 'product', productId: 'p', quantity: 1 }], null)
+    expect(source.createOrder).toHaveBeenCalledWith({
+      tableNumber: 4,
+      customerName: null,
+      items: [{ type: 'product', productId: 'p', quantity: 1 }],
+      notes: null,
+      scheduledFor: null,
+      service: 'dine_in',
+    })
     expect(screen.queryByRole('link', { name: /cobrar/i })).not.toBeInTheDocument()
   })
 
@@ -138,6 +146,7 @@ describe('DeviceOrdersApp', () => {
     await user.click(await screen.findByRole('button', { name: 'M-1' }))
     await user.click(screen.getByRole('button', { name: 'Botanas' }))
     await user.click(screen.getByRole('button', { name: /pizza queso/i }))
+    await user.click(within(screen.getByRole('group', { name: 'Tipo de pedido' })).getByRole('button', { name: 'Aquí' }))
     await user.click(screen.getByRole('button', { name: /registrar pedido/i }))
     expect(await screen.findByText('¿Quién está tomando pedidos?')).toBeVisible()
     expect(localStorage.getItem(SHIFT_STORAGE_KEY)).toBeNull()

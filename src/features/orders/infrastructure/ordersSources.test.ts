@@ -34,20 +34,33 @@ describe('device catalog', () => {
 describe('creating orders', () => {
   const items = [{ type: 'product' as const, productId: 'p', quantity: 1 }]
 
+  const base = { tableNumber: 2, customerName: null, items, notes: null, scheduledFor: null, service: 'dine_in' as const }
+  const scheduled = '2026-10-21T20:30:00.000Z'
+
   it('sends the pickup time only when there is one', async () => {
     rpc.mockResolvedValue({ data: { order_id: 'o' }, error: null })
     const device = createDeviceOrdersSource('s', () => 't')
 
-    await device.createOrder(2, null, items, null, '2026-10-21T20:30:00.000Z')
-    expect(rpc).toHaveBeenLastCalledWith('device_create_order', expect.objectContaining({ p_scheduled_for: '2026-10-21T20:30:00.000Z' }))
+    await device.createOrder({ ...base, scheduledFor: scheduled })
+    expect(rpc).toHaveBeenLastCalledWith('device_create_order', expect.objectContaining({ p_scheduled_for: scheduled }))
 
-    await device.createOrder(2, null, items, null)
+    await device.createOrder(base)
     expect(rpc.mock.lastCall![1]).not.toHaveProperty('p_scheduled_for')
 
-    await authenticatedOrdersSource.createOrder(2, null, items, null, '2026-10-21T20:30:00.000Z')
-    expect(rpc).toHaveBeenLastCalledWith('create_order', expect.objectContaining({ p_scheduled_for: '2026-10-21T20:30:00.000Z' }))
+    await authenticatedOrdersSource.createOrder({ ...base, scheduledFor: scheduled })
+    expect(rpc).toHaveBeenLastCalledWith('create_order', expect.objectContaining({ p_scheduled_for: scheduled }))
 
-    await authenticatedOrdersSource.createOrder(2, null, items, null)
+    await authenticatedOrdersSource.createOrder(base)
     expect(rpc.mock.lastCall![1]).not.toHaveProperty('p_scheduled_for')
+  })
+
+  it('always sends the service type', async () => {
+    rpc.mockResolvedValue({ data: { order_id: 'o' }, error: null })
+
+    await createDeviceOrdersSource('s', () => 't').createOrder({ ...base, service: 'takeaway' })
+    expect(rpc).toHaveBeenLastCalledWith('device_create_order', expect.objectContaining({ p_service: 'takeaway' }))
+
+    await authenticatedOrdersSource.createOrder(base)
+    expect(rpc).toHaveBeenLastCalledWith('create_order', expect.objectContaining({ p_service: 'dine_in' }))
   })
 })

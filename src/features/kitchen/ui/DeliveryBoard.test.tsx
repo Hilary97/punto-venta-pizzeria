@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DeliverySource, KitchenOrder } from '../domain/kitchen'
@@ -64,6 +64,19 @@ describe('DeliveryBoard', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Marcar pedido entregado' }))
     expect(source.markDelivered).toHaveBeenCalledWith('o1', ['l1', 'l2', 'l3'])
+  })
+
+  it('shows the service type on the card, and none when it is missing', async () => {
+    const orders = [
+      order({ id: 'a', tableNumber: 1, customerName: null, service: 'takeaway' }),
+      order({ id: 'b', tableNumber: 2, customerName: null, service: null }),
+    ]
+    render(<DeliveryBoard source={makeSource([orders])} />)
+    const withService = (await screen.findByText('M-1')).closest('li')!
+    expect(within(withService).getByText('Para llevar')).toBeVisible()
+    const legacy = screen.getByText('M-2').closest('li')!
+    expect(within(legacy).queryByText('Para llevar')).toBeNull()
+    expect(within(legacy).queryByText('Aquí')).toBeNull()
   })
 
   it('shows one section at a time when sectioned, starting with Pizzas', async () => {

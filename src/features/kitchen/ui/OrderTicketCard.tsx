@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { orderLabel, pickupTimeLabel, productLineLabel, tokenLabel } from '../../orders/domain/order'
+import { ServiceBadge } from '../../orders/ui/ServiceBadge'
 import { delayLevel, type DelayLevel, type KitchenLine, type KitchenOrder } from '../domain/kitchen'
 
 const DELAY_CLASSES: Record<DelayLevel, string> = {
@@ -78,6 +79,7 @@ export function WaitingTicketCard({ order, textSize = 'normal' }: WaitingTicketC
   return (
     <li data-delay="ok" className={`flex min-w-0 flex-col gap-3 rounded-xl border-2 border-dashed p-4 shadow-sm ${DELAY_CLASSES.ok}`}>
       <h3 className={`min-w-0 break-words font-bold text-slate-900 ${text.title}`}>{orderLabel(order)}</h3>
+      <ServiceBadge service={order.service} className={text.token} />
       <p className={`self-start rounded-lg border-2 border-sky-500 bg-sky-50 px-3 py-1 font-bold text-sky-900 ${text.token}`}>
         Programado
       </p>
@@ -127,6 +129,7 @@ export function OrderTicketCard({
           {formatTime(order.createdAt)}
         </span>
       </div>
+      <ServiceBadge service={order.service} className={text.token} />
       <p className={`self-start rounded-lg border-2 border-amber-500 bg-amber-50 px-3 py-1 font-bold text-amber-900 ${text.token}`}>
         {tokenLabel(order.token)}
       </p>

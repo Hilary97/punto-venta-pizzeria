@@ -112,6 +112,30 @@ describe('KitchenBoard', () => {
     expect(screen.getAllByRole('button', { name: 'Marcar pedido listo' })).toHaveLength(1)
   })
 
+  it('shows the service type on queue and waiting tickets, and none when it is missing', async () => {
+    const queued = order({ id: 'q', tableNumber: 1, customerName: null, service: 'takeaway' })
+    const waiting = order({
+      id: 'w',
+      tableNumber: 8,
+      customerName: null,
+      token: null,
+      waiting: true,
+      service: 'dine_in',
+      scheduledFor: new Date(2026, 0, 1, 14, 30).toISOString(),
+    })
+    const legacy = order({ id: 'l', tableNumber: 2, customerName: null, service: null })
+    render(<KitchenBoard source={makeSource([[queued, waiting, legacy]])} stationLabel="Pizzas" />)
+
+    const queue = await screen.findByRole('list', { name: 'Cola' })
+    const takeawayCard = within(queue).getByText('M-1').closest('li')!
+    expect(within(takeawayCard).getByText('Para llevar')).toBeVisible()
+    const legacyCard = within(queue).getByText('M-2').closest('li')!
+    expect(within(legacyCard).queryByText('Para llevar')).toBeNull()
+    expect(within(legacyCard).queryByText('Aquí')).toBeNull()
+    const waitingCard = within(screen.getByRole('list', { name: 'Programados' })).getByText('M-8').closest('li')!
+    expect(within(waitingCard).getByText('Aquí')).toBeVisible()
+  })
+
   it('shows only Programados when nothing is in the queue yet', async () => {
     const waiting = order({ id: 'w', tableNumber: 8, customerName: null, token: null, waiting: true })
     render(<KitchenBoard source={makeSource([[waiting]])} stationLabel="Pizzas" />)

@@ -3,6 +3,7 @@ import { getSupabaseClient } from '../../../shared/supabase/client'
 import { parseRpcResult } from '../../../shared/supabase/rpc'
 import { pizzaConfigSchema, toRpcPizzaConfig } from '../../pizza/infrastructure/pizzaRepository'
 import type { Order, OrderItemPayload } from '../domain/order'
+import type { CreateOrderInput } from '../domain/ordersSource'
 import type { OrderQuote } from '../domain/orderQuote'
 
 export const orderRowSchema = z.object({
@@ -14,6 +15,7 @@ export const orderRowSchema = z.object({
   created_at: z.string(),
   waiter_name: z.string().nullable(),
   notes: z.string().nullable(),
+  service: z.enum(['dine_in', 'takeaway']).nullable().default(null),
   scheduled_for: z.string().nullable().default(null),
   queued_at: z.string().nullable().default(null),
   order_items: z.array(
@@ -33,7 +35,7 @@ export const orderRowSchema = z.object({
   ),
 })
 
-const ORDER_SELECT = 'id, token, table_number, customer_name, status, created_at, waiter_name, notes, scheduled_for, queued_at, order_items(id, product_id, product_name, quantity, item_type, pizza, notes, variant, station, ready_at, delivered_at)'
+const ORDER_SELECT = 'id, token, table_number, customer_name, status, created_at, waiter_name, notes, service, scheduled_for, queued_at, order_items(id, product_id, product_name, quantity, item_type, pizza, notes, variant, station, ready_at, delivered_at)'
 
 export function mapOrderRow(row: z.infer<typeof orderRowSchema>): Order {
   return {
@@ -45,6 +47,7 @@ export function mapOrderRow(row: z.infer<typeof orderRowSchema>): Order {
     createdAt: row.created_at,
     waiterName: row.waiter_name,
     notes: row.notes,
+    service: row.service,
     scheduledFor: row.scheduled_for,
     queuedAt: row.queued_at,
     items: row.order_items.map((item) => ({
@@ -124,18 +127,20 @@ export const orderIdResultSchema = z.object({
  * Only product ids, pizza configurations, quantities and notes are sent; the
  * server snapshots names and never stores prices. Returns the new order id.
  */
-export async function createOrder(
-  tableNumber: number | null,
-  customerName: string | null,
-  items: OrderItemPayload[],
-  notes: string | null = null,
-  scheduledFor: string | null = null,
-): Promise<string> {
+export async function createOrder({
+  tableNumber,
+  customerName,
+  items,
+  notes,
+  scheduledFor,
+  service,
+}: CreateOrderInput): Promise<string> {
   const { data, error } = await getSupabaseClient().rpc('create_order', {
     p_table_number: tableNumber,
     p_customer_name: customerName,
     p_items: toRpcItems(items),
     p_notes: notes,
+    p_service: service,
     ...scheduledArg(scheduledFor),
   })
   return parseRpcResult(orderIdResultSchema, data, error, 'No se pudo crear el pedido.').order_id

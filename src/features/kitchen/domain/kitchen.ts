@@ -1,4 +1,5 @@
 import type { PizzaConfig } from '../../pizza/domain/pizza'
+import type { OrderService } from '../../orders/domain/order'
 import type { SubscribeChanges } from '../../../shared/realtime/useChangeSignal'
 
 export type KitchenStation = 'pizza' | 'grill'
@@ -44,6 +45,8 @@ export interface KitchenOrder {
   waiterName: string | null
   notes: string | null
   createdAt: string
+  /** Dine-in or takeaway; `null` (or omitted) for orders created before it existed. */
+  service?: OrderService | null
   /** Pickup time (ISO) of a scheduled order; `null` (or omitted) for an ordinary one. */
   scheduledFor?: string | null
   /** A scheduled order shown before it enters the queue: no turn, no token, cannot be marked ready yet. */

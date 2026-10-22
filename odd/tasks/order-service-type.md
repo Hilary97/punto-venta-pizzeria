@@ -20,10 +20,11 @@ Waiters mark each new order as dine-in or takeaway so the kitchen knows whether 
 ## Tasks
 
 - T1 (S1, S4) — migration + PGlite tests: column, create RPCs with p_service, service in list RPCs. Route: inline. Commit: see "feat(db): store dine-in or takeaway on orders" (done; PGlite RED->GREEN 7 tests, 261 db tests).
-- T2 (S1-S4) — UI: domain/repositories/sources, form choice (required), labels on OrderTicketCard and OpenOrdersList. Route: inline. Commit: pending.
-- T3 — verify: tests, tsc, lint, build. Route: verify (high risk: migration, RPC signatures). Pending.
+- T2 (S1-S4) — UI: domain/repositories/sources, form choice (required), labels on OrderTicketCard and OpenOrdersList. Route: gentle-ai-worker (context backstop) + inline hint fix. Commit: see "feat(orders): let waiters mark orders as dine-in or takeaway" (done; RED->GREEN, createOrder now takes one object).
+- T3 — verify: tests, tsc, lint, build. Route: verify (high risk: migration, RPC signatures). Done: PASS S1-S4; 850 tests, tsc clean, build OK, no new oxlint warnings. Fixed findings: order dialog now says `Elige si es para aquí o para llevar.` until chosen; submit guard throws instead of a silent no-op. Residual: migration not run in Supabase; slice boundary: T1 commit ~580 lines, mostly redefined SQL functions copied verbatim.
 
 ## Log
 
 - L1: "Ahora necesito que se agregue a los pedidos para que marquen los meseros  si es para Aqui o para llevar, para que en cocina sepan si van a empacar para llevar o van a poner plato para comer hay en el restarurante"
 - L2: Answers: "¿Dónde se marca si es para aquí o para llevar?" — "Por pedido (Recomendado)"; "¿Cómo se elige al registrar el pedido?" — "Obligatorio, sin default (Recomendado)".
+- L3: Verify finding: on mobile the order dialog gave no hint why `Registrar pedido` was disabled; added the hint inside the form.

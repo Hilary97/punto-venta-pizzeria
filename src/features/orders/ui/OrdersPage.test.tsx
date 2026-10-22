@@ -54,6 +54,11 @@ function renderPage() {
   )
 }
 
+/** Picks the service type of a new order. */
+async function chooseService(user: ReturnType<typeof userEvent.setup>, label = 'Aquí') {
+  await user.click(within(screen.getByRole('group', { name: 'Tipo de pedido' })).getByRole('button', { name: label }))
+}
+
 async function showCategory(user: ReturnType<typeof userEvent.setup>, name = 'Botanas') {
   await user.click(await screen.findByRole('button', { name }))
 }
@@ -154,14 +159,73 @@ describe('OrdersPage', () => {
     await showCategory(user)
     await user.click(screen.getByRole('button', { name: /pizza queso/i }))
     await user.click(screen.getByRole('button', { name: /agregar una unidad de pizza queso/i }))
+    expect(submit).toBeDisabled()
+    await chooseService(user)
     expect(submit).toBeEnabled()
 
     await user.click(submit)
-    expect(createOrder).toHaveBeenCalledWith(5, 'Luis Perez', [{ type: 'product', productId: 'p', quantity: 2 }], null)
+    expect(createOrder).toHaveBeenCalledWith({
+      tableNumber: 5,
+      customerName: 'Luis Perez',
+      items: [{ type: 'product', productId: 'p', quantity: 2 }],
+      notes: null,
+      scheduledFor: null,
+      service: 'dine_in',
+    })
     expect(await screen.findByRole('status')).toHaveTextContent(/pedido registrado/i)
     expect(screen.getByLabelText(/nombre del cliente/i)).toHaveValue('')
     expect(submit).toBeDisabled()
     expect(listOpenOrders).toHaveBeenCalledTimes(2)
+  })
+
+  it('requires choosing Aquí or Para llevar, sends it and resets it after registering', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: 'M-4' }))
+    await showCategory(user)
+    await user.click(screen.getByRole('button', { name: /pizza queso/i }))
+    const submit = screen.getByRole('button', { name: /registrar pedido/i })
+    const service = screen.getByRole('group', { name: 'Tipo de pedido' })
+    expect(within(service).getByRole('button', { name: 'Aquí' })).toHaveAttribute('aria-pressed', 'false')
+    expect(within(service).getByRole('button', { name: 'Para llevar' })).toHaveAttribute('aria-pressed', 'false')
+    expect(submit).toBeDisabled()
+
+    await user.click(within(service).getByRole('button', { name: 'Para llevar' }))
+    expect(within(service).getByRole('button', { name: 'Para llevar' })).toHaveAttribute('aria-pressed', 'true')
+    expect(submit).toBeEnabled()
+    await user.click(submit)
+
+    expect(createOrder).toHaveBeenCalledWith({
+      tableNumber: 4,
+      customerName: null,
+      items: [{ type: 'product', productId: 'p', quantity: 1 }],
+      notes: null,
+      scheduledFor: null,
+      service: 'takeaway',
+    })
+    expect(await screen.findByRole('status')).toHaveTextContent(/pedido registrado/i)
+    expect(within(service).getByRole('button', { name: 'Para llevar' })).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('does not offer the service type when adding products to an existing order', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: /agregar productos/i }))
+    expect(screen.queryByRole('group', { name: 'Tipo de pedido' })).not.toBeInTheDocument()
+  })
+
+  it('shows the service type of open orders, and none for orders without one', async () => {
+    vi.mocked(listOpenOrders).mockResolvedValue([
+      { ...openOrder, service: 'takeaway' },
+      { ...openOrder, id: 'order-2', customerName: 'Beto', service: 'dine_in' },
+      { ...openOrder, id: 'order-3', customerName: 'Ceci', service: null },
+    ])
+    renderPage()
+    expect(within((await screen.findByText('Ana')).closest('li')!).getByText('Para llevar')).toBeVisible()
+    expect(within(screen.getByText('Beto').closest('li')!).getByText('Aquí')).toBeVisible()
+    const legacy = screen.getByText('Ceci').closest('li')!
+    expect(within(legacy).queryByText('Aquí')).not.toBeInTheDocument()
+    expect(within(legacy).queryByText('Para llevar')).not.toBeInTheDocument()
   })
 
   it('enables register with only a table', async () => {
@@ -170,11 +234,19 @@ describe('OrdersPage', () => {
     await showCategory(user)
     await user.click(await screen.findByRole('button', { name: /pizza queso/i }))
     const submit = screen.getByRole('button', { name: /registrar pedido/i })
+    await chooseService(user)
     expect(submit).toBeDisabled()
     await user.click(screen.getByRole('button', { name: 'M-4' }))
     expect(submit).toBeEnabled()
     await user.click(submit)
-    expect(createOrder).toHaveBeenCalledWith(4, null, [{ type: 'product', productId: 'p', quantity: 1 }], null)
+    expect(createOrder).toHaveBeenCalledWith({
+      tableNumber: 4,
+      customerName: null,
+      items: [{ type: 'product', productId: 'p', quantity: 1 }],
+      notes: null,
+      scheduledFor: null,
+      service: 'dine_in',
+    })
   })
 
   it('enables register with only a name', async () => {
@@ -183,10 +255,18 @@ describe('OrdersPage', () => {
     await showCategory(user)
     await user.click(await screen.findByRole('button', { name: /pizza queso/i }))
     const submit = screen.getByRole('button', { name: /registrar pedido/i })
+    await chooseService(user)
     await user.type(screen.getByLabelText(/nombre del cliente/i), ' Juan ')
     expect(submit).toBeEnabled()
     await user.click(submit)
-    expect(createOrder).toHaveBeenCalledWith(null, 'Juan', [{ type: 'product', productId: 'p', quantity: 1 }], null)
+    expect(createOrder).toHaveBeenCalledWith({
+      tableNumber: null,
+      customerName: 'Juan',
+      items: [{ type: 'product', productId: 'p', quantity: 1 }],
+      notes: null,
+      scheduledFor: null,
+      service: 'dine_in',
+    })
   })
 
   it('keeps register disabled with neither table nor a non-blank name', async () => {
@@ -194,6 +274,7 @@ describe('OrdersPage', () => {
     renderPage()
     await showCategory(user)
     await user.click(await screen.findByRole('button', { name: /pizza queso/i }))
+    await chooseService(user)
     await user.type(screen.getByLabelText(/nombre del cliente/i), '   ')
     expect(screen.getByRole('button', { name: /registrar pedido/i })).toBeDisabled()
   })
@@ -203,6 +284,7 @@ describe('OrdersPage', () => {
     renderPage()
     await showCategory(user)
     await user.click(await screen.findByRole('button', { name: /pizza queso/i }))
+    await chooseService(user)
     await user.click(screen.getByRole('button', { name: 'M-5' }))
     expect(screen.getByRole('button', { name: /registrar pedido/i })).toBeEnabled()
     await user.click(screen.getByRole('button', { name: 'M-5' }))
@@ -235,6 +317,7 @@ describe('OrdersPage', () => {
     await user.type(screen.getByLabelText(/nombre del cliente/i), 'Eva')
     await showCategory(user)
     await user.click(screen.getByRole('button', { name: /pizza queso/i }))
+    await chooseService(user)
     await user.click(screen.getByRole('button', { name: /registrar pedido/i }))
     expect(await screen.findByRole('alert')).toHaveTextContent('No se pudo crear el pedido.')
     expect(screen.getByRole('button', { name: /registrar pedido/i })).toBeEnabled()
@@ -280,6 +363,7 @@ describe('OrdersPage', () => {
       await user.click(await screen.findByRole('button', { name: 'M-4' }))
       await showCategory(user)
       await user.click(screen.getByRole('button', { name: /pizza queso/i }))
+      await chooseService(user)
     }
 
     it('sends the pickup time for today and clears it after registering', async () => {
@@ -290,13 +374,14 @@ describe('OrdersPage', () => {
       await user.type(time, '14:30')
       await user.click(screen.getByRole('button', { name: /registrar pedido/i }))
 
-      expect(createOrder).toHaveBeenCalledWith(
-        4,
-        null,
-        [{ type: 'product', productId: 'p', quantity: 1 }],
-        null,
-        at(14, 30).toISOString(),
-      )
+      expect(createOrder).toHaveBeenCalledWith({
+        tableNumber: 4,
+        customerName: null,
+        items: [{ type: 'product', productId: 'p', quantity: 1 }],
+        notes: null,
+        scheduledFor: at(14, 30).toISOString(),
+        service: 'dine_in',
+      })
       expect(await screen.findByRole('status')).toHaveTextContent(/pedido registrado/i)
       expect(screen.getByLabelText('Hora para recoger (opcional)')).toHaveValue('')
     })
@@ -443,6 +528,23 @@ describe('OrdersPage', () => {
     expect(screen.queryByText('Ana')).not.toBeInTheDocument()
   })
 
+  it('tells in the order dialog to choose Aquí or Para llevar until one is chosen', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: 'M-2' }))
+    await showCategory(user)
+    await user.click(screen.getByRole('button', { name: /pizza queso/i }))
+    await user.click(screen.getByRole('button', { name: /ver pedido \(1\)/i }))
+    const dialog = screen.getByRole('dialog')
+    expect(within(dialog).getByText('Elige si es para aquí o para llevar.')).toBeVisible()
+    expect(within(dialog).getByRole('button', { name: /registrar pedido/i })).toBeDisabled()
+    await user.click(within(dialog).getByRole('button', { name: /cerrar/i }))
+
+    await chooseService(user)
+    await user.click(screen.getByRole('button', { name: /ver pedido \(1\)/i }))
+    expect(within(screen.getByRole('dialog')).queryByText('Elige si es para aquí o para llevar.')).not.toBeInTheDocument()
+  })
+
   it('shows the order FAB with the item count and submits from the dialog', async () => {
     const user = userEvent.setup()
     renderPage()
@@ -453,11 +555,19 @@ describe('OrdersPage', () => {
     await showCategory(user)
     await user.click(screen.getByRole('button', { name: /pizza queso/i }))
     await user.click(screen.getByRole('button', { name: /agregar una unidad de pizza queso/i }))
+    await chooseService(user)
     await user.click(screen.getByRole('button', { name: /ver pedido \(2\)/i }))
     const dialog = screen.getByRole('dialog')
     expect(within(dialog).getByText('Pizza queso')).toBeVisible()
     await user.click(within(dialog).getByRole('button', { name: /registrar pedido/i }))
-    expect(createOrder).toHaveBeenCalledWith(2, 'Mara', [{ type: 'product', productId: 'p', quantity: 2 }], null)
+    expect(createOrder).toHaveBeenCalledWith({
+      tableNumber: 2,
+      customerName: 'Mara',
+      items: [{ type: 'product', productId: 'p', quantity: 2 }],
+      notes: null,
+      scheduledFor: null,
+      service: 'dine_in',
+    })
     expect(await screen.findByRole('status')).toHaveTextContent(/pedido registrado/i)
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /ver pedido/i })).not.toBeInTheDocument()
@@ -480,8 +590,16 @@ describe('OrdersPage', () => {
     await user.click(await screen.findByRole('button', { name: 'M-4' }))
     await showCategory(user)
     await user.click(screen.getByRole('button', { name: /pizza queso/i }))
+    await chooseService(user)
     await user.click(screen.getByRole('button', { name: /registrar pedido/i }))
-    expect(createOrder).toHaveBeenCalledWith(4, null, [{ type: 'product', productId: 'p', quantity: 1 }], null)
+    expect(createOrder).toHaveBeenCalledWith({
+      tableNumber: 4,
+      customerName: null,
+      items: [{ type: 'product', productId: 'p', quantity: 1 }],
+      notes: null,
+      scheduledFor: null,
+      service: 'dine_in',
+    })
     expect(screen.queryByText(/^Mesero:/)).not.toBeInTheDocument()
   })
 
@@ -531,11 +649,12 @@ describe('OrdersPage pizza builder and notes', () => {
     expect(screen.getByText('Pizza Chica: Estilo Varas')).toBeVisible()
     await user.type(screen.getByLabelText('Nota para Pizza Chica: Estilo Varas'), '  sin orilla ')
     await user.click(screen.getByRole('button', { name: 'M-6' }))
+    await chooseService(user)
     await user.click(screen.getByRole('button', { name: /registrar pedido/i }))
-    expect(createOrder).toHaveBeenCalledWith(
-      6,
-      null,
-      [
+    expect(createOrder).toHaveBeenCalledWith({
+      tableNumber: 6,
+      customerName: null,
+      items: [
         {
           type: 'pizza',
           pizza: { size: 'chica', portions: [{ styleId: 'varas', ingredientIds: [], extraIngredientIds: [], extraCheese: false }] },
@@ -543,8 +662,10 @@ describe('OrdersPage pizza builder and notes', () => {
           notes: 'sin orilla',
         },
       ],
-      null,
-    )
+      notes: null,
+      scheduledFor: null,
+      service: 'dine_in',
+    })
   })
 
   it('keeps identical pizzas as separate lines', async () => {
@@ -578,27 +699,38 @@ describe('OrdersPage pizza builder and notes', () => {
     await user.click(screen.getByRole('button', { name: 'Pizza queso' }))
     expect(screen.getAllByLabelText('Nota para Pizza queso')).toHaveLength(2)
     await user.click(screen.getByRole('button', { name: 'M-1' }))
+    await chooseService(user)
     await user.click(screen.getByRole('button', { name: /registrar pedido/i }))
-    expect(createOrder).toHaveBeenCalledWith(
-      1,
-      null,
-      [
+    expect(createOrder).toHaveBeenCalledWith({
+      tableNumber: 1,
+      customerName: null,
+      items: [
         { type: 'product', productId: 'p', quantity: 1, notes: 'sin cebolla' },
         { type: 'product', productId: 'p', quantity: 1 },
       ],
-      null,
-    )
+      notes: null,
+      scheduledFor: null,
+      service: 'dine_in',
+    })
   })
 
-  it('sends the order note as the fourth createOrder argument and clears it afterwards', async () => {
+  it('sends the order note and clears it afterwards', async () => {
     const user = userEvent.setup()
     renderPage()
     await showCategory(user)
     await user.click(await screen.findByRole('button', { name: /pizza queso/i }))
     await user.type(screen.getByLabelText(/nota del pedido/i), '  cliente alérgico ')
     await user.click(screen.getByRole('button', { name: 'M-2' }))
+    await chooseService(user)
     await user.click(screen.getByRole('button', { name: /registrar pedido/i }))
-    expect(createOrder).toHaveBeenCalledWith(2, null, [{ type: 'product', productId: 'p', quantity: 1 }], 'cliente alérgico')
+    expect(createOrder).toHaveBeenCalledWith({
+      tableNumber: 2,
+      customerName: null,
+      items: [{ type: 'product', productId: 'p', quantity: 1 }],
+      notes: 'cliente alérgico',
+      scheduledFor: null,
+      service: 'dine_in',
+    })
     await screen.findByRole('status')
     expect(screen.getByLabelText(/nota del pedido/i)).toHaveValue('')
   })
@@ -680,8 +812,16 @@ describe('OrdersPage pizza builder and notes', () => {
       expect(screen.getByText('Hamburguesa (Pollo)')).toBeInTheDocument()
 
       await user.click(screen.getByRole('button', { name: 'M-2' }))
+      await chooseService(user)
       await user.click(screen.getByRole('button', { name: /registrar pedido/i }))
-      expect(createOrder).toHaveBeenCalledWith(2, null, [{ type: 'product', productId: 'b', quantity: 1, variant: 'Pollo' }], null)
+      expect(createOrder).toHaveBeenCalledWith({
+        tableNumber: 2,
+        customerName: null,
+        items: [{ type: 'product', productId: 'b', quantity: 1, variant: 'Pollo' }],
+        notes: null,
+        scheduledFor: null,
+        service: 'dine_in',
+      })
     })
 
     it('keeps different variants as separate lines', async () => {
@@ -700,8 +840,16 @@ describe('OrdersPage pizza builder and notes', () => {
       await user.click(within(await openPicker(user)).getByRole('button', { name: 'Pollo' }))
       expect(screen.getAllByText('Hamburguesa (Pollo)')).toHaveLength(1)
       await user.click(screen.getByRole('button', { name: 'M-1' }))
+      await chooseService(user)
       await user.click(screen.getByRole('button', { name: /registrar pedido/i }))
-      expect(createOrder).toHaveBeenCalledWith(1, null, [{ type: 'product', productId: 'b', quantity: 2, variant: 'Pollo' }], null)
+      expect(createOrder).toHaveBeenCalledWith({
+        tableNumber: 1,
+        customerName: null,
+        items: [{ type: 'product', productId: 'b', quantity: 2, variant: 'Pollo' }],
+        notes: null,
+        scheduledFor: null,
+        service: 'dine_in',
+      })
     })
 
     it('adds nothing when the picker is cancelled', async () => {

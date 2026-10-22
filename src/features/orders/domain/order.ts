@@ -2,6 +2,9 @@ import type { PizzaConfig } from '../../pizza/domain/pizza'
 
 export type OrderStatus = 'open' | 'paid' | 'cancelled'
 
+/** Where the order is eaten: at the restaurant or packed to go. */
+export type OrderService = 'dine_in' | 'takeaway'
+
 /** A line of an order. Orders never store prices; they are resolved at payment. */
 export interface OrderItem {
   id: string
@@ -32,6 +35,8 @@ export interface Order {
   createdAt: string
   waiterName: string | null
   notes: string | null
+  /** Dine-in or takeaway; `null` for orders created before it existed; omitted by sources without it. */
+  service?: OrderService | null
   /** Pickup time (ISO) of a scheduled order; `null` (or omitted) for ordinary orders. */
   scheduledFor?: string | null
   /** When the order entered the kitchen queue (ISO); `null` while a scheduled order waits. */
@@ -59,6 +64,11 @@ export function tableLabel(tableNumber: number): string {
 /** Label for an order's physical token, e.g. `Ficha 12`, or `Sin ficha` when it has none. */
 export function tokenLabel(token: number | null): string {
   return token === null ? 'Sin ficha' : `Ficha ${token}`
+}
+
+/** Label for an order's service type: `Aquí` or `Para llevar`. */
+export function serviceLabel(service: OrderService): string {
+  return service === 'dine_in' ? 'Aquí' : 'Para llevar'
 }
 
 /** Every line was delivered, so the order gave its token back. */

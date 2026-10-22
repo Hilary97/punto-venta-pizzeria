@@ -1,5 +1,6 @@
 import { Link } from 'react-router'
 import { Button } from '../../../shared/ui/Button'
+import { ServiceBadge } from './ServiceBadge'
 import { isFullyDelivered, isWaitingScheduled, pickupTimeLabel, productLineLabel, tableLabel, tokenLabel, type Order } from '../domain/order'
 
 interface OpenOrdersListProps {
@@ -26,6 +27,7 @@ export function OpenOrdersList({ orders, canCharge, disabled = false, onAddItems
             )}
             {order.customerName && <span className="min-w-0 break-words font-semibold text-slate-900">{order.customerName}</span>}
           </div>
+          <ServiceBadge service={order.service} />
           {isWaitingScheduled(order) ? (
             <p className="self-start rounded-lg border-2 border-sky-500 bg-sky-50 px-3 py-1 text-lg font-bold text-sky-900">
               Programado

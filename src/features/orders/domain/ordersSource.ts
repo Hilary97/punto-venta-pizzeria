@@ -1,7 +1,7 @@
 import type { Category, Product } from '../../products/domain/product'
 import type { PizzaCatalog } from '../../pizza/domain/pizza'
 import type { SubscribeChanges } from '../../../shared/realtime/useChangeSignal'
-import type { Order, OrderItemPayload } from './order'
+import type { Order, OrderItemPayload, OrderService } from './order'
 
 /** Device catalogs carry no prices: products come with `priceCents: 0` and are shown without prices. */
 export interface OrdersCatalog {
@@ -10,18 +10,21 @@ export interface OrdersCatalog {
   pizza: PizzaCatalog
 }
 
+export interface CreateOrderInput {
+  tableNumber: number | null
+  customerName: string | null
+  items: OrderItemPayload[]
+  notes: string | null
+  /** Pickup time (ISO, today) of a scheduled order; `null` for ordinary orders. */
+  scheduledFor: string | null
+  service: OrderService
+}
+
 /** Where the orders workspace reads and writes: a signed-in session or an authorized device. */
 export interface OrdersSource {
   loadCatalog(): Promise<OrdersCatalog>
   listOpenOrders(): Promise<Order[]>
-  createOrder(
-    tableNumber: number | null,
-    customerName: string | null,
-    items: OrderItemPayload[],
-    notes?: string | null,
-    /** Pickup time (ISO, today) of a scheduled order; omitted for ordinary orders. */
-    scheduledFor?: string | null,
-  ): Promise<string>
+  createOrder(input: CreateOrderInput): Promise<string>
   addOrderItems(orderId: string, items: OrderItemPayload[]): Promise<string>
   cancelOrder(orderId: string): Promise<string>
   setOrderNotes(orderId: string, notes: string | null): Promise<string>

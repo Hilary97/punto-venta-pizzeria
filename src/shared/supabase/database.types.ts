@@ -364,6 +364,7 @@ export interface Database {
           p_items: unknown
           p_notes?: string | null
           p_scheduled_for?: string | null
+          p_service?: string | null
         }
         Returns: unknown
       }
@@ -423,6 +424,7 @@ export interface Database {
           p_items: unknown
           p_notes?: string | null
           p_scheduled_for?: string | null
+          p_service?: string | null
         }
         Returns: unknown
       }

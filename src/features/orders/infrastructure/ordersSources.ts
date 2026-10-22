@@ -4,7 +4,6 @@ import { subscribeKitchenChanges } from '../../kitchen/infrastructure/kitchenRep
 import { parseRpcResult } from '../../../shared/supabase/rpc'
 import { listCategories, listProducts } from '../../products/infrastructure/productsRepository'
 import { listPizzaCatalog, pizzaCatalogSchema } from '../../pizza/infrastructure/pizzaRepository'
-import type { OrderItemPayload } from '../domain/order'
 import type { OrdersCatalog, OrdersSource } from '../domain/ordersSource'
 import {
   addOrderItems,
@@ -101,7 +100,7 @@ export function createDeviceOrdersSource(
       )
     },
 
-    async createOrder(tableNumber, customerName, items: OrderItemPayload[], notes = null, scheduledFor = null) {
+    async createOrder({ tableNumber, customerName, items, notes, scheduledFor, service }) {
       const shiftToken = requireShiftToken()
       const { data, error } = await getSupabaseClient().rpc('device_create_order', {
         p_device_secret: secret,
@@ -110,6 +109,7 @@ export function createDeviceOrdersSource(
         p_customer_name: customerName,
         p_items: toRpcItems(items),
         p_notes: notes,
+        p_service: service,
         ...scheduledArg(scheduledFor),
       })
       return parseRpcResult(orderIdResultSchema, data, error, 'No se pudo crear el pedido.').order_id

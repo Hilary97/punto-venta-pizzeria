@@ -78,6 +78,11 @@ describe('mapOrderRow', () => {
     expect(mapOrderRow(orderRowSchema.parse({ ...base, order_items: [] })).token).toBeNull()
   })
 
+  it('maps the service type, defaulting to null when the rpc omits it', () => {
+    expect(mapOrderRow(orderRowSchema.parse({ ...base, service: 'dine_in', order_items: [] })).service).toBe('dine_in')
+    expect(mapOrderRow(orderRowSchema.parse({ ...base, order_items: [] })).service).toBeNull()
+  })
+
   it('maps the pickup time and queue entry, defaulting to null when omitted', () => {
     const scheduled = orderRowSchema.parse({
       ...base,

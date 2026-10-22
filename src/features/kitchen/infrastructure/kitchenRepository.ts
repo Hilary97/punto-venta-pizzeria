@@ -20,6 +20,7 @@ const kitchenOrdersSchema = z.array(
     waiter_name: z.string().nullable(),
     notes: z.string().nullable(),
     created_at: z.string(),
+    service: z.enum(['dine_in', 'takeaway']).nullable().default(null),
     scheduled_for: z.string().nullable().default(null),
     waiting: z.boolean().default(false),
     lines: z
@@ -48,6 +49,7 @@ function mapKitchenOrders(rows: z.infer<typeof kitchenOrdersSchema>): KitchenOrd
     waiterName: row.waiter_name,
     notes: row.notes,
     createdAt: row.created_at,
+    service: row.service,
     scheduledFor: row.scheduled_for,
     waiting: row.waiting,
     lines: (row.lines ?? []).map((line) => ({
