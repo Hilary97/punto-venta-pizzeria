@@ -37,13 +37,17 @@ function pizzaLine() {
   }
 }
 
-async function createOrder(items: Json[], table = 2): Promise<string> {
+/** Orders are told apart by customer name: a table holds only one open order. */
+let customerSeq = 0
+const nextCustomer = () => `Cliente ${++customerSeq}`
+
+async function createOrder(items: Json[], table: number | null = 2): Promise<string> {
   await asAnon(db)
   const res = await rpc(db, 'public.device_create_order($1, $2, $3, $4, $5::jsonb)', [
     waiterSecret,
     token,
     table,
-    null,
+    table === null ? nextCustomer() : null,
     JSON.stringify(items),
   ])
   return res.order_id as string
@@ -314,7 +318,7 @@ describe('kitchen and delivery flow', () => {
 
   it('ignores line ids from another order and rejects empty ids when delivering', async () => {
     const id = await createOrder([{ product_id: drinkId, quantity: 1 }])
-    const other = await createOrder([{ product_id: drinkId, quantity: 2 }])
+    const other = await createOrder([{ product_id: drinkId, quantity: 2 }], 3)
     await asAnon(db)
     const listed = await ready()
     const idsOf = (orderId: string) => listed.find((o: Json) => o.id === orderId).lines.map((l: Json) => l.id)
@@ -473,7 +477,7 @@ describe('order tokens', () => {
 
   it('creates the order without a token when all 50 are held, and never shares a token', async () => {
     const ids: string[] = []
-    for (let i = 0; i < 51; i++) ids.push(await createOrder([{ product_id: drinkId, quantity: 1 }], (i % 9) + 1))
+    for (let i = 0; i < 51; i++) ids.push(await createOrder([{ product_id: drinkId, quantity: 1 }], null))
     expect(await tokenOf(ids[49]!)).toBe(50)
     expect(await tokenOf(ids[50]!)).toBeNull()
 

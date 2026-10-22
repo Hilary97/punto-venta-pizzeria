@@ -22,13 +22,17 @@ async function rpc(sql: string, params: unknown[] = []): Promise<Json> {
 const burger = () => [{ type: 'product', product_id: burgerId, quantity: 1 }]
 const drink = () => [{ type: 'product', product_id: drinkId, quantity: 1 }]
 
+/** Orders are told apart by customer name: a table holds only one open order. */
+let customerSeq = 0
+const nextCustomer = () => `Cliente ${++customerSeq}`
+
 async function createOrder(items: Json[] = burger(), scheduledFor: string | null = null): Promise<string> {
   await asAnon(db)
   const res = await rpc('public.device_create_order($1, $2, $3, $4, $5::jsonb, $6, $7::timestamptz)', [
     waiterSecret,
     shift,
-    2,
     null,
+    nextCustomer(),
     JSON.stringify(items),
     null,
     scheduledFor,

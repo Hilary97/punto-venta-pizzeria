@@ -32,13 +32,17 @@ async function setClock(hhmm: string) {
 
 const line = (productId: string, quantity = 1) => ({ type: 'product', product_id: productId, quantity })
 
-async function createOrder(scheduledFor: string | null, items: Json[] = [line(burgerId)], table = 2): Promise<string> {
+/** Orders are told apart by customer name: a table holds only one open order. */
+let customerSeq = 0
+const nextCustomer = () => `Cliente ${++customerSeq}`
+
+async function createOrder(scheduledFor: string | null, items: Json[] = [line(burgerId)], table: number | null = null): Promise<string> {
   await asAnon(db)
   const res = await rpc('public.device_create_order($1, $2, $3, $4, $5::jsonb, $6, $7::timestamptz)', [
     waiterSecret,
     shift,
     table,
-    null,
+    table === null ? nextCustomer() : null,
     JSON.stringify(items),
     null,
     scheduledFor,
