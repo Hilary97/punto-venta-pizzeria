@@ -14,7 +14,7 @@ export function OrderFab({ itemCount, targetLabel = null, onOpen }: OrderFabProp
       type="button"
       onClick={onOpen}
       className={cn(
-        'fixed right-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-40 flex max-w-[calc(50%-1rem)] items-center gap-1 rounded-xl px-4 py-2.5 text-sm font-semibold shadow-md lg:hidden',
+        'fixed right-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-40 flex max-w-[calc(50%-1rem)] items-center gap-1 rounded-xl px-5 py-3.5 text-base font-semibold shadow-md lg:hidden',
         targetLabel ? 'bg-amber-500 text-amber-950' : 'bg-red-700 text-white',
       )}
     >
