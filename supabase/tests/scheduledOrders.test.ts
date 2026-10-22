@@ -114,7 +114,7 @@ describe('creating a scheduled order', () => {
     expect(r.token).toBeNull()
     expect(r.queued_at).toBeNull()
     expect(ms(r.scheduled_for!)).toBe(ms(at('14:00')))
-    expect(await kitchen()).toEqual([])
+    expect((await kitchen()).map((t) => [t.id, t.waiting, t.token])).toEqual([[id, true, null]])
 
     const [open] = await openOrders()
     expect(open.id).toBe(id)
@@ -184,7 +184,7 @@ describe('entering the kitchen queue', () => {
     const id = await createOrder(at('14:00'))
 
     await setClock('13:39')
-    expect(await kitchen()).toEqual([])
+    expect((await kitchen()).map((t) => [t.id, t.waiting, t.token])).toEqual([[id, true, null]])
     expect((await row(id)).token).toBeNull()
 
     await setClock('13:40')
@@ -292,7 +292,7 @@ describe('lead time setting', () => {
     expect(await rpc('public.admin_set_scheduled_lead_minutes($1)', [45])).toEqual({ scheduled_lead_minutes: 45 })
 
     await setClock('13:14')
-    expect(await kitchen()).toEqual([])
+    expect((await kitchen()).map((t) => [t.id, t.waiting, t.token])).toEqual([[id, true, null]])
     await setClock('13:15')
     expect((await kitchen()).map((t) => t.id)).toEqual([id])
   })

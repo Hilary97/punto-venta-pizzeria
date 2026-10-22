@@ -67,6 +67,32 @@ interface OrderTicketCardProps {
   onAction: () => void
 }
 
+interface WaitingTicketCardProps {
+  order: KitchenOrder
+  textSize?: TextSize
+}
+
+/** A scheduled order that has not entered the queue: informative only, no turn, token, delay colour or action. */
+export function WaitingTicketCard({ order, textSize = 'normal' }: WaitingTicketCardProps) {
+  const text = TEXT[textSize]
+  return (
+    <li data-delay="ok" className={`flex min-w-0 flex-col gap-3 rounded-xl border-2 border-dashed p-4 shadow-sm ${DELAY_CLASSES.ok}`}>
+      <h3 className={`min-w-0 break-words font-bold text-slate-900 ${text.title}`}>{orderLabel(order)}</h3>
+      <p className={`self-start rounded-lg border-2 border-sky-500 bg-sky-50 px-3 py-1 font-bold text-sky-900 ${text.token}`}>
+        Programado
+      </p>
+      {order.scheduledFor && <p className={`font-bold text-slate-700 ${text.waiter}`}>{pickupTimeLabel(order.scheduledFor)}</p>}
+      {order.waiterName && <p className={`text-slate-500 ${text.waiter}`}>Atendió: {order.waiterName}</p>}
+      <LineList lines={order.lines} size={textSize} />
+      {order.notes && (
+        <p className={`break-words rounded-lg bg-amber-100 px-3 py-2 font-medium text-amber-900 ${text.note}`}>
+          Nota del pedido: {order.notes}
+        </p>
+      )}
+    </li>
+  )
+}
+
 /** Order ticket shared by the kitchen and delivery boards, with one big action button. */
 export function OrderTicketCard({
   order,

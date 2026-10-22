@@ -160,7 +160,7 @@ describe('an order paid before it is finished', () => {
       language sql stable as $$ select '2099-06-15T12:00:00-06:00'::timestamptz $$`)
     const id = await createOrder('2099-06-15T14:00:00-06:00')
     await pay(id)
-    expect(await kitchen()).toEqual([])
+    expect((await kitchen()).map((t) => [t.id, t.waiting, t.token])).toEqual([[id, true, null]])
     expect((await row(id)).token).toBeNull()
 
     await asSuperuser(db)

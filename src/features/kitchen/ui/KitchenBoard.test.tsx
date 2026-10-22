@@ -83,6 +83,59 @@ describe('KitchenBoard', () => {
     expect(screen.getByText('Para las 14:30')).toBeVisible()
   })
 
+  it('lists waiting scheduled orders under Programados, without turn, token or ready button', async () => {
+    const queued = order({ id: 'q', tableNumber: 1, customerName: null })
+    const waiting = order({
+      id: 'w',
+      tableNumber: 8,
+      customerName: null,
+      token: null,
+      waiting: true,
+      createdAt: '2026-01-01T10:00:00Z',
+      scheduledFor: new Date(2026, 0, 1, 14, 30).toISOString(),
+    })
+    render(<KitchenBoard source={makeSource([[queued, waiting]])} stationLabel="Pizzas" />)
+
+    const queue = await screen.findByRole('list', { name: 'Cola' })
+    expect(within(queue).getByText('M-1')).toBeVisible()
+    expect(within(queue).queryByText('M-8')).toBeNull()
+    expect(within(queue).getAllByLabelText(/^Turno/).map((t) => t.textContent)).toEqual(['#1'])
+
+    const scheduled = screen.getByRole('list', { name: 'Programados' })
+    const card = within(scheduled).getByText('M-8').closest('li')!
+    expect(within(card).queryByLabelText(/^Turno/)).toBeNull()
+    expect(within(card).queryByText(/Ficha|Sin ficha/)).toBeNull()
+    expect(within(card).getByText('Programado')).toBeVisible()
+    expect(within(card).getByText('Para las 14:30')).toBeVisible()
+    expect(within(card).queryByRole('button')).toBeNull()
+    expect(card).toHaveAttribute('data-delay', 'ok')
+    expect(screen.getAllByRole('button', { name: 'Marcar pedido listo' })).toHaveLength(1)
+  })
+
+  it('shows only Programados when nothing is in the queue yet', async () => {
+    const waiting = order({ id: 'w', tableNumber: 8, customerName: null, token: null, waiting: true })
+    render(<KitchenBoard source={makeSource([[waiting]])} stationLabel="Pizzas" />)
+    expect(await screen.findByRole('list', { name: 'Programados' })).toBeVisible()
+    expect(screen.queryByRole('list', { name: 'Cola' })).toBeNull()
+    expect(screen.queryByText('Sin pedidos en cocina')).toBeNull()
+  })
+
+  it('gives a scheduled order its turn once it enters the queue', async () => {
+    const waiting = order({ id: 'w', tableNumber: 8, customerName: null, token: null, waiting: true })
+    const entered = { ...waiting, token: 3, waiting: false, createdAt: '2026-01-01T15:10:00Z' }
+    const first = order({ id: 'q', tableNumber: 1, customerName: null })
+    const source = makeSource([[first, waiting], [first, entered]])
+    render(<KitchenBoard source={source} stationLabel="Pizzas" />)
+    await screen.findByRole('list', { name: 'Programados' })
+
+    await userEvent.click(screen.getByRole('button', { name: 'Actualizar' }))
+    const queue = await screen.findByRole('list', { name: 'Cola' })
+    await waitFor(() => expect(screen.queryByRole('list', { name: 'Programados' })).toBeNull())
+    const card = within(queue).getByText('M-8').closest('li')!
+    expect(within(card).getByLabelText('Turno 2')).toBeVisible()
+    expect(within(card).getByText('Ficha 3')).toBeVisible()
+  })
+
   it('shows the token, or Sin ficha when the order has none', async () => {
     const orders = [order(), order({ id: 'o2', tableNumber: 5, customerName: null, token: null })]
     render(<KitchenBoard source={makeSource([orders])} stationLabel="Pizzas" />)

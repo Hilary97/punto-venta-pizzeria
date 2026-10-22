@@ -59,6 +59,7 @@ const mapped = {
   notes: 'sin prisa',
   createdAt: '2026-10-10T10:00:00Z',
   scheduledFor: null,
+  waiting: false,
   lines: [
     { id: 'l1', productName: 'Hamburguesa', quantity: 2, type: 'product', pizza: null, notes: null, variant: 'Res', station: 'grill' },
   ],
@@ -79,6 +80,12 @@ describe('device kitchen source', () => {
     const orders = await createDeviceKitchenSource('sec').listOrders()
     expect(orders[0]!.scheduledFor).toBe(scheduledFor)
     expect(orders[1]!.scheduledFor).toBeNull()
+  })
+
+  it('maps waiting, and a missing one to false', async () => {
+    rpc.mockResolvedValue({ data: [{ ...row, waiting: true }, row], error: null })
+    const orders = await createDeviceKitchenSource('sec').listOrders()
+    expect(orders.map((o) => o.waiting)).toEqual([true, false])
   })
 
   it('maps a missing token to null', async () => {

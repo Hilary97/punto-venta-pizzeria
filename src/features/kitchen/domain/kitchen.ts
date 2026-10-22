@@ -46,6 +46,8 @@ export interface KitchenOrder {
   createdAt: string
   /** Pickup time (ISO) of a scheduled order; `null` (or omitted) for an ordinary one. */
   scheduledFor?: string | null
+  /** A scheduled order shown before it enters the queue: no turn, no token, cannot be marked ready yet. */
+  waiting?: boolean
   lines: KitchenLine[]
 }
 
