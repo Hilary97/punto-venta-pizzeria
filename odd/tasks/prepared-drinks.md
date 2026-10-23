@@ -15,7 +15,7 @@ Shakes and coffees need preparation, so they get their own kitchen station "Bebi
 
 - T1 (S1, S2, S5) — migration `20261101120000_prepared_drinks_station.sql` + PGlite tests. Route: inline. Commit: e9d5c64 (done; PGlite RED->GREEN 9 tests, categoryOrder green). Slice is 499 lines: one migration (two copied core functions with a widened guard) plus its tests, not splittable.
 - T2 (S3, S4) — frontend: station/device kind enums, labels, /cocina tab, Entrega section. No docs mention stations. Route: inline. Commit: see git log (feat(kitchen): show prepared drinks station). RED->GREEN 9 tests.
-- T3 — verify: full tests, tsc, oxlint, build. Route: inline.
+- T3 — verify: full tests, tsc, oxlint, build. Route: inline. Done: 881 tests pass (76 files), build (tsc -b + vite) OK, oxlint 0 errors and the same 12 warnings as main. Commit: this one.
 
 ## Log
 
