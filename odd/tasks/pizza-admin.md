@@ -22,7 +22,7 @@ An admin page at `/admin/pizzas` edits everything the pizza builder ("Armar pizz
 ## Tasks
 
 - T1 (S3, S4, S6) — migration + PGlite tests. Route: inline. Commit: see `feat(db): admin save for pizza styles and catalog checks` (RED 15/17 -> GREEN 17/17; supabase suite 297). Also adds name checks on sizes and ingredients.
-- T2 (S2-S5) — domain + repository (admin catalog list, writes) + tests. Route: inline. Commit: pending.
+- T2 (S2-S5) — domain + repository (admin catalog list, writes) + tests. Route: inline. Commit: see `feat(pizza): admin catalog domain and repository` (RED: missing modules -> GREEN 17 new tests; pizza 74, tsc 0).
 - T3 (S1-S5) — `/admin/pizzas` page, modals, nav, route + UI tests. Route: inline. Commit: pending.
 - T4 — verify (high risk: security definer RPC). Route: gentle-ai-verify. Commit: n/a.
 
