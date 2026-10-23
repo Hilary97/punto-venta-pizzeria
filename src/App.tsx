@@ -13,6 +13,7 @@ import { RequireOpenSession } from './features/cash-register/ui/RequireOpenSessi
 import { AdminInventoryPage } from './features/products/ui/AdminInventoryPage'
 import { AdminProductsPage } from './features/products/ui/AdminProductsPage'
 import { AdminSuppliesPage } from './features/supplies/ui/AdminSuppliesPage'
+import { AdminPizzasPage } from './features/pizza/ui/AdminPizzasPage'
 import { DeliveryPage } from './features/kitchen/ui/DeliveryPage'
 import { KitchenEntry } from './features/kitchen/ui/KitchenEntry'
 import { OrdersEntry } from './features/orders/ui/OrdersEntry'
@@ -104,6 +105,14 @@ function App() {
               element={
                 <RequireRole role="admin">
                   <AdminSuppliesPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="admin/pizzas"
+              element={
+                <RequireRole role="admin">
+                  <AdminPizzasPage />
                 </RequireRole>
               }
             />

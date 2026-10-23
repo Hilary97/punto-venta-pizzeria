@@ -68,6 +68,9 @@ export function Nav() {
             <NavLink to="/admin/insumos" className={NAV_LINK_CLASS}>
               Insumos
             </NavLink>
+            <NavLink to="/admin/pizzas" className={NAV_LINK_CLASS}>
+              Pizzas
+            </NavLink>
             <NavLink to="/admin/historial" className={NAV_LINK_CLASS}>
               Historial
             </NavLink>

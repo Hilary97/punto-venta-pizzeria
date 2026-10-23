@@ -1,0 +1,318 @@
+import { useEffect, useState, type ReactNode } from 'react'
+import { toUserMessage } from '../../../shared/errors'
+import { Button } from '../../../shared/ui/Button'
+import { ErrorBanner } from '../../../shared/ui/ErrorBanner'
+import { MoneyText } from '../../../shared/ui/MoneyText'
+import { Spinner } from '../../../shared/ui/Spinner'
+import { portionLabel } from '../domain/pizza'
+import type {
+  AdminPizzaCatalog,
+  AdminPizzaIngredient,
+  AdminPizzaSize,
+  AdminPizzaStyle,
+  ExtrasFormValues,
+  IngredientFormValues,
+  SizeFormValues,
+  StyleFormValues,
+} from '../domain/pizzaAdmin'
+import {
+  createIngredient,
+  listAdminPizzaCatalog,
+  saveStyle,
+  setIngredientActive,
+  setStyleActive,
+  updateExtras,
+  updateIngredient,
+  updateSize,
+} from '../infrastructure/pizzaAdminRepository'
+import { PizzaExtrasFormModal } from './PizzaExtrasFormModal'
+import { PizzaIngredientFormModal } from './PizzaIngredientFormModal'
+import { PizzaSizeFormModal } from './PizzaSizeFormModal'
+import { PizzaStyleFormModal } from './PizzaStyleFormModal'
+import { nextSortOrder } from './pizzaAdminForm'
+
+type ModalState =
+  | { kind: 'none' }
+  | { kind: 'size'; size: AdminPizzaSize }
+  | { kind: 'style'; style?: AdminPizzaStyle }
+  | { kind: 'ingredient'; ingredient?: AdminPizzaIngredient }
+  | { kind: 'extras' }
+
+const HEAD_CELL = 'px-4 py-3 font-semibold'
+const CELL = 'px-4 py-3'
+
+/** Admin editor for everything the pizza builder reads: sizes, styles with prices, ingredients and extras. */
+export function AdminPizzasPage() {
+  const [catalog, setCatalog] = useState<AdminPizzaCatalog | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [modal, setModal] = useState<ModalState>({ kind: 'none' })
+
+  async function reload() {
+    try {
+      setCatalog(await listAdminPizzaCatalog())
+      setErrorMessage(null)
+    } catch (error) {
+      setErrorMessage(toUserMessage(error))
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    let cancelled = false
+    listAdminPizzaCatalog().then(
+      (loaded) => {
+        if (cancelled) return
+        setCatalog(loaded)
+        setIsLoading(false)
+      },
+      (error: unknown) => {
+        if (cancelled) return
+        setErrorMessage(toUserMessage(error))
+        setIsLoading(false)
+      },
+    )
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const close = () => setModal({ kind: 'none' })
+
+  /** Runs a row action (activate/deactivate) and reports its failure on the page. */
+  async function runAction(action: () => Promise<void>) {
+    try {
+      await action()
+      await reload()
+    } catch (error) {
+      setErrorMessage(toUserMessage(error))
+    }
+  }
+
+  async function handleSize(values: SizeFormValues) {
+    if (modal.kind !== 'size') return
+    await updateSize(modal.size.code, values)
+    await reload()
+  }
+
+  async function handleStyle(values: StyleFormValues) {
+    if (modal.kind !== 'style') return
+    await saveStyle(modal.style?.id ?? null, values)
+    await reload()
+  }
+
+  async function handleIngredient(values: IngredientFormValues) {
+    if (modal.kind !== 'ingredient') return
+    if (modal.ingredient) {
+      await updateIngredient(modal.ingredient.id, values)
+    } else {
+      await createIngredient(values)
+    }
+    await reload()
+  }
+
+  async function handleExtras(values: ExtrasFormValues) {
+    await updateExtras(values)
+    await reload()
+  }
+
+  if (isLoading) return <Spinner label="Cargando pizzas…" />
+
+  return (
+    <div className="mx-auto flex max-w-5xl flex-col gap-8 p-4 sm:p-6">
+      <div className="flex flex-col gap-1">
+        <h1 className="text-2xl font-bold text-slate-900">Pizzas</h1>
+        <p className="text-sm text-slate-500">
+          Lo que el mesero ve en "Armar pizza". Los precios se aplican al cobrar, también en pedidos abiertos.
+        </p>
+      </div>
+
+      {errorMessage && <ErrorBanner message={errorMessage} />}
+
+      {catalog && (
+        <>
+          <AdminSection id="pizza-sizes" title="Tamaños">
+            <Table headers={['Tamaño', 'Se puede pedir', 'Acciones']}>
+              {catalog.sizes.map((size) => (
+                <tr key={size.code}>
+                  <td className={`${CELL} font-medium text-slate-900`}>{size.name}</td>
+                  <td className={CELL}>{size.allowedPortions.map(portionLabel).join(', ')}</td>
+                  <td className={CELL}>
+                    <Button variant="ghost" onClick={() => setModal({ kind: 'size', size })}>
+                      Editar
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </Table>
+          </AdminSection>
+
+          <AdminSection
+            id="pizza-styles"
+            title="Estilos"
+            action={<Button onClick={() => setModal({ kind: 'style' })}>Nuevo estilo</Button>}
+          >
+            <Table headers={['Orden', 'Estilo', 'Tipo', ...catalog.sizes.map((size) => size.name), 'Estado', 'Acciones']}>
+              {catalog.styles.map((style) => (
+                <tr key={style.id}>
+                  <td className={`${CELL} text-slate-500`}>{style.sortOrder}</td>
+                  <td className={CELL}>
+                    <p className="font-medium text-slate-900">{style.name}</p>
+                    {style.description && <p className="text-xs text-slate-500">{style.description}</p>}
+                  </td>
+                  <td className={CELL}>
+                    {style.kind === 'custom' ? `Elige ${style.includedIngredients}` : 'Ingredientes fijos'}
+                  </td>
+                  {catalog.sizes.map((size) => (
+                    <td key={size.code} className={CELL}>
+                      {style.prices[size.code] === undefined ? '—' : <MoneyText cents={style.prices[size.code]!} />}
+                    </td>
+                  ))}
+                  <td className={CELL}>
+                    <ActiveBadge active={style.active} />
+                  </td>
+                  <td className={CELL}>
+                    <div className="flex gap-2">
+                      <Button variant="ghost" onClick={() => setModal({ kind: 'style', style })}>
+                        Editar
+                      </Button>
+                      <Button variant="ghost" onClick={() => runAction(() => setStyleActive(style.id, !style.active))}>
+                        {style.active ? 'Desactivar' : 'Activar'}
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </Table>
+          </AdminSection>
+
+          <AdminSection
+            id="pizza-ingredients"
+            title="Ingredientes"
+            action={<Button onClick={() => setModal({ kind: 'ingredient' })}>Nuevo ingrediente</Button>}
+          >
+            <Table headers={['Orden', 'Ingrediente', 'Estado', 'Acciones']}>
+              {catalog.ingredients.map((ingredient) => (
+                <tr key={ingredient.id}>
+                  <td className={`${CELL} text-slate-500`}>{ingredient.sortOrder}</td>
+                  <td className={`${CELL} font-medium text-slate-900`}>{ingredient.name}</td>
+                  <td className={CELL}>
+                    <ActiveBadge active={ingredient.active} />
+                  </td>
+                  <td className={CELL}>
+                    <div className="flex gap-2">
+                      <Button variant="ghost" onClick={() => setModal({ kind: 'ingredient', ingredient })}>
+                        Editar
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        onClick={() => runAction(() => setIngredientActive(ingredient.id, !ingredient.active))}
+                      >
+                        {ingredient.active ? 'Desactivar' : 'Activar'}
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </Table>
+          </AdminSection>
+
+          <AdminSection
+            id="pizza-extras"
+            title="Extras"
+            action={
+              <Button variant="secondary" onClick={() => setModal({ kind: 'extras' })}>
+                Editar extras
+              </Button>
+            }
+          >
+            <dl className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 text-sm sm:grid-cols-2">
+              <div>
+                <dt className="text-slate-500">Ingrediente extra (por porción)</dt>
+                <dd className="text-lg font-semibold text-slate-900">
+                  <MoneyText cents={catalog.extras.extraIngredientCents} />
+                </dd>
+              </div>
+              <div>
+                <dt className="text-slate-500">Extra queso (por porción)</dt>
+                <dd className="text-lg font-semibold text-slate-900">
+                  <MoneyText cents={catalog.extras.extraCheeseCents} />
+                </dd>
+              </div>
+            </dl>
+          </AdminSection>
+
+          {modal.kind === 'size' && <PizzaSizeFormModal size={modal.size} onSubmit={handleSize} onClose={close} />}
+          {modal.kind === 'style' && (
+            <PizzaStyleFormModal
+              sizes={catalog.sizes}
+              initial={modal.style}
+              defaultSortOrder={nextSortOrder(catalog.styles)}
+              onSubmit={handleStyle}
+              onClose={close}
+            />
+          )}
+          {modal.kind === 'ingredient' && (
+            <PizzaIngredientFormModal
+              initial={modal.ingredient}
+              defaultSortOrder={nextSortOrder(catalog.ingredients)}
+              onSubmit={handleIngredient}
+              onClose={close}
+            />
+          )}
+          {modal.kind === 'extras' && (
+            <PizzaExtrasFormModal initial={catalog.extras} onSubmit={handleExtras} onClose={close} />
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
+function AdminSection({ id, title, action, children }: { id: string; title: string; action?: ReactNode; children: ReactNode }) {
+  return (
+    <section aria-labelledby={`${id}-heading`} className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 id={`${id}-heading`} className="text-xl font-bold text-slate-900">
+          {title}
+        </h2>
+        {action}
+      </div>
+      {children}
+    </section>
+  )
+}
+
+function Table({ headers, children }: { headers: string[]; children: ReactNode }) {
+  return (
+    <div className="overflow-x-auto rounded-xl border border-slate-200">
+      <table className="w-full text-left text-sm">
+        <thead className="bg-slate-100 text-slate-600">
+          <tr>
+            {headers.map((header) => (
+              <th key={header} className={HEAD_CELL}>
+                {header}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-200 bg-white">{children}</tbody>
+      </table>
+    </div>
+  )
+}
+
+function ActiveBadge({ active }: { active: boolean }) {
+  return (
+    <span
+      className={
+        active
+          ? 'rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-800'
+          : 'rounded-full bg-slate-200 px-2 py-1 text-xs font-semibold text-slate-600'
+      }
+    >
+      {active ? 'Activo' : 'Inactivo'}
+    </span>
+  )
+}
