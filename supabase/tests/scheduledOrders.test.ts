@@ -246,7 +246,7 @@ describe('entering the kitchen queue', () => {
     expect(await signals()).toBe(afterRelease)
   })
 
-  it('joins lines added while waiting into the first ticket; later lines are a new ticket', async () => {
+  it('joins lines added while waiting into the first ticket; later lines join it flagged as added', async () => {
     const id = await createOrder(at('14:00'))
     await setClock('12:30')
     await addItems(id, burger(2))
@@ -261,8 +261,11 @@ describe('entering the kitchen queue', () => {
     await asSuperuser(db)
     await db.query(`update public.order_items set created_at = $1 where order_id = $2 and notes = 'sin cebolla'`, [at('13:45'), id])
     const tickets = await kitchen()
-    expect(tickets).toHaveLength(2)
+    expect(tickets).toHaveLength(1)
     expect(ms(tickets[0].created_at)).toBe(ms(at('13:40')))
+    expect(tickets[0].lines).toHaveLength(3)
+    const added = tickets[0].lines.filter((l: Json) => l.added_at !== null)
+    expect(added.map((l: Json) => [l.notes, ms(l.added_at)])).toEqual([['sin cebolla', ms(at('13:45'))]])
   })
 
   it('lists orders that enter together by pickup time', async () => {

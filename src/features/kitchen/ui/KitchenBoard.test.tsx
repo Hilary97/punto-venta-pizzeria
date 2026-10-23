@@ -55,6 +55,19 @@ describe('KitchenBoard', () => {
     expect(screen.getByRole('button', { name: 'Marcar pedido listo' })).toBeEnabled()
   })
 
+  it('flags lines added to the ticket while it was being cooked, with their arrival time', async () => {
+    const addedAt = new Date(2026, 0, 1, 15, 12).toISOString()
+    const lines: KitchenOrder['lines'] = [
+      { id: 'l1', productName: 'Hamburguesa', quantity: 1, type: 'product', pizza: null, notes: null, variant: null, addedAt: null },
+      { id: 'l2', productName: 'Alitas', quantity: 2, type: 'product', pizza: null, notes: null, variant: null, addedAt },
+    ]
+    render(<KitchenBoard source={makeSource([[order({ lines })]])} stationLabel="Pizzas" />)
+    const wings = (await screen.findByText('2 × Alitas')).closest('li')!
+    expect(within(wings).getByText('Agregado 3:12 pm')).toBeVisible()
+    const burger = screen.getByText('1 × Hamburguesa').closest('li')!
+    expect(within(burger).queryByText(/Agregado/)).toBeNull()
+  })
+
   it('shows the arrival time in 12-hour format with am and pm', async () => {
     const at = (h: number, m: number) => new Date(2026, 0, 1, h, m).toISOString()
     const orders = [

@@ -30,11 +30,14 @@ export interface KitchenLine {
   variant: string | null
   /** Kitchen station that cooked the line; `null` (or omitted) when it is not cooked. */
   station?: KitchenStation | null
+  /** When the line joined a ticket the station was already cooking (ISO); `null` (or omitted) otherwise. */
+  addedAt?: string | null
 }
 
 /**
- * An open order seen by a station or by delivery. A station sees one ticket per arrival batch
- * (`createdAt` is when those lines arrived), so one order may appear twice; delivery sees one per order.
+ * An open order seen by a station or by delivery. A station sees one ticket per order with its pending
+ * lines (`createdAt` is when the oldest arrived); lines added once the station marked it ready open a
+ * new ticket. Delivery sees one per order.
  */
 export interface KitchenOrder {
   id: string

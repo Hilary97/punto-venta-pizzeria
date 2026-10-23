@@ -194,7 +194,7 @@ describe('kitchen and delivery flow', () => {
     expect(g[0].lines).toHaveLength(1)
     expect(g[0].lines[0]).toMatchObject({ product_name: 'Hamburguesa Sencilla', quantity: 2, item_type: 'product' })
     expect(Object.keys(g[0].lines[0]).sort()).toEqual(
-      ['id', 'item_type', 'notes', 'pizza', 'product_name', 'quantity', 'station', 'variant'].sort(),
+      ['added_at', 'id', 'item_type', 'notes', 'pizza', 'product_name', 'quantity', 'station', 'variant'].sort(),
     )
 
     expect(await ready()).toEqual([])
@@ -357,29 +357,56 @@ describe('kitchen and delivery flow', () => {
     await expect(markReadyLines(grillSecret, c, [crypto.randomUUID()])).rejects.toThrow('El pedido ya no está abierto.')
   })
 
-  it('lists a late addition as a separate ticket after orders that arrived before it', async () => {
+  it('adds a late addition to the ticket still being cooked, flagged with when it arrived', async () => {
     const a = await createOrder([{ product_id: burgerId, quantity: 1 }], 1)
     const b = await createOrder([{ product_id: burgerId, quantity: 1 }], 2)
     await addItems(a, [{ product_id: botanaId, quantity: 2 }])
     await asAnon(db)
 
     const g = await kitchen(grillSecret)
-    expect(g.map((t: Json) => t.id)).toEqual([a, b, a])
-    expect(g.map((t: Json) => t.lines.map((l: Json) => l.product_name))).toEqual([
-      ['Hamburguesa Sencilla'],
-      ['Hamburguesa Sencilla'],
-      ['Alitas'],
+    expect(g.map((t: Json) => t.id)).toEqual([a, b])
+    expect(g[0].lines.map((l: Json) => [l.product_name, l.quantity])).toEqual([
+      ['Alitas', 2],
+      ['Hamburguesa Sencilla', 1],
     ])
-    expect(g[2].lines[0].quantity).toBe(2)
-    const times = g.map((t: Json) => new Date(t.created_at).getTime())
-    expect(times[0]).toBeLessThan(times[1])
-    expect(times[1]).toBeLessThan(times[2])
+    const burger = g[0].lines.find((l: Json) => l.product_name === 'Hamburguesa Sencilla')
+    const wings = g[0].lines.find((l: Json) => l.product_name === 'Alitas')
+    expect(burger.added_at).toBeNull()
+    expect(new Date(wings.added_at).getTime()).toBeGreaterThan(new Date(g[0].created_at).getTime())
+    expect(new Date(g[0].created_at).getTime()).toBeLessThan(new Date(g[1].created_at).getTime())
+    expect(g[1].lines[0].added_at).toBeNull()
 
-    // Marking the late ticket leaves the first ticket of the same order pending.
-    await markReadyLines(grillSecret, a, g[2].lines.map((l: Json) => l.id))
+    // Marking the ticket as shown before the addition leaves only the addition, as its own ticket.
+    await markReadyLines(grillSecret, a, [burger.id])
     const after = await kitchen(grillSecret)
-    expect(after.map((t: Json) => t.id)).toEqual([a, b])
-    expect(after[0].lines[0].product_name).toBe('Hamburguesa Sencilla')
+    expect(after.map((t: Json) => t.id)).toEqual([b, a])
+    expect(after[1].lines.map((l: Json) => [l.product_name, l.added_at])).toEqual([['Alitas', null]])
+    expect(after[1].created_at).toBe(wings.added_at)
+  })
+
+  it('opens a new ticket for an addition made after the station finished the order', async () => {
+    const a = await createOrder([{ product_id: burgerId, quantity: 1 }], 1)
+    await asAnon(db)
+    await markReady(grillSecret, a)
+    await addItems(a, [{ product_id: botanaId, quantity: 1 }])
+    await asAnon(db)
+
+    const g = await kitchen(grillSecret)
+    expect(g.map((t: Json) => t.id)).toEqual([a])
+    expect(g[0].lines.map((l: Json) => [l.product_name, l.added_at])).toEqual([['Alitas', null]])
+  })
+
+  it('keeps each station ticket separate when an addition reaches only one station', async () => {
+    const a = await createOrder([{ product_id: burgerId, quantity: 1 }, pizzaLine()], 1)
+    await addItems(a, [{ product_id: botanaId, quantity: 1 }])
+    await asAnon(db)
+
+    const g = await kitchen(grillSecret)
+    expect(g).toHaveLength(1)
+    expect(g[0].lines).toHaveLength(2)
+    const p = await kitchen(pizzaSecret)
+    expect(p).toHaveLength(1)
+    expect(p[0].lines.map((l: Json) => l.added_at)).toEqual([null])
   })
 
   it('orders tickets by when the lines arrived, not when the order was opened', async () => {

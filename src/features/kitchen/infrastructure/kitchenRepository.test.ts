@@ -62,7 +62,7 @@ const mapped = {
   service: null,
   waiting: false,
   lines: [
-    { id: 'l1', productName: 'Hamburguesa', quantity: 2, type: 'product', pizza: null, notes: null, variant: 'Res', station: 'grill' },
+    { id: 'l1', productName: 'Hamburguesa', quantity: 2, type: 'product', pizza: null, notes: null, variant: 'Res', station: 'grill', addedAt: null },
   ],
 }
 
@@ -105,6 +105,13 @@ describe('device kitchen source', () => {
     const lines = row.lines.map(({ station: _station, ...line }) => line)
     rpc.mockResolvedValue({ data: [{ ...row, lines }], error: null })
     expect((await createDeviceKitchenSource('sec').listOrders())[0]!.lines[0]!.station).toBeNull()
+  })
+
+  it('maps a line added_at to addedAt, and a missing one to null', async () => {
+    const added = { ...row.lines[0]!, id: 'l2', added_at: '2026-10-10T10:07:00Z' }
+    rpc.mockResolvedValue({ data: [{ ...row, lines: [row.lines[0], added] }], error: null })
+    const lines = (await createDeviceKitchenSource('sec').listOrders())[0]!.lines
+    expect(lines.map((l) => l.addedAt)).toEqual([null, '2026-10-10T10:07:00Z'])
   })
 
   it('marks ready', async () => {

@@ -44,6 +44,11 @@ function LineList({ lines, size }: { lines: KitchenLine[]; size: TextSize }) {
           <span className="font-semibold">
             {line.quantity} × {productLineLabel(line.productName, line.variant)}
           </span>
+          {line.addedAt && (
+            <span className={`ml-2 inline-block rounded-lg bg-sky-600 px-2 py-0.5 align-middle font-bold text-white ${text.note}`}>
+              Agregado {formatTime(line.addedAt)}
+            </span>
+          )}
           {line.notes && (
             <span className={`mt-1 block rounded-lg bg-amber-100 px-2 py-1 font-medium text-amber-900 ${text.note}`}>
               Nota: {line.notes}
