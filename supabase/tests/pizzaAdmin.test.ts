@@ -163,6 +163,16 @@ describe('admin_save_pizza_style', () => {
     await rejectsWithoutChanges(admin, { prices: [1, 2, 3] }, 'El precio de Grande no es válido.')
   })
 
+  it('accepts whole prices written with a decimal point', async () => {
+    await asUser(db, admin)
+    const res = await db.query<{ r: Json }>(
+      `select public.admin_save_pizza_style(null, 'Estilo Punto', '', 'special', 0, 0, true,
+         '{"chica": 11000.0, "mediana": 19000, "grande": 21000}'::jsonb) as r`,
+    )
+
+    expect((await styleRow(res.rows[0].r.style_id)).prices).toEqual(PRICES)
+  })
+
   it('rejects a duplicate name', async () => {
     await rejectsWithoutChanges(admin, { name: 'Estilo Varas' }, 'Ya existe un estilo con ese nombre.')
   })

@@ -66,6 +66,10 @@ export function PizzaSizeFormModal({ size, onSubmit, onClose }: PizzaSizeFormMod
             </label>
           ))}
         </fieldset>
+        <p className="text-xs text-slate-500">
+          Si quitas una forma de dividir, los pedidos abiertos con este tamaño no se podrán cobrar hasta que se
+          corrijan.
+        </p>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="ghost" onClick={onClose}>
             Cancelar

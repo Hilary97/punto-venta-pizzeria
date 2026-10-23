@@ -24,9 +24,11 @@ An admin page at `/admin/pizzas` edits everything the pizza builder ("Armar pizz
 - T1 (S3, S4, S6) — migration + PGlite tests. Route: inline. Commit: see `feat(db): admin save for pizza styles and catalog checks` (RED 15/17 -> GREEN 17/17; supabase suite 297). Also adds name checks on sizes and ingredients.
 - T2 (S2-S5) — domain + repository (admin catalog list, writes) + tests. Route: inline. Commit: see `feat(pizza): admin catalog domain and repository` (RED: missing modules -> GREEN 17 new tests; pizza 74, tsc 0).
 - T3 (S1-S5) — `/admin/pizzas` page, modals, nav, route + UI tests. Route: inline. Commit: see `feat(pizza): admin page for the pizza builder catalog` (RED: missing page + Nav link -> GREEN 18; new rows default to the next order). Slice boundary: T1 (db, high risk) is its own commit; T2+T3 are the app slice.
-- T4 — verify (high risk: security definer RPC). Route: gentle-ai-verify. Commit: n/a.
+- T4 — verify (high risk: security definer RPC). Route: gentle-ai-verify. Done: PASS S1-S6; grants, search_path, admin gate, atomicity probed. Findings: M1 (medium) changing a style kind/included count or removing size portions makes open-order lines unavailable at pay (validate_pizza re-check) until reverted; L1 (low) price `11000.0` raised a raw cast error; L2 (low) duplicate names are case-sensitive (accepted, same as products); info: `{1,1}` portions allowed by the db check (UI cannot send it). Not verified: live Supabase data against the new checks.
+- T5 (M1, L1) — fix: numeric→integer cast for prices; edit forms warn that the change blocks open orders until fixed. Route: inline. Commit: see `fix(pizza): accept decimal-point prices and warn about open orders` (RED 3 -> GREEN; 110 focused tests, tsc 0).
 
 ## Log
 
 - L1: "Si vamos armarlo para editar desde pantalla, todo lo que tenga que ver con armar pizza."
+- L3: Verify findings M1, L1 fixed in T5; L2 accepted.
 - L2: Decisions stated to the user: no hard delete (deactivate); sizes fixed to three (name and portions editable); price changes apply to open orders like products.

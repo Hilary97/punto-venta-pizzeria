@@ -172,6 +172,7 @@ describe('AdminPizzasPage styles', () => {
     await user.type(screen.getByLabelText('Nombre'), 'Estilo Nuevo')
     await user.type(screen.getByLabelText('Descripción'), 'Jamón y piña')
     expect(screen.queryByLabelText('Ingredientes a elegir')).not.toBeInTheDocument()
+    expect(screen.queryByText(/no se podrán cobrar/)).not.toBeInTheDocument()
     await user.type(screen.getByLabelText('Precio Grande (MXN)'), '210')
     await user.type(screen.getByLabelText('Precio Mediana (MXN)'), '190.50')
     await user.type(screen.getByLabelText('Precio Chica (MXN)'), '110')
@@ -192,6 +193,7 @@ describe('AdminPizzasPage styles', () => {
   it('edits a custom style and its included ingredients', async () => {
     const user = await renderPage()
     await user.click(within(rowOf(section('Estilos'), 'Arma tu combinación')).getByRole('button', { name: 'Editar' }))
+    expect(screen.getByText(/los pedidos abiertos con este estilo no se podrán cobrar/)).toBeInTheDocument()
     const included = screen.getByLabelText('Ingredientes a elegir')
     expect(included).toHaveValue('2')
     await user.selectOptions(included, '3')
@@ -235,6 +237,7 @@ describe('AdminPizzasPage sizes and extras', () => {
     const name = screen.getByLabelText('Nombre')
     await user.clear(name)
     await user.type(name, 'Familiar')
+    expect(screen.getByText(/los pedidos abiertos con este tamaño no se podrán cobrar/)).toBeInTheDocument()
     await user.click(screen.getByRole('checkbox', { name: 'Tercios' }))
     await user.click(screen.getByRole('button', { name: 'Guardar' }))
 

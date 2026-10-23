@@ -110,6 +110,13 @@ export function PizzaStyleFormModal({ sizes, initial, defaultSortOrder, onSubmit
           </select>
         </div>
 
+        {initial && (
+          <p className="text-xs text-slate-500">
+            Si cambias el tipo o los ingredientes a elegir, los pedidos abiertos con este estilo no se podrán cobrar
+            hasta que se corrijan.
+          </p>
+        )}
+
         {kind === 'custom' && (
           <div className="flex flex-col gap-1">
             <label htmlFor="pizza-style-included" className="text-sm font-medium text-slate-700">

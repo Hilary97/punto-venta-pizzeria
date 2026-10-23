@@ -103,7 +103,7 @@ begin
   end;
 
   insert into public.pizza_style_prices (style_id, size_code, price_cents)
-  select v_id, s.code, (p_prices ->> s.code)::integer
+  select v_id, s.code, (p_prices ->> s.code)::numeric::integer
   from public.pizza_sizes s
   on conflict (style_id, size_code) do update set price_cents = excluded.price_cents;
 
