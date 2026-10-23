@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { getSupabaseClient } from '../../../shared/supabase/client'
 import { parseRpcResult } from '../../../shared/supabase/rpc'
-import type { DeviceKind } from '../../kitchen/domain/kitchen'
+import { DEVICE_KINDS, type DeviceKind } from '../../kitchen/domain/kitchen'
 import type { AdminDevice, AuthorizedDevice } from '../domain/device'
 import type { AdminWaiter, Waiter, WaiterShift } from '../domain/waiter'
 
@@ -35,7 +35,7 @@ const endShiftResultSchema = z.object({ ended: z.boolean() })
 
 const waiterIdResultSchema = z.object({ waiter_id: z.string() })
 
-const deviceKindSchema = z.enum(['waiter', 'kitchen_pizza', 'kitchen_grill']).default('waiter')
+const deviceKindSchema = z.enum(DEVICE_KINDS).default('waiter')
 
 const deviceInfoSchema = z.object({ device_id: z.string(), name: z.string(), kind: deviceKindSchema })
 

@@ -7,7 +7,8 @@ import { STATION_LABELS, ticketKey, type DeliverySource, type KitchenOrder, type
 import { OrderTicketCard } from './OrderTicketCard'
 import { useOrderBoard } from './useOrderBoard'
 
-type DeliverySection = KitchenStation | 'other'
+/** Prepared drinks are picked up with the other drinks. */
+type DeliverySection = Exclude<KitchenStation, 'drinks'> | 'other'
 
 const SECTIONS: { value: DeliverySection; label: string }[] = [
   { value: 'pizza', label: STATION_LABELS.pizza },
@@ -15,10 +16,14 @@ const SECTIONS: { value: DeliverySection; label: string }[] = [
   { value: 'other', label: 'Bebidas y otros' },
 ]
 
+function sectionOf(station: KitchenStation | null | undefined): DeliverySection {
+  return station === 'pizza' || station === 'grill' ? station : 'other'
+}
+
 /** Keeps only the lines of one section; orders with none of them are dropped. */
 function inSection(orders: KitchenOrder[], section: DeliverySection): KitchenOrder[] {
   return orders
-    .map((order) => ({ ...order, lines: order.lines.filter((line) => (line.station ?? 'other') === section) }))
+    .map((order) => ({ ...order, lines: order.lines.filter((line) => sectionOf(line.station) === section) }))
     .filter((order) => order.lines.length > 0)
 }
 

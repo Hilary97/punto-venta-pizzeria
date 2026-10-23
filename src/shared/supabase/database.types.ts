@@ -188,7 +188,7 @@ export interface Database {
           pizza: unknown
           notes: string | null
           variant: string | null
-          station: 'pizza' | 'grill' | null
+          station: 'pizza' | 'grill' | 'drinks' | null
           ready_at: string | null
           delivered_at: string | null
         }

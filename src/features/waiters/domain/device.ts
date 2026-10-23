@@ -4,6 +4,7 @@ export const DEVICE_KIND_LABELS: Record<DeviceKind, string> = {
   waiter: 'Mesero',
   kitchen_pizza: 'Cocina - Pizzas',
   kitchen_grill: 'Cocina - Hamburguesas y botanas',
+  kitchen_drinks: 'Cocina - Bebidas preparadas',
 }
 
 /** This device's authorization, kept in local storage. The secret never leaves the device except in RPC calls. */

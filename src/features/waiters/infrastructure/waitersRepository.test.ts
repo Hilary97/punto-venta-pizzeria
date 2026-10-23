@@ -14,6 +14,9 @@ describe('device kind', () => {
     rpc.mockResolvedValue({ data: { device_id: 'd', name: 'N', kind: 'kitchen_grill' }, error: null })
     expect(await deviceInfo('s')).toEqual({ deviceId: 'd', name: 'N', kind: 'kitchen_grill' })
 
+    rpc.mockResolvedValue({ data: { device_id: 'd', name: 'N', kind: 'kitchen_drinks' }, error: null })
+    expect(await deviceInfo('s')).toEqual({ deviceId: 'd', name: 'N', kind: 'kitchen_drinks' })
+
     rpc.mockResolvedValue({ data: { device_id: 'd', name: 'N' }, error: null })
     expect((await deviceInfo('s')).kind).toBe('waiter')
   })

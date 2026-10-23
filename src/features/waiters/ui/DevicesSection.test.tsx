@@ -78,6 +78,7 @@ it('lets the admin pick the device type, defaulting to Mesero, and stores it', a
     'Mesero',
     'Cocina - Pizzas',
     'Cocina - Hamburguesas y botanas',
+    'Cocina - Bebidas preparadas',
   ])
   repo.adminRegisterDevice.mockResolvedValueOnce({
     deviceId: 'k1',

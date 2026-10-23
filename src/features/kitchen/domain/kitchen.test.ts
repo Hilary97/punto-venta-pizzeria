@@ -4,12 +4,13 @@ import { DEVICE_KINDS, STATION_LABELS, delayLevel, deviceKindStation } from './k
 it('maps kitchen device kinds to their station and waiters to none', () => {
   expect(deviceKindStation('kitchen_pizza')).toBe('pizza')
   expect(deviceKindStation('kitchen_grill')).toBe('grill')
+  expect(deviceKindStation('kitchen_drinks')).toBe('drinks')
   expect(deviceKindStation('waiter')).toBeNull()
 })
 
-it('labels both stations', () => {
-  expect(STATION_LABELS).toEqual({ pizza: 'Pizzas', grill: 'Hamburguesas y botanas' })
-  expect(DEVICE_KINDS).toEqual(['waiter', 'kitchen_pizza', 'kitchen_grill'])
+it('labels every station', () => {
+  expect(STATION_LABELS).toEqual({ pizza: 'Pizzas', grill: 'Hamburguesas y botanas', drinks: 'Bebidas preparadas' })
+  expect(DEVICE_KINDS).toEqual(['waiter', 'kitchen_pizza', 'kitchen_grill', 'kitchen_drinks'])
 })
 
 it('rates the delay: yellow from 15 minutes, red from 25', () => {

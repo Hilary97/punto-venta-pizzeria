@@ -73,6 +73,11 @@ describe('mapOrderRow', () => {
     })
   })
 
+  it('maps a prepared drinks station', () => {
+    const row = orderRowSchema.parse({ ...base, order_items: [{ ...line, station: 'drinks', ready_at: null, delivered_at: null }] })
+    expect(mapOrderRow(row).items[0]?.station).toBe('drinks')
+  })
+
   it('maps the token, defaulting to null when the rpc omits it', () => {
     expect(mapOrderRow(orderRowSchema.parse({ ...base, token: 5, order_items: [] })).token).toBe(5)
     expect(mapOrderRow(orderRowSchema.parse({ ...base, order_items: [] })).token).toBeNull()

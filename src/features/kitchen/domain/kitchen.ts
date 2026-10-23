@@ -2,21 +2,25 @@ import type { PizzaConfig } from '../../pizza/domain/pizza'
 import type { OrderService } from '../../orders/domain/order'
 import type { SubscribeChanges } from '../../../shared/realtime/useChangeSignal'
 
-export type KitchenStation = 'pizza' | 'grill'
+export const KITCHEN_STATIONS = ['pizza', 'grill', 'drinks'] as const
 
-export type DeviceKind = 'waiter' | 'kitchen_pizza' | 'kitchen_grill'
+export type KitchenStation = (typeof KITCHEN_STATIONS)[number]
 
-export const DEVICE_KINDS: readonly DeviceKind[] = ['waiter', 'kitchen_pizza', 'kitchen_grill']
+export const DEVICE_KINDS = ['waiter', 'kitchen_pizza', 'kitchen_grill', 'kitchen_drinks'] as const
+
+export type DeviceKind = (typeof DEVICE_KINDS)[number]
 
 export const STATION_LABELS: Record<KitchenStation, string> = {
   pizza: 'Pizzas',
   grill: 'Hamburguesas y botanas',
+  drinks: 'Bebidas preparadas',
 }
 
 /** The station a kitchen device works; `null` for waiter devices. */
 export function deviceKindStation(kind: DeviceKind): KitchenStation | null {
   if (kind === 'kitchen_pizza') return 'pizza'
   if (kind === 'kitchen_grill') return 'grill'
+  if (kind === 'kitchen_drinks') return 'drinks'
   return null
 }
 

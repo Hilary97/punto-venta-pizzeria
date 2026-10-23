@@ -18,7 +18,7 @@ export interface OrderItem {
   /** Chosen variant for product lines of products with variants; otherwise `null`. */
   variant: string | null
   /** Kitchen station that cooks the line; `null` when it is not cooked or the source does not report it. */
-  station?: 'pizza' | 'grill' | null
+  station?: 'pizza' | 'grill' | 'drinks' | null
   /** When the kitchen finished the line (ISO); `null` while pending. */
   readyAt?: string | null
   /** When a waiter delivered the line (ISO); `null` until then. */

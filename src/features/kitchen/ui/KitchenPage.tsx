@@ -1,10 +1,8 @@
 import { useMemo, useState } from 'react'
 import { cn } from '../../../shared/ui/cn'
-import { STATION_LABELS, type KitchenStation } from '../domain/kitchen'
+import { KITCHEN_STATIONS, STATION_LABELS, type KitchenStation } from '../domain/kitchen'
 import { authenticatedKitchenSource } from '../infrastructure/kitchenRepository'
 import { KitchenBoard } from './KitchenBoard'
-
-const STATIONS: KitchenStation[] = ['pizza', 'grill']
 
 /** Admin/cashier kitchen view: one board per station, switched with tabs. */
 export function KitchenPage() {
@@ -14,7 +12,7 @@ export function KitchenPage() {
   return (
     <div className="flex flex-col">
       <div role="tablist" aria-label="Estación de cocina" className="flex gap-2 px-4 pt-4">
-        {STATIONS.map((value) => (
+        {KITCHEN_STATIONS.map((value) => (
           <button
             key={value}
             type="button"

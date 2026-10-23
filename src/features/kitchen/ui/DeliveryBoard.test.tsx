@@ -311,6 +311,32 @@ describe('DeliveryBoard', () => {
     })
   })
 
+  it('shows prepared drinks with the other drinks', async () => {
+    const line = (id: string, productName: string, station: 'pizza' | 'drinks' | null) =>
+      ({ id, productName, quantity: 1, type: 'product', pizza: null, notes: null, variant: null, station }) as const
+    const orders = [
+      order({
+        id: 'a',
+        token: 4,
+        tableNumber: 1,
+        customerName: null,
+        lines: [line('a1', 'Pizza Pepperoni', 'pizza'), line('a2', 'Malteada Moka', 'drinks'), line('a3', 'Refresco', null)],
+      }),
+    ]
+    render(<DeliveryBoard source={makeSource([orders])} sectioned />)
+    await screen.findByText('1 × Pizza Pepperoni')
+    expect(screen.queryByText('1 × Malteada Moka')).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Bebidas y otros' }))
+    expect(screen.getByText('1 × Malteada Moka')).toBeVisible()
+    expect(screen.getByText('1 × Refresco')).toBeVisible()
+    expect(screen.queryByText('1 × Pizza Pepperoni')).not.toBeInTheDocument()
+    expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual(
+      expect.arrayContaining(['Pizzas', 'Hamburguesas y botanas', 'Bebidas y otros']),
+    )
+    expect(screen.queryByRole('button', { name: 'Bebidas preparadas' })).not.toBeInTheDocument()
+  })
+
   it('keeps the normal text size on delivery cards', async () => {
     render(<DeliveryBoard source={makeSource()} />)
     expect(await screen.findByText('M-4 · Ana')).toHaveClass('text-2xl')

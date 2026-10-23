@@ -81,6 +81,14 @@ describe('KitchenEntry', () => {
     expect(await screen.findByRole('heading', { name: 'Cocina · Plancha · Hamburguesas y botanas' })).toBeVisible()
   })
 
+  it('labels the prepared drinks station', async () => {
+    saveDevice({ deviceId: 'd1', name: 'Barra', kind: 'kitchen_drinks', secret: 'b2'.repeat(32) })
+    mockAuth(null)
+    vi.mocked(createDeviceKitchenSource).mockReturnValue(source())
+    renderAt()
+    expect(await screen.findByRole('heading', { name: 'Cocina · Barra · Bebidas preparadas' })).toBeVisible()
+  })
+
   it('shows the revoked notice when the device is no longer authorized', async () => {
     saveDevice({ deviceId: 'd1', name: 'Tablet cocina', kind: 'kitchen_pizza', secret: 'b2'.repeat(32) })
     mockAuth(null)
@@ -105,6 +113,9 @@ describe('KitchenEntry', () => {
     await userEvent.click(grill)
     expect(grill).toHaveAttribute('aria-selected', 'true')
     expect(authenticatedKitchenSource).toHaveBeenCalledWith('grill')
+    expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['Pizzas', 'Hamburguesas y botanas', 'Bebidas preparadas'])
+    await userEvent.click(screen.getByRole('tab', { name: 'Bebidas preparadas' }))
+    expect(authenticatedKitchenSource).toHaveBeenCalledWith('drinks')
   })
 
   it('redirects signed-out browsers without a device to login', async () => {

@@ -28,7 +28,7 @@ export const orderRowSchema = z.object({
       pizza: pizzaConfigSchema.nullable(),
       notes: z.string().nullable(),
       variant: z.string().nullable().default(null),
-      station: z.enum(['pizza', 'grill']).nullable().default(null),
+      station: z.enum(['pizza', 'grill', 'drinks']).nullable().default(null),
       ready_at: z.string().nullable().default(null),
       delivered_at: z.string().nullable().default(null),
     }),

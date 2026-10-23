@@ -4,11 +4,12 @@ import { getSupabaseClient } from '../../../shared/supabase/client'
 import { parseRpcResult } from '../../../shared/supabase/rpc'
 import { orderIdResultSchema } from '../../orders/infrastructure/ordersRepository'
 import { pizzaConfigSchema } from '../../pizza/infrastructure/pizzaRepository'
-import type {
-  DeliverySource,
-  KitchenOrder,
-  KitchenSource,
-  KitchenStation,
+import {
+  KITCHEN_STATIONS,
+  type DeliverySource,
+  type KitchenOrder,
+  type KitchenSource,
+  type KitchenStation,
 } from '../domain/kitchen'
 
 const kitchenOrdersSchema = z.array(
@@ -33,7 +34,7 @@ const kitchenOrdersSchema = z.array(
           pizza: pizzaConfigSchema.nullable(),
           notes: z.string().nullable(),
           variant: z.string().nullable().default(null),
-          station: z.enum(['pizza', 'grill']).nullable().default(null),
+          station: z.enum(KITCHEN_STATIONS).nullable().default(null),
           added_at: z.string().nullable().default(null),
         }),
       )

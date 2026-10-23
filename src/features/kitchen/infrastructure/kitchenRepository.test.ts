@@ -75,6 +75,12 @@ describe('device kitchen source', () => {
     expect(rpc).toHaveBeenCalledWith('device_list_kitchen_orders', { p_device_secret: 'sec' })
   })
 
+  it('maps a prepared drinks line', async () => {
+    rpc.mockResolvedValue({ data: [{ ...row, lines: [{ ...row.lines[0], station: 'drinks' }] }], error: null })
+    const [order] = await createDeviceKitchenSource('sec').listOrders()
+    expect(order?.lines[0]?.station).toBe('drinks')
+  })
+
   it('maps scheduled_for to scheduledFor and a missing one to null', async () => {
     const scheduledFor = new Date(2026, 9, 21, 14, 30).toISOString()
     rpc.mockResolvedValue({ data: [{ ...row, scheduled_for: scheduledFor }, row], error: null })
