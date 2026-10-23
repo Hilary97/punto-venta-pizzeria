@@ -1,39 +1,39 @@
-import { useState } from 'react'
-import { ErrorBanner } from '../shared/ui/ErrorBanner'
-import { toUserMessage } from '../shared/errors'
-import { NavLink } from 'react-router'
-import { cn } from '../shared/ui/cn'
-import { signOut } from '../features/auth/infrastructure/authRepository'
-import { useAuth } from '../features/auth/ui/AuthContext'
+import { useState } from "react";
+import { ErrorBanner } from "../shared/ui/ErrorBanner";
+import { toUserMessage } from "../shared/errors";
+import { NavLink } from "react-router";
+import { cn } from "../shared/ui/cn";
+import { signOut } from "../features/auth/infrastructure/authRepository";
+import { useAuth } from "../features/auth/ui/AuthContext";
 
 const NAV_LINK_CLASS = ({ isActive }: { isActive: boolean }) =>
   cn(
-    'rounded-lg px-3 py-2 text-sm font-semibold whitespace-nowrap transition-colors',
-    isActive ? 'bg-red-700 text-white' : 'text-slate-700 hover:bg-slate-100',
-  )
+    "rounded-lg px-3 py-2 text-sm font-semibold whitespace-nowrap transition-colors",
+    isActive ? "bg-red-700 text-white" : "text-slate-700 hover:bg-slate-100",
+  );
 
 export function Nav() {
-  const { profile } = useAuth()
-  const [pending, setPending] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const { profile } = useAuth();
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function handleSignOut() {
-    if (pending) return
-    setPending(true)
-    setError(null)
+    if (pending) return;
+    setPending(true);
+    setError(null);
     try {
-      await signOut()
+      await signOut();
     } catch (error) {
-      setError(toUserMessage(error))
+      setError(toUserMessage(error));
     } finally {
-      setPending(false)
+      setPending(false);
     }
   }
 
   return (
     <nav className="flex h-16 items-center justify-between gap-2 border-b border-slate-200 bg-white px-4 shadow-sm">
       <div className="flex items-center gap-1 overflow-x-auto">
-        {profile?.role !== 'waiter' && (
+        {profile?.role !== "waiter" && (
           <NavLink to="/" end className={NAV_LINK_CLASS}>
             Venta
           </NavLink>
@@ -41,7 +41,7 @@ export function Nav() {
         <NavLink to="/pedidos" className={NAV_LINK_CLASS}>
           Pedidos
         </NavLink>
-        {profile?.role !== 'waiter' && (
+        {profile?.role !== "waiter" && (
           <>
             <NavLink to="/cocina" className={NAV_LINK_CLASS}>
               Cocina
@@ -57,7 +57,7 @@ export function Nav() {
             </NavLink>
           </>
         )}
-        {profile?.role === 'admin' && (
+        {profile?.role === "admin" && (
           <>
             <NavLink to="/admin/productos" className={NAV_LINK_CLASS}>
               Productos
@@ -72,7 +72,7 @@ export function Nav() {
               Pizzas
             </NavLink>
             <NavLink to="/admin/historial" className={NAV_LINK_CLASS}>
-              Historial
+              Historial de Cortes
             </NavLink>
             <NavLink to="/admin/meseros" className={NAV_LINK_CLASS}>
               Meseros
@@ -81,17 +81,21 @@ export function Nav() {
         )}
       </div>
       <div className="flex items-center gap-3">
-        {profile && <span className="hidden text-sm text-slate-500 sm:inline">{profile.fullName}</span>}
+        {profile && (
+          <span className="hidden text-sm text-slate-500 sm:inline">
+            {profile.fullName}
+          </span>
+        )}
         <button
           type="button"
           onClick={handleSignOut}
           disabled={pending}
           className="rounded-lg px-3 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-100"
         >
-          {pending ? 'Cerrando sesión…' : 'Salir'}
+          {pending ? "Cerrando sesión…" : "Salir"}
         </button>
         {error && <ErrorBanner message={error} />}
       </div>
     </nav>
-  )
+  );
 }
