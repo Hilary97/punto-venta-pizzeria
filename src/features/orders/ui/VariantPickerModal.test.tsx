@@ -13,6 +13,19 @@ describe('VariantPickerModal', () => {
     expect(screen.getByRole('button', { name: 'Res' })).toBeInTheDocument()
   })
 
+  it('shows up to 8 variants in one column and more in two', () => {
+    const variants = (length: number) => Array.from({ length }, (_, i) => `V${i}`)
+    const { unmount } = render(
+      <VariantPickerModal productName="Alitas" variants={variants(8)} onPick={vi.fn()} onClose={vi.fn()} />,
+    )
+    expect(screen.getByRole('button', { name: 'V0' }).parentElement).not.toHaveClass('grid-cols-2')
+    unmount()
+
+    render(<VariantPickerModal productName="Alitas" variants={variants(15)} onPick={vi.fn()} onClose={vi.fn()} />)
+    expect(screen.getAllByRole('button', { name: /^V\d+$/ })).toHaveLength(15)
+    expect(screen.getByRole('button', { name: 'V0' }).parentElement).toHaveClass('grid-cols-2')
+  })
+
   it('closes from the cancel button', async () => {
     const onClose = vi.fn()
     render(<VariantPickerModal productName="Hamburguesa" variants={['Res']} onPick={vi.fn()} onClose={onClose} />)
