@@ -10,7 +10,7 @@ Waiter orders flow automatically to a kitchen screen split into two stations (pi
 - S3: "lo importante es que en el pedido se identifique que era a cada seecion de cocina" — each order line knows its station. Pizza builder lines and Pizzas/Rebanadas-Pizza categories -> `pizza`; Hamburguesas, Botanas, Ensaladas -> `grill`; Bebidas, Extras and anything else -> no station (not cooked).
 - S4: "se renderiza una targeta con toda la infromación del pedido notas y todo" — a station card shows table/customer, waiter, time, only that station's lines with quantity, variant, pizza description and item notes, plus the order notes.
 - S5: "terminada la elaboración se preisna en ese boton o recuadro con palomimta dodne se ira a entrega" — a checkmark button marks that station's lines ready; the card leaves that station.
-- S6: User decision: mixed orders are split by station; the order reaches Entrega only when every station is done. Orders without kitchen lines go straight to Entrega.
+- S6: User decision: mixed orders are split by station; each station's lines reach Entrega as soon as that station marks them ready, with a "Falta: <station>" warning while other stations are still cooking (superseded the original "only when every station is done" rule, see L5). Orders without kitchen lines go straight to Entrega. A scheduled order still waiting to enter the queue reaches Entrega only when every line is ready. Migration 20261104120000_partial_delivery.sql.
 - S7: User decision: Cocina runs on admin-authorized devices (like waiter devices), each assigned to one station; no login.
 - S8: User decision: new Entrega section lists ready orders; the waiter marks "Entregado"; the order then stays pending for payment as today. Items added later go back through the kitchen.
 
@@ -37,6 +37,7 @@ Waiter orders flow automatically to a kitchen screen split into two stations (pi
 - L4: "Si corrigelo" — apply the same shown-lines fix to Entrega.
 - L3: "Si corrige lo de la palomita" — fix the mark-ready race found in review.
 - L2: User chose: authorized kitchen device; split by station; new Entrega section; Bebidas/Extras skip the kitchen (Ensaladas/Botanas -> grill, Rebanadas -> pizza).
+- L5: "Necesito que la entrega sea valla directo al presionar terminando en las categorias sin esperar que uno de las dos categorias terminen el pedido que en cuanto temrinen sus pedidos pasen a entregas" — card shows only the ready lines plus a warning of what is missing.
 
 ## Review
 

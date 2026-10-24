@@ -66,6 +66,41 @@ describe('DeliveryBoard', () => {
     expect(source.markDelivered).toHaveBeenCalledWith('o1', ['l1', 'l2', 'l3'])
   })
 
+  it('warns which stations are still cooking part of the order, and nothing when none are', async () => {
+    const orders = [
+      order({ id: 'a', tableNumber: 1, customerName: null, pendingStations: ['pizza', 'grill'] }),
+      order({ id: 'b', tableNumber: 2, customerName: null, pendingStations: [] }),
+    ]
+    render(<DeliveryBoard source={makeSource([orders])} />)
+    const partial = (await screen.findByText('M-1')).closest('li')!
+    expect(within(partial).getByText('Falta: Pizzas, Hamburguesas y botanas')).toBeVisible()
+    const complete = screen.getByText('M-2').closest('li')!
+    expect(within(complete).queryByText(/Falta:/)).toBeNull()
+  })
+
+  it('keeps the warning in every section the order shows in', async () => {
+    const partial = order({ ...mixed, pendingStations: ['drinks'] })
+    render(<DeliveryBoard source={makeSource([[partial]])} sectioned />)
+    expect(await screen.findByText('Falta: Bebidas preparadas')).toBeVisible()
+    await userEvent.click(screen.getByRole('button', { name: 'Bebidas y otros' }))
+    expect(screen.getByText('Falta: Bebidas preparadas')).toBeVisible()
+  })
+
+  it('shows a partly ready order only in the sections of its ready lines', async () => {
+    const pizzaReady = order({
+      lines: [{ id: 'l2', productName: 'Pizza Hawaiana', quantity: 1, type: 'product', pizza: null, notes: null, variant: null, station: 'pizza' }],
+      pendingStations: ['grill', 'drinks'],
+    })
+    render(<DeliveryBoard source={makeSource([[pizzaReady]])} sectioned />)
+    expect(await screen.findByText('1 × Pizza Hawaiana')).toBeVisible()
+    expect(screen.getByText('Falta: Hamburguesas y botanas, Bebidas preparadas')).toBeVisible()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Hamburguesas y botanas' }))
+    expect(screen.getByText('Sin pedidos listos para entregar')).toBeVisible()
+    await userEvent.click(screen.getByRole('button', { name: 'Bebidas y otros' }))
+    expect(screen.getByText('Sin pedidos listos para entregar')).toBeVisible()
+  })
+
   it('shows the service type on the card, and none when it is missing', async () => {
     const orders = [
       order({ id: 'a', tableNumber: 1, customerName: null, service: 'takeaway' }),

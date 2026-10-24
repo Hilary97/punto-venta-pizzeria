@@ -184,7 +184,7 @@ describe('prepared drinks station', () => {
     )
   })
 
-  it('sends shakes to the drinks station and holds delivery until they are ready', async () => {
+  it('sends shakes to the drinks station and delivers them once ready, apart from the food', async () => {
     const orderId = await createOrder([
       { product_id: shakeId, quantity: 2 },
       { product_id: burgerId, quantity: 1 },
@@ -198,7 +198,13 @@ describe('prepared drinks station', () => {
     expect((await kitchen(grillSecret))[0].lines.map((l: Json) => l.product_name)).toEqual(['Hamburguesa Sencilla'])
 
     await markReady(grillSecret, orderId)
-    expect(await ready()).toEqual([])
+    const food = await ready()
+    expect(food).toHaveLength(1)
+    expect(food[0].lines.map((l: Json) => [l.product_name, l.station])).toEqual([
+      ['Hamburguesa Sencilla', 'grill'],
+      ['Refresco', null],
+    ])
+    expect(food[0].pending_stations).toEqual(['drinks'])
 
     await markReady(drinksSecret, orderId)
     expect(await kitchen(drinksSecret)).toEqual([])
@@ -209,6 +215,7 @@ describe('prepared drinks station', () => {
       ['Malteada Moka', 'drinks'],
       ['Refresco', null],
     ])
+    expect(delivery[0].pending_stations).toEqual([])
   })
 
   it('cannot mark another station lines from the drinks device', async () => {

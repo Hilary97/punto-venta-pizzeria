@@ -58,7 +58,15 @@ export interface KitchenOrder {
   scheduledFor?: string | null
   /** A scheduled order shown before it enters the queue: no turn, no token, cannot be marked ready yet. */
   waiting?: boolean
+  /** Delivery only: stations still cooking other lines of the order; empty (or omitted) when none are. */
+  pendingStations?: KitchenStation[]
   lines: KitchenLine[]
+}
+
+/** Warning for a delivery card whose order is partly still cooking, e.g. "Falta: Pizzas"; `null` when nothing is. */
+export function pendingStationsLabel(stations: readonly KitchenStation[] | undefined): string | null {
+  const pending = KITCHEN_STATIONS.filter((station) => stations?.includes(station))
+  return pending.length === 0 ? null : `Falta: ${pending.map((station) => STATION_LABELS[station]).join(', ')}`
 }
 
 /** Identifies a ticket on a board: the order plus its arrival time. */

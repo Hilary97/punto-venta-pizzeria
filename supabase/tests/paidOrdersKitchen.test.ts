@@ -210,7 +210,7 @@ describe('an order paid with drinks', () => {
   it('keeps drinks of a prepaid order in Entrega with its food until delivered', async () => {
     const id = await createOrder(null, [...burger(), { type: 'product', product_id: drinkId, quantity: 1 }])
     await pay(id)
-    expect(await ready()).toEqual([])
+    expect((await ready()).find((o) => o.id === id)!.lines).toHaveLength(1)
     await markReady(id)
     expect((await ready()).find((o) => o.id === id)!.lines).toHaveLength(2)
     await markDelivered(id)

@@ -60,6 +60,11 @@ async function markReady(orderId: string, lineIds: string[], secret = grillSecre
   return rpc('public.device_mark_station_ready($1, $2, $3)', [secret, orderId, lineIds])
 }
 
+async function ready(): Promise<Json[]> {
+  await asAnon(db)
+  return (await rpc('public.device_list_ready_orders($1, $2)', [waiterSecret, shift])) as unknown as Json[]
+}
+
 async function row(orderId: string) {
   await asSuperuser(db)
   const res = await db.query<{ token: number | null; queued_at: string | null }>(
@@ -186,6 +191,18 @@ describe('a scheduled order waiting to enter the queue', () => {
     await markReady(id, tickets[1].lines.map((l: Json) => l.id))
     expect(await readyLines(id)).toBe(1)
     expect((await kitchen()).map((t) => t.id)).toEqual([first])
+  })
+
+  it('keeps its drinks out of Entrega until it enters the queue', async () => {
+    const id = await createOrder(at('14:00'), [line(burgerId), line(drinkId)])
+    expect(await ready()).toEqual([])
+
+    await setClock('13:40')
+    await kitchen()
+    const delivery = await ready()
+    expect(delivery.map((o) => o.id)).toEqual([id])
+    expect(delivery[0].lines.map((l: Json) => l.product_name)).toEqual(['Refresco'])
+    expect(delivery[0].pending_stations).toEqual(['grill'])
   })
 
   it('still marks ordinary orders ready as before', async () => {

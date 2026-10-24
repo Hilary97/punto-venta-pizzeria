@@ -24,6 +24,7 @@ const kitchenOrdersSchema = z.array(
     service: z.enum(['dine_in', 'takeaway']).nullable().default(null),
     scheduled_for: z.string().nullable().default(null),
     waiting: z.boolean().default(false),
+    pending_stations: z.array(z.string()).default([]),
     lines: z
       .array(
         z.object({
@@ -42,6 +43,11 @@ const kitchenOrdersSchema = z.array(
   }),
 )
 
+// A station unknown to this build (added later on the server) is skipped instead of failing the list.
+function isKitchenStation(value: string): value is KitchenStation {
+  return (KITCHEN_STATIONS as readonly string[]).includes(value)
+}
+
 function mapKitchenOrders(rows: z.infer<typeof kitchenOrdersSchema>): KitchenOrder[] {
   return rows.map((row) => ({
     id: row.id,
@@ -54,6 +60,7 @@ function mapKitchenOrders(rows: z.infer<typeof kitchenOrdersSchema>): KitchenOrd
     service: row.service,
     scheduledFor: row.scheduled_for,
     waiting: row.waiting,
+    pendingStations: row.pending_stations.filter(isKitchenStation),
     lines: (row.lines ?? []).map((line) => ({
       id: line.id,
       productName: line.product_name,

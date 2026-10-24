@@ -61,6 +61,7 @@ const mapped = {
   scheduledFor: null,
   service: null,
   waiting: false,
+  pendingStations: [],
   lines: [
     { id: 'l1', productName: 'Hamburguesa', quantity: 2, type: 'product', pizza: null, notes: null, variant: 'Res', station: 'grill', addedAt: null },
   ],
@@ -174,6 +175,11 @@ describe('delivery sources', () => {
       p_order_id: 'o1',
       p_line_ids: ['l1'],
     })
+  })
+
+  it('maps the stations still cooking, keeping known ones only', async () => {
+    rpc.mockResolvedValue({ data: [{ ...row, pending_stations: ['grill', 'pizza', 'oven'] }], error: null })
+    expect((await authenticatedDeliverySource.listReadyOrders())[0]?.pendingStations).toEqual(['grill', 'pizza'])
   })
 
   it('device source requires a shift', async () => {

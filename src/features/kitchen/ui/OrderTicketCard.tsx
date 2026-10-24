@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { orderLabel, pickupTimeLabel, productLineLabel, tokenLabel } from '../../orders/domain/order'
 import { ServiceBadge } from '../../orders/ui/ServiceBadge'
-import { delayLevel, type DelayLevel, type KitchenLine, type KitchenOrder } from '../domain/kitchen'
+import { delayLevel, pendingStationsLabel, type DelayLevel, type KitchenLine, type KitchenOrder } from '../domain/kitchen'
 
 const DELAY_CLASSES: Record<DelayLevel, string> = {
   ok: 'border-slate-200 bg-white',
@@ -113,6 +113,7 @@ export function OrderTicketCard({
 }: OrderTicketCardProps) {
   const delay = delayLevel(order.createdAt, useNow())
   const text = TEXT[textSize]
+  const missing = pendingStationsLabel(order.pendingStations)
   return (
     <li
       data-delay={delay}
@@ -140,6 +141,11 @@ export function OrderTicketCard({
       </p>
       {order.scheduledFor && <p className={`font-bold text-slate-700 ${text.waiter}`}>{pickupTimeLabel(order.scheduledFor)}</p>}
       {order.waiterName && <p className={`text-slate-500 ${text.waiter}`}>Atendió: {order.waiterName}</p>}
+      {missing && (
+        <p className={`self-start rounded-lg border-2 border-sky-500 bg-sky-50 px-3 py-1 font-bold text-sky-900 ${text.waiter}`}>
+          {missing}
+        </p>
+      )}
       <div className="flex-1">
         <LineList lines={order.lines} size={textSize} />
       </div>

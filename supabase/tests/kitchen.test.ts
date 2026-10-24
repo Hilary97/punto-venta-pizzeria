@@ -178,7 +178,7 @@ describe('kitchen and delivery flow', () => {
     await db.query(`update public.categories set kitchen_station = 'grill' where name in ('Hamburguesas','Botanas')`)
   })
 
-  it('splits a mixed order by station and reaches delivery only when every station is done', async () => {
+  it('splits a mixed order by station and sends each part to delivery as soon as its station is done', async () => {
     const id = await createOrder([pizzaLine(), { product_id: burgerId, quantity: 2 }, { product_id: drinkId, quantity: 1 }])
     await asAnon(db)
 
@@ -197,22 +197,39 @@ describe('kitchen and delivery flow', () => {
       ['added_at', 'id', 'item_type', 'notes', 'pizza', 'product_name', 'quantity', 'station', 'variant'].sort(),
     )
 
-    expect(await ready()).toEqual([])
+    // The drink needs no kitchen: it is ready at once, and the card says what is still cooking.
+    let r = await ready()
+    expect(r.map((o: Json) => o.id)).toEqual([id])
+    expect(r[0].lines.map((l: Json) => l.product_name)).toEqual(['Refresco'])
+    expect(r[0].pending_stations).toEqual(['grill', 'pizza'])
 
     await markReady(pizzaSecret, id)
     expect(await kitchen(pizzaSecret)).toEqual([])
     expect(await kitchen(grillSecret)).toHaveLength(1)
+    r = await ready()
+    expect(r.map((o: Json) => o.id)).toEqual([id])
+    expect(r[0].lines.map((l: Json) => l.item_type).sort()).toEqual(['pizza', 'product'])
+    expect(r[0].pending_stations).toEqual(['grill'])
+
+    // Delivering the pizza part keeps the order open with its token until the grill part is delivered.
+    await markDelivered(id)
     expect(await ready()).toEqual([])
+    await asSuperuser(db)
+    expect((await db.query<{ token: number | null }>(`select token from public.orders where id = $1`, [id])).rows[0].token).not.toBeNull()
+    await asAnon(db)
 
     await markReady(grillSecret, id)
     expect(await kitchen(grillSecret)).toEqual([])
-    const r = await ready()
+    r = await ready()
     expect(r).toHaveLength(1)
     expect(r[0].id).toBe(id)
-    expect(r[0].lines).toHaveLength(3)
+    expect(r[0].lines.map((l: Json) => l.product_name)).toEqual(['Hamburguesa Sencilla'])
+    expect(r[0].pending_stations).toEqual([])
 
     await markDelivered(id)
     expect(await ready()).toEqual([])
+    await asSuperuser(db)
+    expect((await db.query<{ token: number | null }>(`select token from public.orders where id = $1`, [id])).rows[0].token).toBeNull()
   })
 
   it('sends orders without kitchen lines straight to delivery', async () => {
@@ -233,7 +250,10 @@ describe('kitchen and delivery flow', () => {
     // Same product again must not be merged into the already-cooked line.
     await addItems(id, [{ product_id: burgerId, quantity: 1 }, pizzaLine()])
     await asAnon(db)
-    expect(await ready()).toEqual([])
+    const cooked = await ready()
+    expect(cooked).toHaveLength(1)
+    expect(cooked[0].lines).toHaveLength(1)
+    expect(cooked[0].pending_stations).toEqual(['grill', 'pizza'])
     const g = await kitchen(grillSecret)
     expect(g).toHaveLength(1)
     expect(g[0].lines).toHaveLength(1)
@@ -264,7 +284,9 @@ describe('kitchen and delivery flow', () => {
     expect(g[0].lines).toHaveLength(1)
     expect(g[0].lines[0].id).not.toBe(shown[0])
     expect(g[0].lines[0].product_name).toBe('Alitas')
-    expect(await ready()).toEqual([])
+    const r = await ready()
+    expect(r[0].lines.map((l: Json) => l.id)).toEqual(shown)
+    expect(r[0].pending_stations).toEqual(['grill'])
   })
 
   it('never merges a repeated station product into the line the cook was shown', async () => {
@@ -281,7 +303,7 @@ describe('kitchen and delivery flow', () => {
     expect(g[0].lines).toHaveLength(1)
     expect(g[0].lines[0]).toMatchObject({ product_name: 'Hamburguesa Sencilla', quantity: 1 })
     expect(g[0].lines[0].id).not.toBe(shown[0])
-    expect(await ready()).toEqual([])
+    expect((await ready())[0].lines.map((l: Json) => l.id)).toEqual(shown)
   })
 
   it('ignores line ids from another station or order and rejects empty ids', async () => {
