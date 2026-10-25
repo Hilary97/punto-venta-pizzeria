@@ -4,7 +4,8 @@ import { parseRpcResult } from '../../../shared/supabase/rpc'
 import type { PizzaSizeCode } from '../domain/pizza'
 import type {
   AdminPizzaCatalog,
-  ExtrasFormValues,
+  ExtraFormValues,
+  ExtraIngredientPriceFormValues,
   IngredientFormValues,
   SizeFormValues,
   StyleFormValues,
@@ -16,7 +17,7 @@ const UNIQUE_VIOLATION = '23505'
 /** Every size, style (with prices), ingredient and the extras, including inactive rows (admin view). */
 export async function listAdminPizzaCatalog(): Promise<AdminPizzaCatalog> {
   const client = getSupabaseClient()
-  const [sizes, styles, prices, ingredients, settings] = await Promise.all([
+  const [sizes, styles, prices, ingredients, extras, settings] = await Promise.all([
     client.from('pizza_sizes').select('code, name, allowed_portions, sort_order').order('sort_order', { ascending: true }),
     client
       .from('pizza_styles')
@@ -29,10 +30,15 @@ export async function listAdminPizzaCatalog(): Promise<AdminPizzaCatalog> {
       .select('id, name, sort_order, active')
       .order('sort_order', { ascending: true })
       .order('name', { ascending: true }),
-    client.from('pizza_settings').select('extra_ingredient_cents, extra_cheese_cents').eq('id', true).single(),
+    client
+      .from('pizza_extras')
+      .select('id, name, price_cents, sort_order, active')
+      .order('sort_order', { ascending: true })
+      .order('name', { ascending: true }),
+    client.from('pizza_settings').select('extra_ingredient_cents').eq('id', true).single(),
   ])
 
-  if (sizes.error || styles.error || prices.error || ingredients.error || settings.error || !settings.data) {
+  if (sizes.error || styles.error || prices.error || ingredients.error || extras.error || settings.error || !settings.data) {
     throw new Error(LOAD_ERROR)
   }
 
@@ -66,10 +72,14 @@ export async function listAdminPizzaCatalog(): Promise<AdminPizzaCatalog> {
       sortOrder: ingredient.sort_order,
       active: ingredient.active,
     })),
-    extras: {
-      extraIngredientCents: settings.data.extra_ingredient_cents,
-      extraCheeseCents: settings.data.extra_cheese_cents,
-    },
+    extraIngredientCents: settings.data.extra_ingredient_cents,
+    extras: extras.data.map((extra) => ({
+      id: extra.id,
+      name: extra.name,
+      priceCents: extra.price_cents,
+      sortOrder: extra.sort_order,
+      active: extra.active,
+    })),
   }
 }
 
@@ -128,10 +138,35 @@ export async function updateSize(code: PizzaSizeCode, values: SizeFormValues): P
   if (error) throw new Error('No se pudo actualizar el tamaño.')
 }
 
-export async function updateExtras(values: ExtrasFormValues): Promise<void> {
+export async function updateExtraIngredientPrice(values: ExtraIngredientPriceFormValues): Promise<void> {
   const { error } = await getSupabaseClient()
     .from('pizza_settings')
-    .update({ extra_ingredient_cents: values.extraIngredientCents, extra_cheese_cents: values.extraCheeseCents })
+    .update({ extra_ingredient_cents: values.extraIngredientCents })
     .eq('id', true)
-  if (error) throw new Error('No se pudieron actualizar los extras.')
+  if (error) throw new Error('No se pudo actualizar el precio del ingrediente extra.')
+}
+
+/** The unique index on the name is the only one an extra form can hit. */
+function extraErrorMessage(error: { code?: string }, fallback: string): string {
+  return error.code === UNIQUE_VIOLATION ? 'Ya existe un extra con ese nombre.' : fallback
+}
+
+export async function createExtra(values: ExtraFormValues): Promise<void> {
+  const { error } = await getSupabaseClient()
+    .from('pizza_extras')
+    .insert({ name: values.name, price_cents: values.priceCents, sort_order: values.sortOrder, active: values.active })
+  if (error) throw new Error(extraErrorMessage(error, 'No se pudo crear el extra.'))
+}
+
+export async function updateExtra(id: string, values: ExtraFormValues): Promise<void> {
+  const { error } = await getSupabaseClient()
+    .from('pizza_extras')
+    .update({ name: values.name, price_cents: values.priceCents, sort_order: values.sortOrder, active: values.active })
+    .eq('id', id)
+  if (error) throw new Error(extraErrorMessage(error, 'No se pudo actualizar el extra.'))
+}
+
+export async function setExtraActive(id: string, active: boolean): Promise<void> {
+  const { error } = await getSupabaseClient().from('pizza_extras').update({ active }).eq('id', id)
+  if (error) throw new Error('No se pudo cambiar el estado del extra.')
 }

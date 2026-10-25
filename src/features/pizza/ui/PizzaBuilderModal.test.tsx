@@ -25,7 +25,7 @@ describe('PizzaBuilderModal', () => {
     expect(onAdd).toHaveBeenCalledWith({
       config: {
         size: 'chica',
-        portions: [{ styleId: 'varas', ingredientIds: [], extraIngredientIds: [], extraCheese: false }],
+        portions: [{ styleId: 'varas', ingredientIds: [], extraIngredientIds: [], extraIds: [] }],
       },
       name: 'Pizza Chica: Estilo Varas',
       notes: 'bien cocida',
@@ -61,18 +61,29 @@ describe('PizzaBuilderModal', () => {
     expect(onAdd.mock.calls[0]?.[0].name).toBe('Pizza Chica: Arma tu combinación (Pepperoni, Jalapeños)')
   })
 
-  it('configures extras and extra cheese per portion', async () => {
+  it('configures extra ingredients and every extra per portion', async () => {
     const { onAdd, user } = renderBuilder()
     await user.click(screen.getByRole('button', { name: 'Mitades' }))
     const second = screen.getByRole('group', { name: 'Mitad 2' })
     await user.click(within(second).getByRole('button', { name: 'Jalapeños' }))
-    await user.click(within(second).getByRole('button', { name: 'Extra queso' }))
-    expect(within(second).getByRole('button', { name: 'Extra queso' })).toHaveAttribute('aria-pressed', 'true')
+    const extras = within(second).getByRole('group', { name: 'Extras' })
+    await user.click(within(extras).getByRole('button', { name: 'Orilla rellena' }))
+    await user.click(within(extras).getByRole('button', { name: 'Extra queso' }))
+    expect(within(extras).getByRole('button', { name: 'Extra queso' })).toHaveAttribute('aria-pressed', 'true')
+    expect(within(extras).getByRole('button', { name: 'Orilla rellena' })).toHaveAttribute('aria-pressed', 'true')
     await user.click(screen.getByRole('button', { name: 'Agregar pizza' }))
     expect(onAdd.mock.calls[0]?.[0].config.portions).toEqual([
-      { styleId: 'varas', ingredientIds: [], extraIngredientIds: [], extraCheese: false },
-      { styleId: 'varas', ingredientIds: [], extraIngredientIds: ['jal'], extraCheese: true },
+      { styleId: 'varas', ingredientIds: [], extraIngredientIds: [], extraIds: [] },
+      { styleId: 'varas', ingredientIds: [], extraIngredientIds: ['jal'], extraIds: ['orilla', 'queso'] },
     ])
+    expect(onAdd.mock.calls[0]?.[0].name).toBe(
+      'Pizza Chica · Mitades: ½ Estilo Varas | ½ Estilo Varas + Jalapeños + Extra queso, Orilla rellena',
+    )
+  })
+
+  it('hides the extras group when there are no active extras', () => {
+    renderBuilder({ ...pizzaCatalogFixture, extras: [] })
+    expect(screen.queryByRole('group', { name: 'Extras' })).not.toBeInTheDocument()
   })
 
   describe('pizza dough', () => {

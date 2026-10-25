@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { extrasFormSchema, ingredientFormSchema, sizeFormSchema, styleFormSchema } from './pizzaAdmin'
+import { extraFormSchema,
+  extraIngredientPriceFormSchema, ingredientFormSchema, sizeFormSchema, styleFormSchema } from './pizzaAdmin'
 
 const firstError = (result: { success: boolean; error?: { issues: { message: string }[] } }) =>
   result.success ? null : result.error?.issues[0]?.message
@@ -67,11 +68,28 @@ describe('sizeFormSchema', () => {
   })
 })
 
-describe('extrasFormSchema', () => {
-  it('needs positive prices', () => {
-    expect(extrasFormSchema.safeParse({ extraIngredientCents: 500, extraCheeseCents: 3000 }).success).toBe(true)
-    expect(firstError(extrasFormSchema.safeParse({ extraIngredientCents: 0, extraCheeseCents: 3000 }))).toBe(
+describe('extraIngredientPriceFormSchema', () => {
+  it('needs a positive price', () => {
+    expect(extraIngredientPriceFormSchema.safeParse({ extraIngredientCents: 500 }).success).toBe(true)
+    expect(firstError(extraIngredientPriceFormSchema.safeParse({ extraIngredientCents: 0 }))).toBe(
       'El precio debe ser mayor a cero.',
+    )
+  })
+})
+
+describe('extraFormSchema', () => {
+  const valid = { name: ' Orilla rellena ', priceCents: 4000, sortOrder: 2, active: true }
+
+  it('trims the name and accepts a positive price', () => {
+    expect(extraFormSchema.parse(valid)).toEqual({ ...valid, name: 'Orilla rellena' })
+  })
+
+  it('needs a name, a positive price and a valid order', () => {
+    expect(firstError(extraFormSchema.safeParse({ ...valid, name: ' ' }))).toBe('El nombre es obligatorio.')
+    expect(firstError(extraFormSchema.safeParse({ ...valid, name: 'x'.repeat(61) }))).toBe('El nombre es demasiado largo.')
+    expect(firstError(extraFormSchema.safeParse({ ...valid, priceCents: 0 }))).toBe('El precio debe ser mayor a cero.')
+    expect(firstError(extraFormSchema.safeParse({ ...valid, sortOrder: -1 }))).toBe(
+      'El orden debe ser un número entero entre 0 y 10000.',
     )
   })
 })

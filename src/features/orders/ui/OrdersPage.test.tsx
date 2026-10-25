@@ -65,7 +65,7 @@ async function showCategory(user: ReturnType<typeof userEvent.setup>, name = 'Bo
 
 beforeEach(() => {
   vi.resetAllMocks()
-  vi.mocked(listPizzaCatalog).mockResolvedValue({ sizes: [], styles: [], ingredients: [] })
+  vi.mocked(listPizzaCatalog).mockResolvedValue({ sizes: [], styles: [], ingredients: [], extras: [] })
   vi.mocked(listCategories).mockResolvedValue([{ id: 'pizza', name: 'Botanas', sortOrder: 0 }])
   vi.mocked(listProducts).mockResolvedValue([
     { id: 'p', categoryId: 'pizza', name: 'Pizza queso', priceCents: 15000, active: true, variants: [] },
@@ -657,7 +657,7 @@ describe('OrdersPage pizza builder and notes', () => {
       items: [
         {
           type: 'pizza',
-          pizza: { size: 'chica', portions: [{ styleId: 'varas', ingredientIds: [], extraIngredientIds: [], extraCheese: false }] },
+          pizza: { size: 'chica', portions: [{ styleId: 'varas', ingredientIds: [], extraIngredientIds: [], extraIds: [] }] },
           quantity: 1,
           notes: 'sin orilla',
         },

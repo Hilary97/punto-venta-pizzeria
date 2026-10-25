@@ -5,8 +5,8 @@ import { mapOrderRow, orderRowSchema, toRpcItems } from './ordersRepository'
 const pizza: PizzaConfig = {
   size: 'grande',
   portions: [
-    { styleId: 's1', ingredientIds: ['i1'], extraIngredientIds: ['i2'], extraCheese: true },
-    { styleId: 's2', ingredientIds: [], extraIngredientIds: [], extraCheese: false },
+    { styleId: 's1', ingredientIds: ['i1'], extraIngredientIds: ['i2'], extraIds: ['x1'] },
+    { styleId: 's2', ingredientIds: [], extraIngredientIds: [], extraIds: [] },
   ],
 }
 
@@ -30,8 +30,8 @@ describe('toRpcItems', () => {
         pizza: {
           size: 'grande',
           portions: [
-            { style_id: 's1', ingredient_ids: ['i1'], extra_ingredient_ids: ['i2'], extra_cheese: true },
-            { style_id: 's2', ingredient_ids: [], extra_ingredient_ids: [], extra_cheese: false },
+            { style_id: 's1', ingredient_ids: ['i1'], extra_ingredient_ids: ['i2'], extra_ids: ['x1'] },
+            { style_id: 's2', ingredient_ids: [], extra_ingredient_ids: [], extra_ids: [] },
           ],
         },
         quantity: 1,

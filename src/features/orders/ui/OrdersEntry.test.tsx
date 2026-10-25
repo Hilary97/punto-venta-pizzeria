@@ -65,7 +65,7 @@ function renderAt(path: string) {
 beforeEach(() => {
   vi.resetAllMocks()
   localStorage.clear()
-  vi.mocked(listPizzaCatalog).mockResolvedValue({ sizes: [], styles: [], ingredients: [] })
+  vi.mocked(listPizzaCatalog).mockResolvedValue({ sizes: [], styles: [], ingredients: [], extras: [] })
   vi.mocked(listCategories).mockResolvedValue([{ id: 'pizza', name: 'Botanas', sortOrder: 0 }])
   vi.mocked(listProducts).mockResolvedValue([])
   vi.mocked(listOpenOrders).mockResolvedValue([])

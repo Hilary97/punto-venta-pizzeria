@@ -7,7 +7,7 @@ import type { PizzaConfig, PizzaPortion, PizzaSize, PizzaSizeCode, PizzaStyle } 
  */
 
 function emptyPortion(styleId: string): PizzaPortion {
-  return { styleId, ingredientIds: [], extraIngredientIds: [], extraCheese: false }
+  return { styleId, ingredientIds: [], extraIngredientIds: [], extraIds: [] }
 }
 
 /** `count` portions that all start with the given style. */
@@ -45,8 +45,12 @@ export function toggleExtra(portion: PizzaPortion, ingredientId: string): PizzaP
   return { ...portion, extraIngredientIds: [...portion.extraIngredientIds, ingredientId] }
 }
 
-export function toggleExtraCheese(portion: PizzaPortion): PizzaPortion {
-  return { ...portion, extraCheese: !portion.extraCheese }
+/** Toggles a per-portion extra such as Extra queso. */
+export function togglePizzaExtra(portion: PizzaPortion, extraId: string): PizzaPortion {
+  if (portion.extraIds.includes(extraId)) {
+    return { ...portion, extraIds: portion.extraIds.filter((id) => id !== extraId) }
+  }
+  return { ...portion, extraIds: [...portion.extraIds, extraId] }
 }
 
 export function buildConfig(size: PizzaSizeCode, portions: PizzaPortion[]): PizzaConfig {

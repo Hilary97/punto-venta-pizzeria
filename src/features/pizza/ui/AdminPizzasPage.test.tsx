@@ -3,12 +3,15 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AdminPizzaCatalog } from '../domain/pizzaAdmin'
 import {
+  createExtra,
   createIngredient,
   listAdminPizzaCatalog,
   saveStyle,
+  setExtraActive,
   setIngredientActive,
   setStyleActive,
-  updateExtras,
+  updateExtra,
+  updateExtraIngredientPrice,
   updateIngredient,
   updateSize,
 } from '../infrastructure/pizzaAdminRepository'
@@ -22,7 +25,10 @@ vi.mock('../infrastructure/pizzaAdminRepository', () => ({
   saveStyle: vi.fn(),
   setStyleActive: vi.fn(),
   updateSize: vi.fn(),
-  updateExtras: vi.fn(),
+  updateExtraIngredientPrice: vi.fn(),
+  createExtra: vi.fn(),
+  updateExtra: vi.fn(),
+  setExtraActive: vi.fn(),
 }))
 
 const catalog: AdminPizzaCatalog = {
@@ -57,7 +63,11 @@ const catalog: AdminPizzaCatalog = {
     { id: 'ham', name: 'Jamón', sortOrder: 1, active: true },
     { id: 'garlic', name: 'Ajo', sortOrder: 15, active: false },
   ],
-  extras: { extraIngredientCents: 500, extraCheeseCents: 3000 },
+  extraIngredientCents: 500,
+  extras: [
+    { id: 'cheese', name: 'Extra queso', priceCents: 3000, sortOrder: 1, active: true },
+    { id: 'crust', name: 'Orilla rellena', priceCents: 4000, sortOrder: 2, active: false },
+  ],
 }
 
 function section(name: string) {
@@ -78,7 +88,17 @@ async function renderPage() {
 beforeEach(() => {
   vi.resetAllMocks()
   vi.mocked(listAdminPizzaCatalog).mockResolvedValue(catalog)
-  for (const write of [createIngredient, updateIngredient, setIngredientActive, setStyleActive, updateSize, updateExtras]) {
+  for (const write of [
+    createIngredient,
+    updateIngredient,
+    setIngredientActive,
+    setStyleActive,
+    updateSize,
+    updateExtraIngredientPrice,
+    createExtra,
+    updateExtra,
+    setExtraActive,
+  ]) {
     vi.mocked(write).mockResolvedValue(undefined)
   }
   vi.mocked(saveStyle).mockResolvedValue('new')
@@ -97,8 +117,15 @@ describe('AdminPizzasPage listing', () => {
     expect(within(rowOf(section('Estilos'), 'Arma tu combinación')).getByText('Elige 2')).toBeInTheDocument()
     expect(within(rowOf(section('Ingredientes'), 'Ajo')).getByText('Inactivo')).toBeInTheDocument()
     const extras = section('Extras')
+    expect(within(extras).getByText('Ingrediente extra (por porción)')).toBeInTheDocument()
     expect(within(extras).getByText('$5.00')).toBeInTheDocument()
-    expect(within(extras).getByText('$30.00')).toBeInTheDocument()
+    const cheese = rowOf(extras, 'Extra queso')
+    expect(within(cheese).getByText('$30.00')).toBeInTheDocument()
+    expect(within(cheese).getByText('Activo')).toBeInTheDocument()
+    const crust = rowOf(extras, 'Orilla rellena')
+    expect(within(crust).getByText('$40.00')).toBeInTheDocument()
+    expect(within(crust).getByText('Inactivo')).toBeInTheDocument()
+    expect(within(extras).queryByText('Extra queso (por porción)')).not.toBeInTheDocument()
   })
 
   it('shows a load error', async () => {
@@ -254,14 +281,76 @@ describe('AdminPizzasPage sizes and extras', () => {
     expect(updateSize).not.toHaveBeenCalled()
   })
 
-  it('edits the extra prices', async () => {
+  it('edits the extra ingredient price', async () => {
     const user = await renderPage()
-    await user.click(within(section('Extras')).getByRole('button', { name: 'Editar extras' }))
+    await user.click(within(section('Extras')).getByRole('button', { name: 'Editar precio' }))
+    expect(screen.getByRole('dialog', { name: 'Precio de ingrediente extra' })).toBeInTheDocument()
     const extra = screen.getByLabelText('Ingrediente extra (MXN)')
     await user.clear(extra)
     await user.type(extra, '7')
     await user.click(screen.getByRole('button', { name: 'Guardar' }))
 
-    expect(updateExtras).toHaveBeenCalledWith({ extraIngredientCents: 700, extraCheeseCents: 3000 })
+    expect(updateExtraIngredientPrice).toHaveBeenCalledWith({ extraIngredientCents: 700 })
+    expect(listAdminPizzaCatalog).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('AdminPizzasPage extras', () => {
+  it('creates an extra and reloads', async () => {
+    const user = await renderPage()
+    await user.click(within(section('Extras')).getByRole('button', { name: 'Nuevo extra' }))
+    expect(screen.getByRole('dialog', { name: 'Nuevo extra' })).toBeInTheDocument()
+    await user.type(screen.getByLabelText('Nombre'), 'Doble salsa')
+    await user.type(screen.getByLabelText('Precio (MXN)'), '25.50')
+    expect(screen.getByLabelText('Orden')).toHaveValue('3')
+    await user.click(screen.getByRole('button', { name: 'Guardar' }))
+
+    expect(createExtra).toHaveBeenCalledWith({ name: 'Doble salsa', priceCents: 2550, sortOrder: 3, active: true })
+    expect(listAdminPizzaCatalog).toHaveBeenCalledTimes(2)
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('edits an extra', async () => {
+    const user = await renderPage()
+    await user.click(within(rowOf(section('Extras'), 'Extra queso')).getByRole('button', { name: 'Editar' }))
+    expect(screen.getByRole('dialog', { name: 'Editar extra' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Precio (MXN)')).toHaveValue('30.00')
+    const price = screen.getByLabelText('Precio (MXN)')
+    await user.clear(price)
+    await user.type(price, '35')
+    await user.click(screen.getByRole('button', { name: 'Guardar' }))
+
+    expect(updateExtra).toHaveBeenCalledWith('cheese', { name: 'Extra queso', priceCents: 3500, sortOrder: 1, active: true })
+  })
+
+  it('keeps the dialog open with the server message and no reload', async () => {
+    vi.mocked(createExtra).mockRejectedValue(new Error('Ya existe un extra con ese nombre.'))
+    const user = await renderPage()
+    await user.click(within(section('Extras')).getByRole('button', { name: 'Nuevo extra' }))
+    await user.type(screen.getByLabelText('Nombre'), 'Extra queso')
+    await user.type(screen.getByLabelText('Precio (MXN)'), '30')
+    await user.click(screen.getByRole('button', { name: 'Guardar' }))
+
+    expect(within(screen.getByRole('dialog')).getByRole('alert')).toHaveTextContent('Ya existe un extra con ese nombre.')
+    expect(listAdminPizzaCatalog).toHaveBeenCalledTimes(1)
+  })
+
+  it('rejects an invalid price without calling the repository', async () => {
+    const user = await renderPage()
+    await user.click(within(section('Extras')).getByRole('button', { name: 'Nuevo extra' }))
+    await user.type(screen.getByLabelText('Nombre'), 'Doble salsa')
+    await user.type(screen.getByLabelText('Precio (MXN)'), 'abc')
+    await user.click(screen.getByRole('button', { name: 'Guardar' }))
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Ingresa un precio válido, por ejemplo 150.50.')
+    expect(createExtra).not.toHaveBeenCalled()
+  })
+
+  it('deactivates and activates an extra', async () => {
+    const user = await renderPage()
+    await user.click(within(rowOf(section('Extras'), 'Extra queso')).getByRole('button', { name: 'Desactivar' }))
+    expect(setExtraActive).toHaveBeenCalledWith('cheese', false)
+    await user.click(within(rowOf(section('Extras'), 'Orilla rellena')).getByRole('button', { name: 'Activar' }))
+    expect(setExtraActive).toHaveBeenCalledWith('crust', true)
   })
 })

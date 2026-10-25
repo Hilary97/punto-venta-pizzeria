@@ -27,6 +27,7 @@ export const pizzaCatalogSchema = z
       }),
     ),
     ingredients: z.array(z.object({ id: z.string(), name: z.string(), sort_order: z.number() })),
+    extras: z.array(z.object({ id: z.string(), name: z.string(), sort_order: z.number() })).default([]),
   })
   .transform(
     (raw): PizzaCatalog => ({
@@ -50,6 +51,7 @@ export const pizzaCatalogSchema = z
         name: ingredient.name,
         sortOrder: ingredient.sort_order,
       })),
+      extras: raw.extras.map((extra) => ({ id: extra.id, name: extra.name, sortOrder: extra.sort_order })),
     }),
   )
 
@@ -62,7 +64,7 @@ export const pizzaConfigSchema = z
         style_id: z.string(),
         ingredient_ids: z.array(z.string()).default([]),
         extra_ingredient_ids: z.array(z.string()).default([]),
-        extra_cheese: z.boolean().default(false),
+        extra_ids: z.array(z.string()).default([]),
       }),
     ),
   })
@@ -73,7 +75,7 @@ export const pizzaConfigSchema = z
         styleId: portion.style_id,
         ingredientIds: portion.ingredient_ids,
         extraIngredientIds: portion.extra_ingredient_ids,
-        extraCheese: portion.extra_cheese,
+        extraIds: portion.extra_ids,
       })),
     }),
   )
@@ -86,17 +88,17 @@ export function toRpcPizzaConfig(config: PizzaConfig) {
       style_id: portion.styleId,
       ingredient_ids: portion.ingredientIds,
       extra_ingredient_ids: portion.extraIngredientIds,
-      extra_cheese: portion.extraCheese,
+      extra_ids: portion.extraIds,
     })),
   }
 }
 
 const doughLeftSchema = z.array(z.object({ size_code: z.string(), dough_left: z.number().int().nullable() }))
 
-/** Sizes, active styles and active ingredients for a signed-in user. No prices. */
+/** Sizes, active styles, active ingredients and active extras for a signed-in user. No prices. */
 export async function listPizzaCatalog(): Promise<PizzaCatalog> {
   const client = getSupabaseClient()
-  const [sizes, styles, ingredients, doughLeft] = await Promise.all([
+  const [sizes, styles, ingredients, extras, doughLeft] = await Promise.all([
     client.from('pizza_sizes').select('code, name, allowed_portions, sort_order').order('sort_order', { ascending: true }),
     client
       .from('pizza_styles')
@@ -110,10 +112,16 @@ export async function listPizzaCatalog(): Promise<PizzaCatalog> {
       .eq('active', true)
       .order('sort_order', { ascending: true })
       .order('name', { ascending: true }),
+    client
+      .from('pizza_extras')
+      .select('id, name, sort_order')
+      .eq('active', true)
+      .order('sort_order', { ascending: true })
+      .order('name', { ascending: true }),
     client.rpc('list_pizza_dough_left'),
   ])
 
-  if (sizes.error || styles.error || ingredients.error || doughLeft.error) {
+  if (sizes.error || styles.error || ingredients.error || extras.error || doughLeft.error) {
     throw new Error('No se pudo cargar el catálogo de pizzas.')
   }
   const left = doughLeftSchema.safeParse(doughLeft.data)
@@ -123,6 +131,7 @@ export async function listPizzaCatalog(): Promise<PizzaCatalog> {
     sizes: (sizes.data ?? []).map((size) => ({ ...size, dough_left: leftBySize.get(size.code) ?? null })),
     styles: styles.data,
     ingredients: ingredients.data,
+    extras: extras.data,
   })
   if (!parsed.success) throw new Error('No se pudo cargar el catálogo de pizzas.')
   return parsed.data

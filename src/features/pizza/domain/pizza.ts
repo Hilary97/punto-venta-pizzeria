@@ -30,18 +30,26 @@ export interface PizzaIngredient {
   sortOrder: number
 }
 
+/** A per-portion extra such as Extra queso, charged once per portion it is on. */
+export interface PizzaExtra {
+  id: string
+  name: string
+  sortOrder: number
+}
+
 /** Pizza catalog without prices: the server prices every pizza at quote time. */
 export interface PizzaCatalog {
   sizes: PizzaSize[]
   styles: PizzaStyle[]
   ingredients: PizzaIngredient[]
+  extras: PizzaExtra[]
 }
 
 export interface PizzaPortion {
   styleId: string
   ingredientIds: string[]
   extraIngredientIds: string[]
-  extraCheese: boolean
+  extraIds: string[]
 }
 
 export interface PizzaConfig {
@@ -109,6 +117,11 @@ function validatePortion(portion: PizzaPortion, catalog: PizzaCatalog): string |
     return 'Uno de los ingredientes no existe o no está activo.'
   }
 
+  if (hasDuplicates(portion.extraIds)) return 'Los extras de una porción no se pueden repetir.'
+
+  const knownExtras = new Set(catalog.extras.map((extra) => extra.id))
+  if (!portion.extraIds.every((id) => knownExtras.has(id))) return 'Uno de los extras no existe o no está activo.'
+
   return null
 }
 
@@ -119,7 +132,7 @@ function hasDuplicates(ids: string[]): boolean {
 /**
  * Same text as the SQL `describe_pizza`, e.g.
  * `Pizza Grande · Mitades: ½ Estilo Varas + Jalapeños | ½ Estilo Chuy's`.
- * Ingredients are listed in catalog order; unknown ids are skipped.
+ * Ingredients and extras are listed in catalog order; unknown ids are skipped.
  */
 export function describePizza(config: PizzaConfig, catalog: PizzaCatalog): string {
   const sizeName = catalog.sizes.find((size) => size.code === config.size)?.name ?? config.size
@@ -134,7 +147,8 @@ export function describePizza(config: PizzaConfig, catalog: PizzaCatalog): strin
     const extras = ingredientNames(portion.extraIngredientIds, catalog)
     if (extras.length > 0) text += ` + ${extras.join(', ')}`
 
-    if (portion.extraCheese) text += ' + Extra queso'
+    const options = byCatalogOrder(catalog.extras, portion.extraIds)
+    if (options.length > 0) text += ` + ${options.join(', ')}`
 
     return count > 1 ? `${PORTION_FRACTIONS[count] ?? ''} ${text}` : text
   })
@@ -144,8 +158,12 @@ export function describePizza(config: PizzaConfig, catalog: PizzaCatalog): strin
 }
 
 function ingredientNames(ids: string[], catalog: PizzaCatalog): string[] {
-  return catalog.ingredients
-    .filter((ingredient) => ids.includes(ingredient.id))
+  return byCatalogOrder(catalog.ingredients, ids)
+}
+
+function byCatalogOrder(rows: { id: string; name: string; sortOrder: number }[], ids: string[]): string[] {
+  return rows
+    .filter((row) => ids.includes(row.id))
     .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name))
-    .map((ingredient) => ingredient.name)
+    .map((row) => row.name)
 }

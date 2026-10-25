@@ -1,11 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  createExtra,
   createIngredient,
   listAdminPizzaCatalog,
   saveStyle,
+  setExtraActive,
   setIngredientActive,
   setStyleActive,
-  updateExtras,
+  updateExtra,
+  updateExtraIngredientPrice,
   updateIngredient,
   updateSize,
 } from './pizzaAdminRepository'
@@ -57,7 +60,11 @@ describe('listAdminPizzaCatalog', () => {
         error: null,
       }),
       pizza_ingredients: query({ data: [{ id: 'i1', name: 'Jamón', sort_order: 1, active: false }], error: null }),
-      pizza_settings: query({ data: { extra_ingredient_cents: 500, extra_cheese_cents: 3000 }, error: null }),
+      pizza_extras: query({
+        data: [{ id: 'e1', name: 'Extra queso', price_cents: 3000, sort_order: 1, active: false }],
+        error: null,
+      }),
+      pizza_settings: query({ data: { extra_ingredient_cents: 500 }, error: null }),
     }
     from.mockImplementation((table: keyof typeof tables) => tables[table])
 
@@ -76,10 +83,14 @@ describe('listAdminPizzaCatalog', () => {
         },
       ],
       ingredients: [{ id: 'i1', name: 'Jamón', sortOrder: 1, active: false }],
-      extras: { extraIngredientCents: 500, extraCheeseCents: 3000 },
+      extraIngredientCents: 500,
+      extras: [{ id: 'e1', name: 'Extra queso', priceCents: 3000, sortOrder: 1, active: false }],
     })
     expect(tables.pizza_styles.eq).not.toHaveBeenCalled()
     expect(tables.pizza_ingredients.eq).not.toHaveBeenCalled()
+    expect(tables.pizza_extras.eq).not.toHaveBeenCalled()
+    expect(tables.pizza_extras.select).toHaveBeenCalledWith('id, name, price_cents, sort_order, active')
+    expect(tables.pizza_settings.select).toHaveBeenCalledWith('extra_ingredient_cents')
   })
 
   it('fails with one message when any table fails', async () => {
@@ -172,14 +183,14 @@ describe('size and extras writes', () => {
     expect(update.eq).toHaveBeenCalledWith('code', 'grande')
   })
 
-  it('updates the extra prices on the single settings row', async () => {
+  it('updates the extra ingredient price on the single settings row', async () => {
     const update = query({ error: null })
     from.mockReturnValue(update)
 
-    await updateExtras({ extraIngredientCents: 700, extraCheeseCents: 3500 })
+    await updateExtraIngredientPrice({ extraIngredientCents: 700 })
 
     expect(from).toHaveBeenCalledWith('pizza_settings')
-    expect(update.update).toHaveBeenCalledWith({ extra_ingredient_cents: 700, extra_cheese_cents: 3500 })
+    expect(update.update).toHaveBeenCalledWith({ extra_ingredient_cents: 700 })
     expect(update.eq).toHaveBeenCalledWith('id', true)
   })
 
@@ -189,8 +200,49 @@ describe('size and extras writes', () => {
     await expect(updateSize('grande', { name: 'Grande', allowedPortions: [1] })).rejects.toThrow(
       'No se pudo actualizar el tamaño.',
     )
-    await expect(updateExtras({ extraIngredientCents: 700, extraCheeseCents: 3500 })).rejects.toThrow(
-      'No se pudieron actualizar los extras.',
+    await expect(updateExtraIngredientPrice({ extraIngredientCents: 700 })).rejects.toThrow(
+      'No se pudo actualizar el precio del ingrediente extra.',
     )
+  })
+})
+
+describe('extra writes', () => {
+  it('creates and updates with the snake_case columns', async () => {
+    const insert = query({ error: null })
+    const update = query({ error: null })
+    from.mockReturnValueOnce(insert).mockReturnValueOnce(update)
+
+    await createExtra({ name: 'Orilla rellena', priceCents: 4000, sortOrder: 2, active: true })
+    await updateExtra('e1', { name: 'Orilla de queso', priceCents: 4500, sortOrder: 3, active: false })
+
+    expect(from).toHaveBeenCalledWith('pizza_extras')
+    expect(insert.insert).toHaveBeenCalledWith({ name: 'Orilla rellena', price_cents: 4000, sort_order: 2, active: true })
+    expect(update.update).toHaveBeenCalledWith({ name: 'Orilla de queso', price_cents: 4500, sort_order: 3, active: false })
+    expect(update.eq).toHaveBeenCalledWith('id', 'e1')
+  })
+
+  it('toggles the active state', async () => {
+    const update = query({ error: null })
+    from.mockReturnValue(update)
+
+    await setExtraActive('e1', false)
+
+    expect(from).toHaveBeenCalledWith('pizza_extras')
+    expect(update.update).toHaveBeenCalledWith({ active: false })
+    expect(update.eq).toHaveBeenCalledWith('id', 'e1')
+  })
+
+  it('reports a duplicate name and other failures', async () => {
+    from
+      .mockReturnValueOnce(query({ error: { code: '23505' } }))
+      .mockReturnValueOnce(query({ error: { code: 'x' } }))
+      .mockReturnValueOnce(query({ error: { code: 'x' } }))
+      .mockReturnValueOnce(query({ error: { code: 'x' } }))
+
+    const values = { name: 'Extra queso', priceCents: 3000, sortOrder: 1, active: true }
+    await expect(createExtra(values)).rejects.toThrow('Ya existe un extra con ese nombre.')
+    await expect(createExtra(values)).rejects.toThrow('No se pudo crear el extra.')
+    await expect(updateExtra('e1', values)).rejects.toThrow('No se pudo actualizar el extra.')
+    await expect(setExtraActive('e1', true)).rejects.toThrow('No se pudo cambiar el estado del extra.')
   })
 })
