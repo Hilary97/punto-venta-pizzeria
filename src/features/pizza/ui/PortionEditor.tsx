@@ -1,7 +1,7 @@
 import { useId } from 'react'
 import { MAX_EXTRA_INGREDIENTS } from '../domain/pizza'
-import type { PizzaIngredient, PizzaPortion, PizzaStyle } from '../domain/pizza'
-import { setPortionStyle, toggleExtra, toggleExtraCheese, toggleIngredient } from '../domain/pizzaBuilder'
+import type { PizzaExtra, PizzaIngredient, PizzaPortion, PizzaStyle } from '../domain/pizza'
+import { setPortionStyle, toggleExtra, toggleIngredient, togglePizzaExtra } from '../domain/pizzaBuilder'
 import { ToggleChip } from './ToggleChip'
 
 interface PortionEditorProps {
@@ -9,11 +9,12 @@ interface PortionEditorProps {
   portion: PizzaPortion
   styles: PizzaStyle[]
   ingredients: PizzaIngredient[]
+  extras: PizzaExtra[]
   onChange: (portion: PizzaPortion) => void
 }
 
-/** Style, ingredients, extras and extra cheese for one portion of the pizza. */
-export function PortionEditor({ title, portion, styles, ingredients, onChange }: PortionEditorProps) {
+/** Style, ingredients, extra ingredients and extras (Extra queso, ...) for one portion of the pizza. */
+export function PortionEditor({ title, portion, styles, ingredients, extras, onChange }: PortionEditorProps) {
   const styleId = useId()
   const style = styles.find((candidate) => candidate.id === portion.styleId)
 
@@ -85,9 +86,21 @@ export function PortionEditor({ title, portion, styles, ingredients, onChange }:
         </div>
       </fieldset>
 
-      <div>
-        <ToggleChip label="Extra queso" pressed={portion.extraCheese} onToggle={() => onChange(toggleExtraCheese(portion))} />
-      </div>
+      {extras.length > 0 && (
+        <fieldset className="flex flex-col gap-2">
+          <legend className="text-sm font-medium text-slate-700">Extras</legend>
+          <div className="flex flex-wrap gap-2">
+            {extras.map((extra) => (
+              <ToggleChip
+                key={extra.id}
+                label={extra.name}
+                pressed={portion.extraIds.includes(extra.id)}
+                onToggle={() => onChange(togglePizzaExtra(portion, extra.id))}
+              />
+            ))}
+          </div>
+        </fieldset>
+      )}
     </fieldset>
   )
 }

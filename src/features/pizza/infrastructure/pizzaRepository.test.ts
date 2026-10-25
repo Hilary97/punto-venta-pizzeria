@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { listPizzaCatalog, pizzaCatalogSchema } from './pizzaRepository'
+import { listPizzaCatalog, pizzaCatalogSchema, pizzaConfigSchema, toRpcPizzaConfig } from './pizzaRepository'
 
 const { from, rpc } = vi.hoisted(() => ({ from: vi.fn(), rpc: vi.fn() }))
 
@@ -38,6 +38,49 @@ describe('pizzaCatalogSchema dough_left', () => {
   it('maps an explicit null dough_left to unlimited', () => {
     const parsed = pizzaCatalogSchema.parse({ sizes: [{ ...sizes[0], dough_left: null }], styles: [], ingredients: [] })
     expect(parsed.sizes[0]?.doughLeft).toBeNull()
+  })
+})
+
+describe('pizza extras', () => {
+  it('defaults a catalog without extras to none', () => {
+    expect(pizzaCatalogSchema.parse({ sizes: [], styles: [], ingredients: [] }).extras).toEqual([])
+  })
+
+  it('loads only active extras in catalog order', async () => {
+    rpc.mockResolvedValue({ data: [], error: null })
+    const eq = vi.fn()
+    const order = vi.fn()
+    const extras = [{ id: 'queso', name: 'Extra queso', sort_order: 1 }]
+    from.mockImplementation((name: string) => {
+      if (name !== 'pizza_extras') return table(name === 'pizza_sizes' ? sizes : [])
+      const query: Record<string, unknown> = {
+        then: (resolve: (value: unknown) => unknown) => resolve({ data: extras, error: null }),
+      }
+      query.eq = (...args: unknown[]) => (eq(...args), query)
+      query.order = (...args: unknown[]) => (order(...args), query)
+      return { select: () => query }
+    })
+    const catalog = await listPizzaCatalog()
+    expect(catalog.extras).toEqual([{ id: 'queso', name: 'Extra queso', sortOrder: 1 }])
+    expect(eq).toHaveBeenCalledWith('active', true)
+    expect(order).toHaveBeenCalledWith('sort_order', { ascending: true })
+  })
+
+  it('maps extra_ids both ways and defaults them to none', () => {
+    const parsed = pizzaConfigSchema.parse({
+      size: 'chica',
+      portions: [
+        { style_id: 's1', extra_ids: ['queso', 'orilla'] },
+        { style_id: 's2' },
+      ],
+    })
+    expect(parsed.portions.map((portion) => portion.extraIds)).toEqual([['queso', 'orilla'], []])
+    expect(toRpcPizzaConfig(parsed).portions[0]).toEqual({
+      style_id: 's1',
+      ingredient_ids: [],
+      extra_ingredient_ids: [],
+      extra_ids: ['queso', 'orilla'],
+    })
   })
 })
 

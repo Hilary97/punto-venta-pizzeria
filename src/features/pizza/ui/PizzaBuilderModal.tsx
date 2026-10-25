@@ -40,6 +40,10 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose }: PizzaBuilderModal
     () => [...catalog.ingredients].sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name)),
     [catalog.ingredients],
   )
+  const extras = useMemo(
+    () => [...catalog.extras].sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name)),
+    [catalog.extras],
+  )
   const defaultStyleId = (styles.find((style) => style.kind === 'special') ?? styles[0])?.id ?? ''
 
   const [sizeCode, setSizeCode] = useState<PizzaSizeCode>(sizes[0]?.code ?? 'chica')
@@ -118,6 +122,7 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose }: PizzaBuilderModal
             portion={portion}
             styles={styles}
             ingredients={ingredients}
+            extras={extras}
             onChange={(next) => updatePortion(index, next)}
           />
         ))}

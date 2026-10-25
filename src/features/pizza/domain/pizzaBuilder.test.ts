@@ -7,15 +7,15 @@ import {
   resizePortions,
   setPortionStyle,
   toggleExtra,
-  toggleExtraCheese,
   toggleIngredient,
+  togglePizzaExtra,
 } from './pizzaBuilder'
 
 const special: PizzaStyle = { id: 'varas', name: 'Varas', description: '', kind: 'special', includedIngredients: 0, sortOrder: 1 }
 const custom: PizzaStyle = { id: 'custom', name: 'Arma', description: '', kind: 'custom', includedIngredients: 2, sortOrder: 2 }
 const chica: PizzaSize = { code: 'chica', name: 'Chica', allowedPortions: [1, 2], sortOrder: 1, doughLeft: null }
 
-const empty: PizzaPortion = { styleId: 'varas', ingredientIds: [], extraIngredientIds: [], extraCheese: false }
+const empty: PizzaPortion = { styleId: 'varas', ingredientIds: [], extraIngredientIds: [], extraIds: [] }
 
 describe('initialPortions', () => {
   it('creates the requested number of unset portions', () => {
@@ -83,10 +83,12 @@ describe('toggleExtra', () => {
   })
 })
 
-describe('toggleExtraCheese', () => {
-  it('flips the flag', () => {
-    expect(toggleExtraCheese(empty).extraCheese).toBe(true)
-    expect(toggleExtraCheese({ ...empty, extraCheese: true }).extraCheese).toBe(false)
+describe('togglePizzaExtra', () => {
+  it('adds and removes an extra, keeping the others', () => {
+    const withCheese = togglePizzaExtra(empty, 'queso')
+    expect(withCheese.extraIds).toEqual(['queso'])
+    expect(togglePizzaExtra(withCheese, 'orilla').extraIds).toEqual(['queso', 'orilla'])
+    expect(togglePizzaExtra({ ...empty, extraIds: ['queso', 'orilla'] }, 'queso').extraIds).toEqual(['orilla'])
   })
 })
 

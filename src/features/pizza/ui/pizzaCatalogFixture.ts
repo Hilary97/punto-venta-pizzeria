@@ -15,4 +15,8 @@ export const pizzaCatalogFixture: PizzaCatalog = {
     { id: 'jal', name: 'Jalapeños', sortOrder: 2 },
     { id: 'pina', name: 'Piña', sortOrder: 3 },
   ],
+  extras: [
+    { id: 'queso', name: 'Extra queso', sortOrder: 1 },
+    { id: 'orilla', name: 'Orilla rellena', sortOrder: 2 },
+  ],
 }
