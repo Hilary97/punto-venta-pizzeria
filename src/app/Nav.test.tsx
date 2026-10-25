@@ -33,6 +33,11 @@ it('shows cash links plus Pedidos to cashiers, without admin links', () => {
   auth.role = 'admin'
 })
 
+it('offers the light/dark mode toggle', () => {
+  render(<MemoryRouter><Nav /></MemoryRouter>)
+  expect(screen.getByRole('button', { name: /Cambiar a modo (oscuro|claro)/ })).toBeVisible()
+})
+
 it('shows every link to admins', () => {
   render(<MemoryRouter><Nav /></MemoryRouter>)
   for (const name of ['Pedidos', 'Cocina', 'Entrega', 'Venta', 'Historial de Ventas', 'Corte de caja', 'Productos', 'Inventario', 'Insumos', 'Pizzas', 'Historial de Cortes', 'Meseros'])

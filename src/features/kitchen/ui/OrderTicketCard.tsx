@@ -124,7 +124,7 @@ export function OrderTicketCard({
           {turn !== undefined && (
             <span
               aria-label={`Turno ${turn}`}
-              className="shrink-0 rounded-lg bg-slate-900 px-3 py-1 text-3xl font-black text-white"
+              className="shrink-0 rounded-lg bg-slate-900 px-3 py-1 text-3xl font-black text-white dark:text-slate-50"
             >
               #{turn}
             </span>

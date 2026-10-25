@@ -5,6 +5,7 @@ import { NavLink } from "react-router";
 import { cn } from "../shared/ui/cn";
 import { signOut } from "../features/auth/infrastructure/authRepository";
 import { useAuth } from "../features/auth/ui/AuthContext";
+import { ThemeToggle } from "../shared/theme/ThemeToggle";
 
 const NAV_LINK_CLASS = ({ isActive }: { isActive: boolean }) =>
   cn(
@@ -81,6 +82,7 @@ export function Nav() {
         )}
       </div>
       <div className="flex items-center gap-3">
+        <ThemeToggle />
         {profile && (
           <span className="hidden text-sm text-slate-500 sm:inline">
             {profile.fullName}

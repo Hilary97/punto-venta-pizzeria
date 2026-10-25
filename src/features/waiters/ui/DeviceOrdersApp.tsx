@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import { toUserMessage } from '../../../shared/errors'
+import { ThemeToggle } from '../../../shared/theme/ThemeToggle'
 import type { DeliverySource } from '../../kitchen/domain/kitchen'
 import { createDeviceDeliverySource } from '../../kitchen/infrastructure/kitchenRepository'
 import { DeliveryBoard } from '../../kitchen/ui/DeliveryBoard'
@@ -102,9 +103,12 @@ export function DeviceOrdersApp({ device }: { device: AuthorizedDevice }) {
     <div className="flex min-h-dvh flex-col bg-slate-50">
       <header className="flex h-16 items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 shadow-sm">
         <h1 className="break-words text-lg font-bold text-slate-900">Pedidos · {device.name}</h1>
-        <Link to="/login" className="shrink-0 text-sm text-slate-500 underline hover:text-slate-700">
-          Administrador
-        </Link>
+        <div className="flex shrink-0 items-center gap-2">
+          <ThemeToggle />
+          <Link to="/login" className="text-sm text-slate-500 underline hover:text-slate-700">
+            Administrador
+          </Link>
+        </div>
       </header>
       <main className="flex-1">
         <WaiterShiftGate api={api}>

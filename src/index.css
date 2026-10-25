@@ -1,7 +1,36 @@
 @import 'tailwindcss';
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   color-scheme: light;
+}
+
+/*
+ * Dark mode: `.dark` on <html> (see src/shared/theme) inverts the slate scale and turns white
+ * surfaces dark, so existing light classes adapt without per-component `dark:` variants.
+ * Brand colors (red, amber, sky, ...) keep their values. Screen only: printing stays light.
+ */
+@media screen {
+  .dark {
+    --color-slate-50: oklch(12.9% 0.042 264.695);
+    --color-slate-100: oklch(27.9% 0.041 260.031);
+    --color-slate-200: oklch(37.2% 0.044 257.287);
+    --color-slate-300: oklch(44.6% 0.043 257.281);
+    --color-slate-400: oklch(55.4% 0.046 257.417);
+    --color-slate-500: oklch(70.4% 0.04 256.788);
+    --color-slate-600: oklch(78% 0.03 255);
+    --color-slate-700: oklch(86.9% 0.022 252.894);
+    --color-slate-800: oklch(92.9% 0.013 255.508);
+    --color-slate-900: oklch(96.8% 0.007 247.896);
+    --color-slate-950: oklch(98.4% 0.003 247.858);
+  }
+
+  @layer utilities {
+    :where(.dark) .bg-white {
+      background-color: oklch(20.8% 0.042 265.755);
+    }
+  }
 }
 
 body {
