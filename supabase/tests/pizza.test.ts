@@ -82,8 +82,10 @@ describe('pizza catalog seed', () => {
     )
     expect(counts.rows[0]).toEqual({ styles: 17, ingredients: 15, prices: 51, sizes: 3 })
 
-    const settings = await db.query(`select extra_ingredient_cents, extra_cheese_cents from public.pizza_settings`)
-    expect(settings.rows).toEqual([{ extra_ingredient_cents: 500, extra_cheese_cents: 3000 }])
+    const settings = await db.query(`select extra_ingredient_cents from public.pizza_settings`)
+    expect(settings.rows).toEqual([{ extra_ingredient_cents: 500 }])
+    const extras = await db.query(`select name, price_cents from public.pizza_extras`)
+    expect(extras.rows).toEqual([{ name: 'Extra queso', price_cents: 3000 }])
   })
 
   it('seeds Hawaiana, Italiana and Pepperoni at 210/190/110 (grande/mediana/chica)', async () => {
