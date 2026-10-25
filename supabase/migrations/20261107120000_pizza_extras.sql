@@ -10,6 +10,7 @@
 --     of `extra_cheese`. Stored order lines are rewritten once here; a client
 --     that still sends `extra_cheese: true` gets Extra queso.
 --   * Extras are never hard-deleted (order lines reference them): deactivate.
+--     There is no delete policy or grant.
 --   * Prices stay server-side: the builder catalog has no prices.
 --
 -- Runs as one script (Supabase SQL Editor).
@@ -34,17 +35,15 @@ create policy pizza_extras_insert on public.pizza_extras
   for insert to authenticated with check (public.is_admin());
 create policy pizza_extras_update on public.pizza_extras
   for update to authenticated using (public.is_admin()) with check (public.is_admin());
-create policy pizza_extras_delete on public.pizza_extras
-  for delete to authenticated using (public.is_admin());
-
-revoke all on public.pizza_extras from anon;
-grant select, insert, update, delete on public.pizza_extras to authenticated;
+revoke all on public.pizza_extras from anon, authenticated;
+grant select, insert, update on public.pizza_extras to authenticated;
 
 -- Fixed id: legacy `extra_cheese: true` resolves to this row.
 create or replace function public.pizza_cheese_extra_id()
 returns uuid
 language sql
 immutable
+set search_path = ''
 as $$
   select '00000000-0000-4000-8000-000000000001'::uuid
 $$;
@@ -60,6 +59,8 @@ where id;
 -- B. Stored order lines: extra_cheese -> extra_ids
 -- ============================================================================
 
+-- Safe to run again: portions that already have extra_ids, are not objects or
+-- carry a non-boolean extra_cheese are left as they are.
 update public.order_items i
 set pizza = jsonb_set(
   i.pizza,
@@ -67,13 +68,17 @@ set pizza = jsonb_set(
   (
     select coalesce(
       jsonb_agg(
-        (e.p - 'extra_cheese') || jsonb_build_object(
-          'extra_ids',
-          case
-            when e.p -> 'extra_cheese' = 'true'::jsonb then jsonb_build_array(public.pizza_cheese_extra_id())
-            else '[]'::jsonb
-          end
-        )
+        case
+          when jsonb_typeof(e.p) <> 'object' or e.p ? 'extra_ids' then e.p
+          when coalesce(jsonb_typeof(e.p -> 'extra_cheese'), 'null') not in ('null', 'boolean') then e.p
+          else (e.p - 'extra_cheese') || jsonb_build_object(
+            'extra_ids',
+            case
+              when e.p -> 'extra_cheese' = 'true'::jsonb then jsonb_build_array(public.pizza_cheese_extra_id())
+              else '[]'::jsonb
+            end
+          )
+        end
         order by e.ord
       ),
       '[]'::jsonb

@@ -1,4 +1,6 @@
 // @vitest-environment node
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { applyMigration, asAnon, asSuperuser, asUser, createProfile, createTestDb, loadFixture, type TestDb } from './db.ts'
 
@@ -105,6 +107,29 @@ describe('migrating extra cheese into the extras list', () => {
     expect(after.lines[0].name).toBe(before.lines[0].name)
     expect(after.lines[0].name).toBe("Pizza Grande · Mitades: ½ Estilo Varas + Jalapeños + Extra queso | ½ Estilo Chuy's")
   })
+
+  it('keeps migrated lines intact when the rewrite statement runs again', async () => {
+    const orderId = await createOrder([pizzaLine('chica', [portion('Estilo Varas', { extra_cheese: true })])])
+    await asSuperuser(db)
+    await applyMigration(db, MIGRATION)
+    const sql = readFileSync(join(import.meta.dirname, '..', 'migrations', MIGRATION), 'utf8')
+    const rewrite = sql.slice(sql.indexOf('update public.order_items'), sql.indexOf('alter table public.pizza_settings'))
+    await db.exec(rewrite)
+
+    const stored = await db.query<{ pizza: Json }>(`select pizza from public.order_items where order_id = $1`, [orderId])
+    expect(stored.rows[0].pizza.portions[0].extra_ids).toEqual([CHEESE_ID])
+  })
+
+  it('leaves non-object portions and non-boolean extra_cheese untouched', async () => {
+    const orderId = await createOrder([pizzaLine('chica', [portion('Estilo Varas')])])
+    await asSuperuser(db)
+    const odd = { size: 'chica', portions: [7, { style_id: styleIds['Estilo Varas'], extra_cheese: 'true' }] }
+    await db.query(`update public.order_items set pizza = $2::jsonb where order_id = $1`, [orderId, JSON.stringify(odd)])
+    await applyMigration(db, MIGRATION)
+
+    const stored = await db.query<{ pizza: Json }>(`select pizza from public.order_items where order_id = $1`, [orderId])
+    expect(stored.rows[0].pizza).toEqual(odd)
+  })
 })
 
 describe('pizza extras', () => {
@@ -208,6 +233,15 @@ describe('pizza extras', () => {
     await asSuperuser(db)
     const prices = await db.query(`select price_cents from public.pizza_extras where id = $1`, [orilla])
     expect(prices.rows).toEqual([{ price_cents: 4500 }])
+  })
+
+  it('never lets anyone hard-delete an extra', async () => {
+    await asUser(db, admin)
+    const deleted = await db.query(`delete from public.pizza_extras where id = $1`, [orilla]).catch(() => ({ affectedRows: 0 }))
+    expect(deleted.affectedRows ?? 0).toBe(0)
+    await asSuperuser(db)
+    const count = await db.query<{ n: number }>(`select count(*)::int as n from public.pizza_extras`)
+    expect(count.rows[0].n).toBe(2)
   })
 
   it('rejects a duplicate or blank name and a non-positive price', async () => {
