@@ -276,20 +276,39 @@ export interface Database {
           active?: boolean
         }
       }
+      pizza_extras: EmptyRelationships & {
+        Row: {
+          id: string
+          name: string
+          price_cents: number
+          sort_order: number
+          active: boolean
+        }
+        Insert: {
+          id?: string
+          name: string
+          price_cents: number
+          sort_order?: number
+          active?: boolean
+        }
+        Update: {
+          name?: string
+          price_cents?: number
+          sort_order?: number
+          active?: boolean
+        }
+      }
       pizza_settings: EmptyRelationships & {
         Row: {
           id: boolean
           extra_ingredient_cents: number
-          extra_cheese_cents: number
         }
         Insert: {
           id?: boolean
           extra_ingredient_cents: number
-          extra_cheese_cents: number
         }
         Update: {
           extra_ingredient_cents?: number
-          extra_cheese_cents?: number
         }
       }
       supplies: EmptyRelationships & {

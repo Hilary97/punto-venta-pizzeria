@@ -22,10 +22,13 @@ export interface AdminPizzaIngredient {
   active: boolean
 }
 
-/** Prices charged per portion for each extra ingredient and for extra cheese. */
-export interface PizzaExtras {
-  extraIngredientCents: number
-  extraCheeseCents: number
+/** An extra toggled per portion, active or not, with its price in cents per portion. */
+export interface AdminPizzaExtra {
+  id: string
+  name: string
+  priceCents: number
+  sortOrder: number
+  active: boolean
 }
 
 /** Everything the pizza builder reads, including inactive rows and prices. */
@@ -33,7 +36,9 @@ export interface AdminPizzaCatalog {
   sizes: AdminPizzaSize[]
   styles: AdminPizzaStyle[]
   ingredients: AdminPizzaIngredient[]
-  extras: PizzaExtras
+  /** Price charged per portion for each extra ingredient. */
+  extraIngredientCents: number
+  extras: AdminPizzaExtra[]
 }
 
 export const MAX_PORTIONS = 4
@@ -93,9 +98,17 @@ export const sizeFormSchema = z.object({
 
 export type SizeFormValues = z.infer<typeof sizeFormSchema>
 
-export const extrasFormSchema = z.object({
+export const extraIngredientPriceFormSchema = z.object({
   extraIngredientCents: priceSchema,
-  extraCheeseCents: priceSchema,
 })
 
-export type ExtrasFormValues = z.infer<typeof extrasFormSchema>
+export type ExtraIngredientPriceFormValues = z.infer<typeof extraIngredientPriceFormSchema>
+
+export const extraFormSchema = z.object({
+  name: z.string().trim().min(1, { error: NAME_REQUIRED }).max(60, { error: 'El nombre es demasiado largo.' }),
+  priceCents: priceSchema,
+  sortOrder: sortOrderSchema,
+  active: z.boolean(),
+})
+
+export type ExtraFormValues = z.infer<typeof extraFormSchema>

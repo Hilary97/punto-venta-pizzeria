@@ -5,30 +5,28 @@ import { Button } from '../../../shared/ui/Button'
 import { ErrorBanner } from '../../../shared/ui/ErrorBanner'
 import { Input } from '../../../shared/ui/Input'
 import { Modal } from '../../../shared/ui/Modal'
-import { extrasFormSchema, type ExtrasFormValues, type PizzaExtras } from '../domain/pizzaAdmin'
+import { extraIngredientPriceFormSchema, type ExtraIngredientPriceFormValues } from '../domain/pizzaAdmin'
 import { centsToInput } from './pizzaAdminForm'
 
-interface PizzaExtrasFormModalProps {
-  initial: PizzaExtras
-  onSubmit: (values: ExtrasFormValues) => Promise<void>
+interface PizzaExtraIngredientPriceModalProps {
+  initialCents: number
+  onSubmit: (values: ExtraIngredientPriceFormValues) => Promise<void>
   onClose: () => void
 }
 
-export function PizzaExtrasFormModal({ initial, onSubmit, onClose }: PizzaExtrasFormModalProps) {
-  const [ingredientInput, setIngredientInput] = useState(centsToInput(initial.extraIngredientCents))
-  const [cheeseInput, setCheeseInput] = useState(centsToInput(initial.extraCheeseCents))
+export function PizzaExtraIngredientPriceModal({ initialCents, onSubmit, onClose }: PizzaExtraIngredientPriceModalProps) {
+  const [ingredientInput, setIngredientInput] = useState(centsToInput(initialCents))
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const extraIngredientCents = parseMoneyInput(ingredientInput)
-    const extraCheeseCents = parseMoneyInput(cheeseInput)
-    if (extraIngredientCents === null || extraCheeseCents === null) {
+    if (extraIngredientCents === null) {
       setError('Ingresa un precio válido, por ejemplo 150.50.')
       return
     }
-    const parsed = extrasFormSchema.safeParse({ extraIngredientCents, extraCheeseCents })
+    const parsed = extraIngredientPriceFormSchema.safeParse({ extraIngredientCents })
     if (!parsed.success) {
       setError(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
       return
@@ -46,7 +44,7 @@ export function PizzaExtrasFormModal({ initial, onSubmit, onClose }: PizzaExtras
   }
 
   return (
-    <Modal title="Precios de extras" onClose={onClose}>
+    <Modal title="Precio de ingrediente extra" onClose={onClose}>
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         {error && <ErrorBanner message={error} />}
         <Input
@@ -56,14 +54,7 @@ export function PizzaExtrasFormModal({ initial, onSubmit, onClose }: PizzaExtras
           value={ingredientInput}
           onChange={(e) => setIngredientInput(e.target.value)}
         />
-        <Input
-          id="pizza-extra-cheese"
-          label="Extra queso (MXN)"
-          inputMode="decimal"
-          value={cheeseInput}
-          onChange={(e) => setCheeseInput(e.target.value)}
-        />
-        <p className="text-xs text-slate-500">Se cobran por porción de la pizza.</p>
+        <p className="text-xs text-slate-500">Se cobra por porción de la pizza.</p>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="ghost" onClick={onClose}>
             Cancelar

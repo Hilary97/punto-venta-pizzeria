@@ -7,25 +7,31 @@ import { Spinner } from '../../../shared/ui/Spinner'
 import { portionLabel } from '../domain/pizza'
 import type {
   AdminPizzaCatalog,
+  AdminPizzaExtra,
   AdminPizzaIngredient,
   AdminPizzaSize,
   AdminPizzaStyle,
-  ExtrasFormValues,
+  ExtraFormValues,
+  ExtraIngredientPriceFormValues,
   IngredientFormValues,
   SizeFormValues,
   StyleFormValues,
 } from '../domain/pizzaAdmin'
 import {
+  createExtra,
   createIngredient,
   listAdminPizzaCatalog,
   saveStyle,
+  setExtraActive,
   setIngredientActive,
   setStyleActive,
-  updateExtras,
+  updateExtra,
+  updateExtraIngredientPrice,
   updateIngredient,
   updateSize,
 } from '../infrastructure/pizzaAdminRepository'
-import { PizzaExtrasFormModal } from './PizzaExtrasFormModal'
+import { PizzaExtraFormModal } from './PizzaExtraFormModal'
+import { PizzaExtraIngredientPriceModal } from './PizzaExtraIngredientPriceModal'
 import { PizzaIngredientFormModal } from './PizzaIngredientFormModal'
 import { PizzaSizeFormModal } from './PizzaSizeFormModal'
 import { PizzaStyleFormModal } from './PizzaStyleFormModal'
@@ -36,7 +42,8 @@ type ModalState =
   | { kind: 'size'; size: AdminPizzaSize }
   | { kind: 'style'; style?: AdminPizzaStyle }
   | { kind: 'ingredient'; ingredient?: AdminPizzaIngredient }
-  | { kind: 'extras' }
+  | { kind: 'extra'; extra?: AdminPizzaExtra }
+  | { kind: 'extraIngredientPrice' }
 
 const HEAD_CELL = 'px-4 py-3 font-semibold'
 const CELL = 'px-4 py-3'
@@ -112,8 +119,18 @@ export function AdminPizzasPage() {
     await reload()
   }
 
-  async function handleExtras(values: ExtrasFormValues) {
-    await updateExtras(values)
+  async function handleExtra(values: ExtraFormValues) {
+    if (modal.kind !== 'extra') return
+    if (modal.extra) {
+      await updateExtra(modal.extra.id, values)
+    } else {
+      await createExtra(values)
+    }
+    await reload()
+  }
+
+  async function handleExtraIngredientPrice(values: ExtraIngredientPriceFormValues) {
+    await updateExtraIngredientPrice(values)
     await reload()
   }
 
@@ -221,26 +238,43 @@ export function AdminPizzasPage() {
           <AdminSection
             id="pizza-extras"
             title="Extras"
-            action={
-              <Button variant="secondary" onClick={() => setModal({ kind: 'extras' })}>
-                Editar extras
-              </Button>
-            }
+            action={<Button onClick={() => setModal({ kind: 'extra' })}>Nuevo extra</Button>}
           >
-            <dl className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 text-sm sm:grid-cols-2">
-              <div>
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4 text-sm">
+              <dl>
                 <dt className="text-slate-500">Ingrediente extra (por porción)</dt>
                 <dd className="text-lg font-semibold text-slate-900">
-                  <MoneyText cents={catalog.extras.extraIngredientCents} />
+                  <MoneyText cents={catalog.extraIngredientCents} />
                 </dd>
-              </div>
-              <div>
-                <dt className="text-slate-500">Extra queso (por porción)</dt>
-                <dd className="text-lg font-semibold text-slate-900">
-                  <MoneyText cents={catalog.extras.extraCheeseCents} />
-                </dd>
-              </div>
-            </dl>
+              </dl>
+              <Button variant="secondary" onClick={() => setModal({ kind: 'extraIngredientPrice' })}>
+                Editar precio
+              </Button>
+            </div>
+            <Table headers={['Orden', 'Extra', 'Precio (por porción)', 'Estado', 'Acciones']}>
+              {catalog.extras.map((extra) => (
+                <tr key={extra.id}>
+                  <td className={`${CELL} text-slate-500`}>{extra.sortOrder}</td>
+                  <td className={`${CELL} font-medium text-slate-900`}>{extra.name}</td>
+                  <td className={CELL}>
+                    <MoneyText cents={extra.priceCents} />
+                  </td>
+                  <td className={CELL}>
+                    <ActiveBadge active={extra.active} />
+                  </td>
+                  <td className={CELL}>
+                    <div className="flex gap-2">
+                      <Button variant="ghost" onClick={() => setModal({ kind: 'extra', extra })}>
+                        Editar
+                      </Button>
+                      <Button variant="ghost" onClick={() => runAction(() => setExtraActive(extra.id, !extra.active))}>
+                        {extra.active ? 'Desactivar' : 'Activar'}
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </Table>
           </AdminSection>
 
           {modal.kind === 'size' && <PizzaSizeFormModal size={modal.size} onSubmit={handleSize} onClose={close} />}
@@ -261,8 +295,20 @@ export function AdminPizzasPage() {
               onClose={close}
             />
           )}
-          {modal.kind === 'extras' && (
-            <PizzaExtrasFormModal initial={catalog.extras} onSubmit={handleExtras} onClose={close} />
+          {modal.kind === 'extra' && (
+            <PizzaExtraFormModal
+              initial={modal.extra}
+              defaultSortOrder={nextSortOrder(catalog.extras)}
+              onSubmit={handleExtra}
+              onClose={close}
+            />
+          )}
+          {modal.kind === 'extraIngredientPrice' && (
+            <PizzaExtraIngredientPriceModal
+              initialCents={catalog.extraIngredientCents}
+              onSubmit={handleExtraIngredientPrice}
+              onClose={close}
+            />
           )}
         </>
       )}
