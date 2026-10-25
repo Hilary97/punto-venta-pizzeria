@@ -148,11 +148,11 @@ describe('constraints', () => {
     await expect(insertVariants(['Res', ' '])).rejects.toThrow()
     await expect(insertVariants(['Res', 'res'])).rejects.toThrow()
     await expect(insertVariants(['x'.repeat(41)])).rejects.toThrow()
-    await expect(insertVariants(Array.from({ length: 16 }, (_, i) => `v${i}`))).rejects.toThrow(/products_variants_valid/)
+    await expect(insertVariants(Array.from({ length: 17 }, (_, i) => `v${i}`))).rejects.toThrow(/products_variants_valid/)
   })
 
-  it('accepts up to 15 variants', async () => {
-    await expect(insertVariants(Array.from({ length: 15 }, (_, i) => `v${i}`))).resolves.toBeUndefined()
+  it('accepts up to 16 variants', async () => {
+    await expect(insertVariants(Array.from({ length: 16 }, (_, i) => `v${i}`))).resolves.toBeUndefined()
   })
 
   it('accepts a valid list', async () => {

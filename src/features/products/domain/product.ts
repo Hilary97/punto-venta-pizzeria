@@ -51,7 +51,7 @@ export const productFormSchema = z.object({
   active: z.boolean(),
   variants: z
     .array(z.string().trim().min(1, { error: 'Las variantes no pueden estar vacías.' }).max(40))
-    .max(15, { error: 'Máximo 15 variantes.' })
+    .max(16, { error: 'Máximo 16 variantes.' })
     .refine((list) => new Set(list.map((v) => v.toLowerCase())).size === list.length, {
       error: 'Las variantes no pueden repetirse.',
     }),

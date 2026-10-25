@@ -23,12 +23,12 @@ describe('productFormSchema variants', () => {
     expect(productFormSchema.safeParse({ ...base, variants: ['Res', 'res'] }).success).toBe(false)
   })
 
-  it('accepts up to 15 variants and rejects more', () => {
+  it('accepts up to 16 variants and rejects more', () => {
     const variants = (length: number) => Array.from({ length }, (_, i) => `V${i}`)
-    expect(productFormSchema.safeParse({ ...base, variants: variants(15) }).success).toBe(true)
-    const tooMany = productFormSchema.safeParse({ ...base, variants: variants(16) })
+    expect(productFormSchema.safeParse({ ...base, variants: variants(16) }).success).toBe(true)
+    const tooMany = productFormSchema.safeParse({ ...base, variants: variants(17) })
     expect(tooMany.success).toBe(false)
-    expect(tooMany.error?.issues[0]?.message).toBe('Máximo 15 variantes.')
+    expect(tooMany.error?.issues[0]?.message).toBe('Máximo 16 variantes.')
   })
 
   it('rejects empty and over-long variants', () => {

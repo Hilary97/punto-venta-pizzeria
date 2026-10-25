@@ -21,8 +21,8 @@ describe('VariantPickerModal', () => {
     expect(screen.getByRole('button', { name: 'V0' }).parentElement).not.toHaveClass('grid-cols-2')
     unmount()
 
-    render(<VariantPickerModal productName="Alitas" variants={variants(15)} onPick={vi.fn()} onClose={vi.fn()} />)
-    expect(screen.getAllByRole('button', { name: /^V\d+$/ })).toHaveLength(15)
+    render(<VariantPickerModal productName="Alitas" variants={variants(16)} onPick={vi.fn()} onClose={vi.fn()} />)
+    expect(screen.getAllByRole('button', { name: /^V\d+$/ })).toHaveLength(16)
     expect(screen.getByRole('button', { name: 'V0' }).parentElement).toHaveClass('grid-cols-2')
   })
 
