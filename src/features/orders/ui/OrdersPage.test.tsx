@@ -413,12 +413,12 @@ describe('OrdersPage', () => {
       renderPage()
       const waiting = (await screen.findByText('Ana')).closest('li')!
       expect(within(waiting).getByText('Programado')).toBeVisible()
-      expect(within(waiting).getByText('Para las 14:30')).toBeVisible()
+      expect(within(waiting).getByText('Para las 2:30 p.m.')).toBeVisible()
       expect(within(waiting).queryByText('Sin ficha')).not.toBeInTheDocument()
 
       const queued = screen.getByText('Beto').closest('li')!
       expect(within(queued).getByText('Ficha 3')).toBeVisible()
-      expect(within(queued).getByText('Para las 13:00')).toBeVisible()
+      expect(within(queued).getByText('Para las 1:00 p.m.')).toBeVisible()
     })
   })
 

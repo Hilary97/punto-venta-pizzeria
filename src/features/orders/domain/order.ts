@@ -104,11 +104,14 @@ export function isFuturePickupTime(hhmm: string, now: Date): boolean {
   return iso !== null && Date.parse(iso) > now.getTime()
 }
 
-/** Label for a pickup time in 24-hour device time, e.g. `Para las 14:30`. */
+/** Label for a pickup time in 12-hour device time, e.g. `Para las 2:30 p.m.`. */
 export function pickupTimeLabel(iso: string): string {
   const date = new Date(iso)
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `Para las ${pad(date.getHours())}:${pad(date.getMinutes())}`
+  const hours = date.getHours()
+  const hour12 = hours % 12 === 0 ? 12 : hours % 12
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  const period = hours < 12 ? 'a.m.' : 'p.m.'
+  return `Para las ${hour12}:${minutes} ${period}`
 }
 
 export const PICKUP_TIME_ERROR = 'La hora del pedido debe ser más tarde hoy.'

@@ -143,8 +143,10 @@ describe('pickup time', () => {
     expect(isFuturePickupTime('ab', now)).toBe(false)
   })
 
-  it('labels the time in 24-hour format', () => {
-    expect(pickupTimeLabel(new Date(2026, 9, 21, 14, 5).toISOString())).toBe('Para las 14:05')
-    expect(pickupTimeLabel(new Date(2026, 9, 21, 9, 30).toISOString())).toBe('Para las 09:30')
+  it('labels the time in 12-hour format', () => {
+    expect(pickupTimeLabel(new Date(2026, 9, 21, 14, 5).toISOString())).toBe('Para las 2:05 p.m.')
+    expect(pickupTimeLabel(new Date(2026, 9, 21, 9, 30).toISOString())).toBe('Para las 9:30 a.m.')
+    expect(pickupTimeLabel(new Date(2026, 9, 21, 12, 0).toISOString())).toBe('Para las 12:00 p.m.')
+    expect(pickupTimeLabel(new Date(2026, 9, 21, 0, 15).toISOString())).toBe('Para las 12:15 a.m.')
   })
 })

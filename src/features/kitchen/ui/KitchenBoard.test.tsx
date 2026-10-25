@@ -93,7 +93,7 @@ describe('KitchenBoard', () => {
     render(<KitchenBoard source={makeSource([orders])} stationLabel="Pizzas" />)
     await screen.findByText('M-1')
     expect(screen.getAllByText(/Para las/)).toHaveLength(1)
-    expect(screen.getByText('Para las 14:30')).toBeVisible()
+    expect(screen.getByText('Para las 2:30 p.m.')).toBeVisible()
   })
 
   it('lists waiting scheduled orders under Programados, without turn, token or ready button', async () => {
@@ -119,7 +119,7 @@ describe('KitchenBoard', () => {
     expect(within(card).queryByLabelText(/^Turno/)).toBeNull()
     expect(within(card).queryByText(/Ficha|Sin ficha/)).toBeNull()
     expect(within(card).getByText('Programado')).toBeVisible()
-    expect(within(card).getByText('Para las 14:30')).toBeVisible()
+    expect(within(card).getByText('Para las 2:30 p.m.')).toBeVisible()
     expect(within(card).queryByRole('button')).toBeNull()
     expect(card).toHaveAttribute('data-delay', 'ok')
     expect(screen.getAllByRole('button', { name: 'Marcar pedido listo' })).toHaveLength(1)
