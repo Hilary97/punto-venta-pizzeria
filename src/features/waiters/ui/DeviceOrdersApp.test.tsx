@@ -89,6 +89,12 @@ describe('DeviceOrdersApp', () => {
     expect(screen.queryByText(/venta|corte/i)).not.toBeInTheDocument()
   })
 
+  it('offers the light/dark mode toggle', async () => {
+    renderApp()
+    await screen.findByText('Pedidos · Tablet barra')
+    expect(screen.getByRole('button', { name: /Cambiar a modo (oscuro|claro)/ })).toBeVisible()
+  })
+
   it('lists the waiters with the stored device secret', async () => {
     renderApp()
     expect(await screen.findByRole('button', { name: 'Carlos' })).toBeVisible()

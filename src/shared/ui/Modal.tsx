@@ -13,7 +13,7 @@ interface ModalProps {
 export function Modal({ title, onClose, children, wide = false }: ModalProps) {
   const titleId = useId()
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 p-0 sm:items-center sm:p-4">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 p-0 dark:bg-black/60 sm:items-center sm:p-4">
       <div
         role="dialog"
         aria-modal="true"
