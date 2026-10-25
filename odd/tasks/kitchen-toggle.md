@@ -12,9 +12,9 @@ Admin can switch the kitchen screens off; orders and payment keep working and no
 
 ## Tasks
 
-- T1 (S1-S4) — migration + PGlite tests: `kitchen_settings`, `set_kitchen_enabled`, insert trigger, finish pending on switch-off. Route: inline. Commit: pending.
-- T2 (S1) — admin switch on /cocina + repository + tests. Route: inline. Commit: pending.
-- T3 — verify (high risk: rewrites stored order lines). Route: verify. Commit: n/a.
+- T1 (S1-S4) — migration + PGlite tests: `kitchen_settings`, `set_kitchen_enabled`, insert trigger, finish pending on switch-off. Route: inline. Commit: 9447def (PGlite RED 9/9 -> GREEN 10/10; queued_at fix pinned by the scheduled test; 310 db tests).
+- T2 (S1) — admin switch on /cocina + repository + tests. Route: inline. Commit: fdb43f4 (RED observed: missing modules, then KitchenEntry admin/cashier; 961 tests, tsc 0, no new lint warnings, build OK).
+- T3 — verify (high risk: rewrites stored order lines). Route: inline (independent verifier launch was refused by the runtime). Done: PASS S1-S4 by tests; review: only orders in service are touched, cancel/stock/sales untouched, finish_kitchen_lines and the trigger function revoked from clients. Notes: (a) while off, repeated non-kitchen products (drinks) become separate lines instead of merging quantity (merge index needs delivered_at is null); totals unaffected. (b) Switching off exactly while an item is being added to an existing order can raise a deadlock error on one side; Postgres aborts it and a retry works; no line is left behind.
 
 ## Log
 
