@@ -1,16 +1,20 @@
 import { useMemo, useState } from 'react'
 import { cn } from '../../../shared/ui/cn'
+import { useAuth } from '../../auth/ui/AuthContext'
 import { KITCHEN_STATIONS, STATION_LABELS, type KitchenStation } from '../domain/kitchen'
 import { authenticatedKitchenSource } from '../infrastructure/kitchenRepository'
 import { KitchenBoard } from './KitchenBoard'
+import { KitchenSwitch } from './KitchenSwitch'
 
 /** Admin/cashier kitchen view: one board per station, switched with tabs. */
 export function KitchenPage() {
+  const { profile } = useAuth()
   const [station, setStation] = useState<KitchenStation>('pizza')
   const source = useMemo(() => authenticatedKitchenSource(station), [station])
 
   return (
     <div className="flex flex-col">
+      <KitchenSwitch canEdit={profile?.role === 'admin'} />
       <div role="tablist" aria-label="Estación de cocina" className="flex gap-2 px-4 pt-4">
         {KITCHEN_STATIONS.map((value) => (
           <button

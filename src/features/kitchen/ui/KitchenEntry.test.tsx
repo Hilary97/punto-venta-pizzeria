@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAuth } from '../../auth/ui/AuthContext'
 import { saveDevice } from '../../waiters/domain/deviceStorage'
 import { authenticatedKitchenSource, createDeviceKitchenSource } from '../infrastructure/kitchenRepository'
+import { fetchKitchenEnabled } from '../infrastructure/kitchenSettingsRepository'
 import { KitchenEntry } from './KitchenEntry'
 
 vi.mock('../../auth/ui/AuthContext', () => ({ useAuth: vi.fn() }))
@@ -15,6 +16,10 @@ vi.mock('../../cash-register/ui/CashSessionContext', () => ({
 vi.mock('../infrastructure/kitchenRepository', () => ({
   createDeviceKitchenSource: vi.fn(),
   authenticatedKitchenSource: vi.fn(),
+}))
+vi.mock('../infrastructure/kitchenSettingsRepository', () => ({
+  fetchKitchenEnabled: vi.fn(),
+  setKitchenEnabled: vi.fn(),
 }))
 
 function mockAuth(role: 'admin' | 'cashier' | 'waiter' | null) {
@@ -47,6 +52,7 @@ function renderAt(path = '/cocina') {
 
 beforeEach(() => {
   vi.resetAllMocks()
+  vi.mocked(fetchKitchenEnabled).mockResolvedValue(true)
   localStorage.clear()
 })
 
@@ -116,6 +122,24 @@ describe('KitchenEntry', () => {
     expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['Pizzas', 'Hamburguesas y botanas', 'Bebidas preparadas'])
     await userEvent.click(screen.getByRole('tab', { name: 'Bebidas preparadas' }))
     expect(authenticatedKitchenSource).toHaveBeenCalledWith('drinks')
+  })
+
+  it('shows the kitchen switch to an admin only', async () => {
+    mockAuth('admin')
+    vi.mocked(fetchKitchenEnabled).mockResolvedValue(true)
+    vi.mocked(authenticatedKitchenSource).mockImplementation(() => source())
+    renderAt()
+    expect(await screen.findByRole('button', { name: 'Desactivar cocina' })).toBeVisible()
+  })
+
+  it('hides the kitchen switch from a cashier', async () => {
+    mockAuth('cashier')
+    vi.mocked(fetchKitchenEnabled).mockResolvedValue(true)
+    vi.mocked(authenticatedKitchenSource).mockImplementation(() => source())
+    renderAt()
+    expect(await screen.findByRole('tab', { name: 'Pizzas' })).toBeVisible()
+    await vi.waitFor(() => expect(fetchKitchenEnabled).toHaveBeenCalled())
+    expect(screen.queryByRole('button', { name: /cocina/ })).not.toBeInTheDocument()
   })
 
   it('redirects signed-out browsers without a device to login', async () => {

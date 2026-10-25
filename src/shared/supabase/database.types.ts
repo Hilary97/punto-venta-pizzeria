@@ -477,6 +477,8 @@ export interface Database {
         Returns: unknown
       }
       list_kitchen_orders: { Args: { p_station: string }; Returns: unknown }
+      kitchen_enabled: { Args: Record<PropertyKey, never>; Returns: unknown }
+      set_kitchen_enabled: { Args: { p_enabled: boolean }; Returns: unknown }
       mark_station_ready: {
         Args: { p_order_id: string; p_station: string; p_line_ids: string[] }
         Returns: unknown
