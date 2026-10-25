@@ -903,5 +903,18 @@ describe('stock in the product grid', () => {
     await user.click(beer)
     expect(beer).toHaveClass('border-emerald-600')
   })
+
+  it('gives a product in the order a dark background in dark mode so its name stays readable', async () => {
+    const user = userEvent.setup()
+    vi.mocked(listProducts).mockResolvedValue([
+      { id: 'beer', categoryId: 'pizza', name: 'Cerveza', priceCents: 4000, active: true, variants: [], trackStock: false, stock: 0, stockMin: 0 },
+    ])
+    renderPage()
+    await showCategory(user)
+    const beer = screen.getByRole('button', { name: /Cerveza/ })
+    expect(beer).not.toHaveClass('dark:bg-emerald-950/60')
+    await user.click(beer)
+    expect(beer).toHaveClass('bg-emerald-50', 'dark:bg-emerald-950/60')
+  })
 })
 

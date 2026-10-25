@@ -150,7 +150,7 @@ export function ProductGrid({
                 className={cn(
                   "flex min-w-0 min-h-28 break-words disabled:opacity-50 flex-col justify-between rounded-2xl border-2 p-4 text-left shadow-sm transition-colors transition-transform hover:shadow-md active:scale-95",
                   isInCart
-                    ? "border-emerald-600 bg-emerald-50 hover:border-emerald-600"
+                    ? "border-emerald-600 bg-emerald-50 hover:border-emerald-600 dark:bg-emerald-950/60"
                     : "border-slate-200 bg-white hover:border-red-400",
                 )}
               >
