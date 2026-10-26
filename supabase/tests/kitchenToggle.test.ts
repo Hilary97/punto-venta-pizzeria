@@ -191,12 +191,15 @@ describe('with the kitchen off', () => {
   })
 
   it('a scheduled order never takes a token when its time comes', async () => {
-    await asSuperuser(db)
-    const scheduledFor = (await db.query<{ t: string }>(`select (public.app_now() + interval '6 hours')::text as t`)).rows[0].t
-    const id = await createOrder([line(burgerId)], scheduledFor)
-    await asSuperuser(db)
-    await db.exec(`create or replace function public.app_now() returns timestamptz
-      language sql stable as $$ select now() + interval '6 hours' $$`)
+    // Fixed Mexico City clock on a far future day, so "later today" never crosses midnight.
+    const setClock = async (hhmm: string) => {
+      await asSuperuser(db)
+      await db.exec(`create or replace function public.app_now() returns timestamptz
+        language sql stable as $$ select '2099-06-15T${hhmm}:00-06:00'::timestamptz $$`)
+    }
+    await setClock('10:00')
+    const id = await createOrder([line(burgerId)], '2099-06-15T16:00:00-06:00')
+    await setClock('16:00')
 
     expect(await kitchen()).toEqual([])
     expect(await order(id)).toEqual({ status: 'open', token: null, served: false })
