@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import { MAX_EXTRA_INGREDIENTS } from './pizza'
 import type { PizzaPortion, PizzaSize, PizzaStyle } from './pizza'
 import {
   buildConfig,
@@ -15,7 +14,7 @@ const special: PizzaStyle = { id: 'varas', name: 'Varas', description: '', kind:
 const custom: PizzaStyle = { id: 'custom', name: 'Arma', description: '', kind: 'custom', includedIngredients: 2, sortOrder: 2 }
 const chica: PizzaSize = { code: 'chica', name: 'Chica', allowedPortions: [1, 2], sortOrder: 1, doughLeft: null }
 
-const empty: PizzaPortion = { styleId: 'varas', ingredientIds: [], extraIngredientIds: [], extraIds: [] }
+const empty: PizzaPortion = { styleId: 'varas', ingredientIds: [], extraIngredientIds: [] }
 
 describe('initialPortions', () => {
   it('creates the requested number of unset portions', () => {
@@ -76,24 +75,24 @@ describe('toggleExtra', () => {
     expect(toggleExtra(added, 'a').extraIngredientIds).toEqual([])
   })
 
-  it('ignores additions beyond the extras limit', () => {
-    const ids = Array.from({ length: MAX_EXTRA_INGREDIENTS }, (_, i) => `i${i}`)
-    const full = { ...empty, extraIngredientIds: ids }
-    expect(toggleExtra(full, 'new')).toBe(full)
+  it('keeps adding extras with no limit', () => {
+    const ids = Array.from({ length: 12 }, (_, i) => `i${i}`)
+    const many = { ...empty, extraIngredientIds: ids }
+    expect(toggleExtra(many, 'new').extraIngredientIds).toEqual([...ids, 'new'])
   })
 })
 
 describe('togglePizzaExtra', () => {
   it('adds and removes an extra, keeping the others', () => {
-    const withCheese = togglePizzaExtra(empty, 'queso')
-    expect(withCheese.extraIds).toEqual(['queso'])
-    expect(togglePizzaExtra(withCheese, 'orilla').extraIds).toEqual(['queso', 'orilla'])
-    expect(togglePizzaExtra({ ...empty, extraIds: ['queso', 'orilla'] }, 'queso').extraIds).toEqual(['orilla'])
+    const withCheese = togglePizzaExtra([], 'queso')
+    expect(withCheese).toEqual(['queso'])
+    expect(togglePizzaExtra(withCheese, 'orilla')).toEqual(['queso', 'orilla'])
+    expect(togglePizzaExtra(['queso', 'orilla'], 'queso')).toEqual(['orilla'])
   })
 })
 
 describe('buildConfig', () => {
   it('combines size and portions', () => {
-    expect(buildConfig('chica', [empty])).toEqual({ size: 'chica', portions: [empty] })
+    expect(buildConfig('chica', [empty], ['queso'])).toEqual({ size: 'chica', portions: [empty], extraIds: ['queso'] })
   })
 })

@@ -5,9 +5,10 @@ import { mapOrderRow, orderRowSchema, toRpcItems } from './ordersRepository'
 const pizza: PizzaConfig = {
   size: 'grande',
   portions: [
-    { styleId: 's1', ingredientIds: ['i1'], extraIngredientIds: ['i2'], extraIds: ['x1'] },
-    { styleId: 's2', ingredientIds: [], extraIngredientIds: [], extraIds: [] },
+    { styleId: 's1', ingredientIds: ['i1'], extraIngredientIds: ['i2'] },
+    { styleId: 's2', ingredientIds: [], extraIngredientIds: [] },
   ],
+  extraIds: ['x1'],
 }
 
 describe('toRpcItems', () => {
@@ -30,9 +31,10 @@ describe('toRpcItems', () => {
         pizza: {
           size: 'grande',
           portions: [
-            { style_id: 's1', ingredient_ids: ['i1'], extra_ingredient_ids: ['i2'], extra_ids: ['x1'] },
-            { style_id: 's2', ingredient_ids: [], extra_ingredient_ids: [], extra_ids: [] },
+            { style_id: 's1', ingredient_ids: ['i1'], extra_ingredient_ids: ['i2'] },
+            { style_id: 's2', ingredient_ids: [], extra_ingredient_ids: [] },
           ],
+          extra_ids: ['x1'],
         },
         quantity: 1,
         notes: 'bien cocida',
