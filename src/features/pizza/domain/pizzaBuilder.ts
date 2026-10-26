@@ -1,4 +1,3 @@
-import { MAX_EXTRA_INGREDIENTS } from './pizza'
 import type { PizzaConfig, PizzaPortion, PizzaSize, PizzaSizeCode, PizzaStyle } from './pizza'
 
 /*
@@ -7,7 +6,7 @@ import type { PizzaConfig, PizzaPortion, PizzaSize, PizzaSizeCode, PizzaStyle } 
  */
 
 function emptyPortion(styleId: string): PizzaPortion {
-  return { styleId, ingredientIds: [], extraIngredientIds: [], extraIds: [] }
+  return { styleId, ingredientIds: [], extraIngredientIds: [] }
 }
 
 /** `count` portions that all start with the given style. */
@@ -36,23 +35,20 @@ export function toggleIngredient(portion: PizzaPortion, ingredientId: string, st
   return { ...portion, ingredientIds: [...portion.ingredientIds, ingredientId] }
 }
 
-/** Toggles an extra ingredient, capped at `MAX_EXTRA_INGREDIENTS`. */
+/** Toggles an extra ingredient; there is no limit, each one is charged. */
 export function toggleExtra(portion: PizzaPortion, ingredientId: string): PizzaPortion {
   if (portion.extraIngredientIds.includes(ingredientId)) {
     return { ...portion, extraIngredientIds: portion.extraIngredientIds.filter((id) => id !== ingredientId) }
   }
-  if (portion.extraIngredientIds.length >= MAX_EXTRA_INGREDIENTS) return portion
   return { ...portion, extraIngredientIds: [...portion.extraIngredientIds, ingredientId] }
 }
 
-/** Toggles a per-portion extra such as Extra queso. */
-export function togglePizzaExtra(portion: PizzaPortion, extraId: string): PizzaPortion {
-  if (portion.extraIds.includes(extraId)) {
-    return { ...portion, extraIds: portion.extraIds.filter((id) => id !== extraId) }
-  }
-  return { ...portion, extraIds: [...portion.extraIds, extraId] }
+/** Toggles a whole-pizza extra such as Extra queso. */
+export function togglePizzaExtra(extraIds: string[], extraId: string): string[] {
+  if (extraIds.includes(extraId)) return extraIds.filter((id) => id !== extraId)
+  return [...extraIds, extraId]
 }
 
-export function buildConfig(size: PizzaSizeCode, portions: PizzaPortion[]): PizzaConfig {
-  return { size, portions }
+export function buildConfig(size: PizzaSizeCode, portions: PizzaPortion[], extraIds: string[]): PizzaConfig {
+  return { size, portions, extraIds }
 }

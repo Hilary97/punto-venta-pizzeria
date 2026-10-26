@@ -25,7 +25,8 @@ describe('PizzaBuilderModal', () => {
     expect(onAdd).toHaveBeenCalledWith({
       config: {
         size: 'chica',
-        portions: [{ styleId: 'varas', ingredientIds: [], extraIngredientIds: [], extraIds: [] }],
+        portions: [{ styleId: 'varas', ingredientIds: [], extraIngredientIds: [] }],
+        extraIds: [],
       },
       name: 'Pizza Chica: Estilo Varas',
       notes: 'bien cocida',
@@ -61,24 +62,39 @@ describe('PizzaBuilderModal', () => {
     expect(onAdd.mock.calls[0]?.[0].name).toBe('Pizza Chica: Arma tu combinación (Pepperoni, Jalapeños)')
   })
 
-  it('configures extra ingredients and every extra per portion', async () => {
+  it('configures extra ingredients per portion and extras once for the whole pizza', async () => {
     const { onAdd, user } = renderBuilder()
     await user.click(screen.getByRole('button', { name: 'Mitades' }))
     const second = screen.getByRole('group', { name: 'Mitad 2' })
     await user.click(within(second).getByRole('button', { name: 'Jalapeños' }))
-    const extras = within(second).getByRole('group', { name: 'Extras' })
+    expect(within(second).queryByRole('group', { name: 'Extras' })).not.toBeInTheDocument()
+    expect(within(screen.getByRole('group', { name: 'Mitad 1' })).queryByRole('group', { name: 'Extras' })).not.toBeInTheDocument()
+    expect(screen.getAllByRole('group', { name: 'Extras' })).toHaveLength(1)
+    const extras = screen.getByRole('group', { name: 'Extras' })
     await user.click(within(extras).getByRole('button', { name: 'Orilla rellena' }))
     await user.click(within(extras).getByRole('button', { name: 'Extra queso' }))
     expect(within(extras).getByRole('button', { name: 'Extra queso' })).toHaveAttribute('aria-pressed', 'true')
     expect(within(extras).getByRole('button', { name: 'Orilla rellena' })).toHaveAttribute('aria-pressed', 'true')
     await user.click(screen.getByRole('button', { name: 'Agregar pizza' }))
-    expect(onAdd.mock.calls[0]?.[0].config.portions).toEqual([
-      { styleId: 'varas', ingredientIds: [], extraIngredientIds: [], extraIds: [] },
-      { styleId: 'varas', ingredientIds: [], extraIngredientIds: ['jal'], extraIds: ['orilla', 'queso'] },
-    ])
+    expect(onAdd.mock.calls[0]?.[0].config).toEqual({
+      size: 'chica',
+      portions: [
+        { styleId: 'varas', ingredientIds: [], extraIngredientIds: [] },
+        { styleId: 'varas', ingredientIds: [], extraIngredientIds: ['jal'] },
+      ],
+      extraIds: ['orilla', 'queso'],
+    })
     expect(onAdd.mock.calls[0]?.[0].name).toBe(
-      'Pizza Chica · Mitades: ½ Estilo Varas | ½ Estilo Varas + Jalapeños + Extra queso, Orilla rellena',
+      'Pizza Chica · Mitades: ½ Estilo Varas | ½ Estilo Varas + Jalapeños · Extras: Extra queso, Orilla rellena',
     )
+  })
+
+  it('keeps the pizza extras when the division changes', async () => {
+    const { onAdd, user } = renderBuilder()
+    await user.click(within(screen.getByRole('group', { name: 'Extras' })).getByRole('button', { name: 'Extra queso' }))
+    await user.click(screen.getByRole('button', { name: 'Mitades' }))
+    await user.click(screen.getByRole('button', { name: 'Agregar pizza' }))
+    expect(onAdd.mock.calls[0]?.[0].config.extraIds).toEqual(['queso'])
   })
 
   it('hides the extras group when there are no active extras', () => {

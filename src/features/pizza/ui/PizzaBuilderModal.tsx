@@ -5,7 +5,7 @@ import { Textarea } from '../../../shared/ui/Textarea'
 import { MAX_ITEM_NOTES_LENGTH } from '../../orders/domain/order'
 import { describePizza, isSizeSoldOut, portionLabel, validatePizzaConfig } from '../domain/pizza'
 import type { PizzaCatalog, PizzaConfig, PizzaPortion, PizzaSize, PizzaSizeCode } from '../domain/pizza'
-import { buildConfig, initialPortions, resizePortions } from '../domain/pizzaBuilder'
+import { buildConfig, initialPortions, resizePortions, togglePizzaExtra } from '../domain/pizzaBuilder'
 import { PortionEditor } from './PortionEditor'
 import { ToggleChip } from './ToggleChip'
 
@@ -48,6 +48,7 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose }: PizzaBuilderModal
 
   const [sizeCode, setSizeCode] = useState<PizzaSizeCode>(sizes[0]?.code ?? 'chica')
   const [portions, setPortions] = useState<PizzaPortion[]>(() => initialPortions(1, defaultStyleId))
+  const [extraIds, setExtraIds] = useState<string[]>([])
   const [notes, setNotes] = useState('')
 
   if (sizes.length === 0) return null
@@ -57,7 +58,7 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose }: PizzaBuilderModal
   const size = available.find((candidate) => candidate.code === sizeCode) ?? available[0]
   const noDough = size === undefined
 
-  const config = buildConfig(size?.code ?? sizeCode, portions)
+  const config = buildConfig(size?.code ?? sizeCode, portions, extraIds)
   const errors = noDough ? [] : validatePizzaConfig(config, catalog)
   const description = noDough ? '' : describePizza(config, catalog)
 
@@ -122,10 +123,26 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose }: PizzaBuilderModal
             portion={portion}
             styles={styles}
             ingredients={ingredients}
-            extras={extras}
             onChange={(next) => updatePortion(index, next)}
           />
         ))}
+
+        {extras.length > 0 && (
+          <fieldset className="flex flex-col gap-2">
+            <legend className="text-sm font-medium text-slate-700">Extras</legend>
+            <p className="text-sm text-slate-500">Se aplican a toda la pizza.</p>
+            <div className="flex flex-wrap gap-2">
+              {extras.map((extra) => (
+                <ToggleChip
+                  key={extra.id}
+                  label={extra.name}
+                  pressed={extraIds.includes(extra.id)}
+                  onToggle={() => setExtraIds((current) => togglePizzaExtra(current, extra.id))}
+                />
+              ))}
+            </div>
+          </fieldset>
+        )}
 
         <Textarea
           id={notesId}

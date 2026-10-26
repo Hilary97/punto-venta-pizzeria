@@ -66,21 +66,30 @@ describe('pizza extras', () => {
     expect(order).toHaveBeenCalledWith('sort_order', { ascending: true })
   })
 
-  it('maps extra_ids both ways and defaults them to none', () => {
-    const parsed = pizzaConfigSchema.parse({
+  it('maps the pizza extra_ids both ways and defaults them to none', () => {
+    const parsed = pizzaConfigSchema.parse({ size: 'chica', portions: [{ style_id: 's1' }], extra_ids: ['queso', 'orilla'] })
+    expect(parsed.extraIds).toEqual(['queso', 'orilla'])
+    expect(toRpcPizzaConfig(parsed)).toEqual({
       size: 'chica',
-      portions: [
-        { style_id: 's1', extra_ids: ['queso', 'orilla'] },
-        { style_id: 's2' },
-      ],
-    })
-    expect(parsed.portions.map((portion) => portion.extraIds)).toEqual([['queso', 'orilla'], []])
-    expect(toRpcPizzaConfig(parsed).portions[0]).toEqual({
-      style_id: 's1',
-      ingredient_ids: [],
-      extra_ingredient_ids: [],
+      portions: [{ style_id: 's1', ingredient_ids: [], extra_ingredient_ids: [] }],
       extra_ids: ['queso', 'orilla'],
     })
+    expect(pizzaConfigSchema.parse({ size: 'chica', portions: [{ style_id: 's1' }] }).extraIds).toEqual([])
+  })
+
+  it('moves legacy per-portion extra_ids to the pizza without repeating them', () => {
+    const parsed = pizzaConfigSchema.parse({
+      size: 'grande',
+      portions: [
+        { style_id: 's1', extra_ids: ['queso', 'orilla'] },
+        { style_id: 's2', extra_ids: ['orilla'] },
+      ],
+    })
+    expect(parsed.extraIds).toEqual(['queso', 'orilla'])
+    expect(parsed.portions).toEqual([
+      { styleId: 's1', ingredientIds: [], extraIngredientIds: [] },
+      { styleId: 's2', ingredientIds: [], extraIngredientIds: [] },
+    ])
   })
 })
 

@@ -25,7 +25,7 @@ const catalog: PizzaCatalog = {
 }
 
 function portion(overrides: Partial<PizzaPortion> & { styleId: string }): PizzaPortion {
-  return { ingredientIds: [], extraIngredientIds: [], extraIds: [], ...overrides }
+  return { ingredientIds: [], extraIngredientIds: [], ...overrides }
 }
 
 describe('portionLabel', () => {
@@ -39,39 +39,43 @@ describe('portionLabel', () => {
 
 describe('describePizza', () => {
   it('describes a whole special pizza without a fraction', () => {
-    const config: PizzaConfig = { size: 'grande', portions: [portion({ styleId: 'varas' })] }
+    const config: PizzaConfig = { size: 'grande', portions: [portion({ styleId: 'varas' })], extraIds: [] }
     expect(describePizza(config, catalog)).toBe('Pizza Grande: Estilo Varas')
   })
 
-  it('describes halves with extras and extra cheese', () => {
+  it('describes halves with extra ingredients and lists the pizza extras after them', () => {
     const config: PizzaConfig = {
       size: 'grande',
-      portions: [
-        portion({ styleId: 'varas', extraIngredientIds: ['jal'] }),
-        portion({ styleId: 'chuys', extraIds: ['queso'] }),
-      ],
+      portions: [portion({ styleId: 'varas', extraIngredientIds: ['jal'] }), portion({ styleId: 'chuys' })],
+      extraIds: ['queso'],
     }
     expect(describePizza(config, catalog)).toBe(
-      "Pizza Grande · Mitades: ½ Estilo Varas + Jalapeños | ½ Estilo Chuy's + Extra queso",
+      "Pizza Grande · Mitades: ½ Estilo Varas + Jalapeños | ½ Estilo Chuy's · Extras: Extra queso",
     )
+  })
+
+  it('lists the extras of a whole pizza like its extra ingredients', () => {
+    const config: PizzaConfig = { size: 'grande', portions: [portion({ styleId: 'varas' })], extraIds: ['queso'] }
+    expect(describePizza(config, catalog)).toBe('Pizza Grande: Estilo Varas + Extra queso')
   })
 
   it('lists chosen ingredients in catalog order and extras after them', () => {
     const config: PizzaConfig = {
       size: 'mediana',
       portions: [
-        portion({ styleId: 'custom', ingredientIds: ['jal', 'pep'], extraIngredientIds: ['pina', 'jal'], extraIds: ['orilla', 'queso'] }),
+        portion({ styleId: 'custom', ingredientIds: ['jal', 'pep'], extraIngredientIds: ['pina', 'jal'] }),
         portion({ styleId: 'varas' }),
         portion({ styleId: 'varas' }),
       ],
+      extraIds: ['orilla', 'queso'],
     }
     expect(describePizza(config, catalog)).toBe(
-      'Pizza Mediana · Tercios: ⅓ Arma tu pizza (Pepperoni, Jalapeños) + Jalapeños, Piña + Extra queso, Orilla rellena | ⅓ Estilo Varas | ⅓ Estilo Varas',
+      'Pizza Mediana · Tercios: ⅓ Arma tu pizza (Pepperoni, Jalapeños) + Jalapeños, Piña | ⅓ Estilo Varas | ⅓ Estilo Varas · Extras: Extra queso, Orilla rellena',
     )
   })
 
   it('uses quarters', () => {
-    const config: PizzaConfig = { size: 'grande', portions: Array.from({ length: 4 }, () => portion({ styleId: 'varas' })) }
+    const config: PizzaConfig = { size: 'grande', portions: Array.from({ length: 4 }, () => portion({ styleId: 'varas' })), extraIds: [] }
     expect(describePizza(config, catalog)).toContain('Cuartos: ¼ Estilo Varas | ¼ Estilo Varas')
   })
 })
@@ -81,6 +85,7 @@ describe('validatePizzaConfig', () => {
     const config: PizzaConfig = {
       size: 'chica',
       portions: [portion({ styleId: 'custom', ingredientIds: ['pep'] }), portion({ styleId: 'varas' })],
+      extraIds: [],
     }
     expect(validatePizzaConfig(config, catalog)).toEqual([])
   })
@@ -91,56 +96,63 @@ describe('validatePizzaConfig', () => {
   })
 
   it('rejects a portion count the size does not allow', () => {
-    const config: PizzaConfig = { size: 'chica', portions: Array.from({ length: 3 }, () => portion({ styleId: 'varas' })) }
+    const config: PizzaConfig = { size: 'chica', portions: Array.from({ length: 3 }, () => portion({ styleId: 'varas' })), extraIds: [] }
     expect(validatePizzaConfig(config, catalog)).toEqual(['La pizza Chica no se puede dividir en 3 porciones.'])
   })
 
   it('rejects an empty portion list', () => {
-    expect(validatePizzaConfig({ size: 'chica', portions: [] }, catalog)).toEqual([
+    expect(validatePizzaConfig({ size: 'chica', portions: [], extraIds: [] }, catalog)).toEqual([
       'La configuración de la pizza es inválida.',
     ])
   })
 
   it('rejects unknown styles', () => {
-    const config: PizzaConfig = { size: 'chica', portions: [portion({ styleId: 'nope' })] }
+    const config: PizzaConfig = { size: 'chica', portions: [portion({ styleId: 'nope' })], extraIds: [] }
     expect(validatePizzaConfig(config, catalog)).toEqual(['Uno de los estilos no existe o no está activo.'])
   })
 
   it('rejects ingredients on special styles', () => {
-    const config: PizzaConfig = { size: 'chica', portions: [portion({ styleId: 'varas', ingredientIds: ['pep'] })] }
+    const config: PizzaConfig = { size: 'chica', portions: [portion({ styleId: 'varas', ingredientIds: ['pep'] })], extraIds: [] }
     expect(validatePizzaConfig(config, catalog)).toEqual(['Estilo Varas ya incluye sus ingredientes.'])
   })
 
   it('requires 1..included ingredients on custom styles', () => {
-    const none: PizzaConfig = { size: 'chica', portions: [portion({ styleId: 'custom' })] }
+    const none: PizzaConfig = { size: 'chica', portions: [portion({ styleId: 'custom' })], extraIds: [] }
     expect(validatePizzaConfig(none, catalog)).toEqual(['Elige al menos un ingrediente para Arma tu pizza.'])
     const many: PizzaConfig = {
       size: 'chica',
       portions: [portion({ styleId: 'custom', ingredientIds: ['pep', 'jal', 'pina'] })],
+      extraIds: [],
     }
     expect(validatePizzaConfig(many, catalog)).toEqual(['Arma tu pizza incluye hasta 2 ingredientes.'])
   })
 
   it('rejects repeated or unknown extras', () => {
-    const repeated: PizzaConfig = { size: 'chica', portions: [portion({ styleId: 'varas', extraIds: ['queso', 'queso'] })] }
-    expect(validatePizzaConfig(repeated, catalog)).toEqual(['Los extras de una porción no se pueden repetir.'])
-    const unknown: PizzaConfig = { size: 'chica', portions: [portion({ styleId: 'varas', extraIds: ['doble'] })] }
+    const repeated: PizzaConfig = { size: 'chica', portions: [portion({ styleId: 'varas' })], extraIds: ['queso', 'queso'] }
+    expect(validatePizzaConfig(repeated, catalog)).toEqual(['Los extras de la pizza no se pueden repetir.'])
+    const unknown: PizzaConfig = { size: 'chica', portions: [portion({ styleId: 'varas' })], extraIds: ['doble'] }
     expect(validatePizzaConfig(unknown, catalog)).toEqual(['Uno de los extras no existe o no está activo.'])
-    const valid: PizzaConfig = { size: 'chica', portions: [portion({ styleId: 'varas', extraIds: ['orilla', 'queso'] })] }
+    const valid: PizzaConfig = { size: 'chica', portions: [portion({ styleId: 'varas' })], extraIds: ['orilla', 'queso'] }
     expect(validatePizzaConfig(valid, catalog)).toEqual([])
   })
 
-  it('rejects more than 10 extras, duplicates and unknown ingredients', () => {
-    const tooMany: PizzaConfig = {
+  it('accepts every ingredient as an extra, with no limit', () => {
+    const ids = Array.from({ length: 12 }, (_, i) => `x${i}`)
+    const many = { ...catalog, ingredients: ids.map((id, i) => ({ id, name: id, sortOrder: i })) }
+    const all: PizzaConfig = {
       size: 'chica',
-      portions: [portion({ styleId: 'varas', extraIngredientIds: Array.from({ length: 11 }, (_, i) => `x${i}`) })],
+      portions: [portion({ styleId: 'custom', ingredientIds: ['x0', 'x1'], extraIngredientIds: ids })],
+      extraIds: [],
     }
-    expect(validatePizzaConfig(tooMany, catalog)).toEqual(['Máximo 10 ingredientes extra por porción.'])
+    expect(validatePizzaConfig(all, many)).toEqual([])
+  })
 
-    const dup: PizzaConfig = { size: 'chica', portions: [portion({ styleId: 'varas', extraIngredientIds: ['pep', 'pep'] })] }
+  it('rejects duplicated and unknown extra ingredients', () => {
+
+    const dup: PizzaConfig = { size: 'chica', portions: [portion({ styleId: 'varas', extraIngredientIds: ['pep', 'pep'] })], extraIds: [] }
     expect(validatePizzaConfig(dup, catalog)).toEqual(['Los ingredientes de una porción no se pueden repetir.'])
 
-    const unknown: PizzaConfig = { size: 'chica', portions: [portion({ styleId: 'varas', extraIngredientIds: ['zzz'] })] }
+    const unknown: PizzaConfig = { size: 'chica', portions: [portion({ styleId: 'varas', extraIngredientIds: ['zzz'] })], extraIds: [] }
     expect(validatePizzaConfig(unknown, catalog)).toEqual(['Uno de los ingredientes no existe o no está activo.'])
   })
 })

@@ -64,9 +64,11 @@ export const pizzaConfigSchema = z
         style_id: z.string(),
         ingredient_ids: z.array(z.string()).default([]),
         extra_ingredient_ids: z.array(z.string()).default([]),
+        /** Legacy: extras used to be per portion; they now belong to the whole pizza. */
         extra_ids: z.array(z.string()).default([]),
       }),
     ),
+    extra_ids: z.array(z.string()).default([]),
   })
   .transform(
     (raw): PizzaConfig => ({
@@ -75,8 +77,8 @@ export const pizzaConfigSchema = z
         styleId: portion.style_id,
         ingredientIds: portion.ingredient_ids,
         extraIngredientIds: portion.extra_ingredient_ids,
-        extraIds: portion.extra_ids,
       })),
+      extraIds: [...new Set([...raw.extra_ids, ...raw.portions.flatMap((portion) => portion.extra_ids)])],
     }),
   )
 
@@ -88,8 +90,8 @@ export function toRpcPizzaConfig(config: PizzaConfig) {
       style_id: portion.styleId,
       ingredient_ids: portion.ingredientIds,
       extra_ingredient_ids: portion.extraIngredientIds,
-      extra_ids: portion.extraIds,
     })),
+    extra_ids: config.extraIds,
   }
 }
 

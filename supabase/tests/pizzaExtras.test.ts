@@ -147,12 +147,9 @@ describe('pizza extras', () => {
   it('canonicalizes extra_ids in catalog order and maps legacy extra_cheese to Extra queso', async () => {
     const config = await validate({
       size: 'grande',
-      portions: [portion('Estilo Varas', { extra_ids: [orilla, CHEESE_ID] }), portion("Estilo Chuy's", { extra_cheese: true })],
+      portions: [portion('Estilo Varas', { extra_ids: [orilla] }), portion("Estilo Chuy's", { extra_cheese: true })],
     })
-    expect(config.portions).toEqual([
-      { style_id: styleIds['Estilo Varas'], ingredient_ids: [], extra_ingredient_ids: [], extra_ids: [CHEESE_ID, orilla] },
-      { style_id: styleIds["Estilo Chuy's"], ingredient_ids: [], extra_ingredient_ids: [], extra_ids: [CHEESE_ID] },
-    ])
+    expect(config.extra_ids).toEqual([CHEESE_ID, orilla])
   })
 
   it('does not duplicate Extra queso when sent both ways', async () => {
@@ -160,10 +157,10 @@ describe('pizza extras', () => {
       size: 'chica',
       portions: [portion('Estilo Varas', { extra_ids: [CHEESE_ID], extra_cheese: true })],
     })
-    expect(config.portions[0].extra_ids).toEqual([CHEESE_ID])
+    expect(config.extra_ids).toEqual([CHEESE_ID])
   })
 
-  it('charges every selected extra once per portion and lists them in the description', async () => {
+  it('charges legacy per-portion extras once for the whole pizza and lists them after the portions', async () => {
     const q = await quote(
       await createOrder([
         pizzaLine('grande', [
@@ -172,10 +169,10 @@ describe('pizza extras', () => {
         ]),
       ]),
     )
-    // 25000 base + 500 jalapeños + 3000 queso + 2 × 4000 orilla
-    expect(q.total_cents).toBe(36500)
+    // 25000 base + 500 jalapeños + 3000 queso + 4000 orilla (once)
+    expect(q.total_cents).toBe(32500)
     expect(q.lines[0].name).toBe(
-      "Pizza Grande · Mitades: ½ Estilo Varas + Jalapeños + Extra queso, Orilla rellena | ½ Estilo Chuy's + Orilla rellena",
+      "Pizza Grande · Mitades: ½ Estilo Varas + Jalapeños | ½ Estilo Chuy's · Extras: Extra queso, Orilla rellena",
     )
   })
 
@@ -197,10 +194,10 @@ describe('pizza extras', () => {
     ).rejects.toThrow('Uno de los extras no existe o no está activo.')
   })
 
-  it('rejects a repeated extra in one portion', async () => {
+  it('rejects a repeated pizza extra', async () => {
     await expect(
-      validate({ size: 'chica', portions: [portion('Estilo Varas', { extra_ids: [orilla, orilla] })] }),
-    ).rejects.toThrow('Los extras de una porción no se pueden repetir.')
+      validate({ size: 'chica', portions: [portion('Estilo Varas')], extra_ids: [orilla, orilla] }),
+    ).rejects.toThrow('Los extras de la pizza no se pueden repetir.')
   })
 
   it('rejects malformed extra_ids or extra_cheese', async () => {

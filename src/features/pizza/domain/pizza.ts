@@ -30,7 +30,7 @@ export interface PizzaIngredient {
   sortOrder: number
 }
 
-/** A per-portion extra such as Extra queso, charged once per portion it is on. */
+/** A pizza extra such as Extra queso: it applies to the whole pizza and is charged once. */
 export interface PizzaExtra {
   id: string
   name: string
@@ -49,15 +49,14 @@ export interface PizzaPortion {
   styleId: string
   ingredientIds: string[]
   extraIngredientIds: string[]
-  extraIds: string[]
 }
 
 export interface PizzaConfig {
   size: PizzaSizeCode
   portions: PizzaPortion[]
+  /** Extras for the whole pizza, never per portion. */
+  extraIds: string[]
 }
-
-export const MAX_EXTRA_INGREDIENTS = 10
 
 const INVALID_CONFIG = 'La configuración de la pizza es inválida.'
 
@@ -87,7 +86,17 @@ export function validatePizzaConfig(config: PizzaConfig, catalog: PizzaCatalog):
     const error = validatePortion(portion, catalog)
     if (error !== null && !errors.includes(error)) errors.push(error)
   }
+
+  const extrasError = validateExtras(config.extraIds, catalog)
+  if (extrasError !== null) errors.push(extrasError)
   return errors
+}
+
+function validateExtras(extraIds: string[], catalog: PizzaCatalog): string | null {
+  if (hasDuplicates(extraIds)) return 'Los extras de la pizza no se pueden repetir.'
+  const known = new Set(catalog.extras.map((extra) => extra.id))
+  if (!extraIds.every((id) => known.has(id))) return 'Uno de los extras no existe o no está activo.'
+  return null
 }
 
 function validatePortion(portion: PizzaPortion, catalog: PizzaCatalog): string | null {
@@ -104,10 +113,6 @@ function validatePortion(portion: PizzaPortion, catalog: PizzaCatalog): string |
     }
   }
 
-  if (portion.extraIngredientIds.length > MAX_EXTRA_INGREDIENTS) {
-    return `Máximo ${MAX_EXTRA_INGREDIENTS} ingredientes extra por porción.`
-  }
-
   if (hasDuplicates(portion.ingredientIds) || hasDuplicates(portion.extraIngredientIds)) {
     return 'Los ingredientes de una porción no se pueden repetir.'
   }
@@ -116,11 +121,6 @@ function validatePortion(portion: PizzaPortion, catalog: PizzaCatalog): string |
   if (![...portion.ingredientIds, ...portion.extraIngredientIds].every((id) => known.has(id))) {
     return 'Uno de los ingredientes no existe o no está activo.'
   }
-
-  if (hasDuplicates(portion.extraIds)) return 'Los extras de una porción no se pueden repetir.'
-
-  const knownExtras = new Set(catalog.extras.map((extra) => extra.id))
-  if (!portion.extraIds.every((id) => knownExtras.has(id))) return 'Uno de los extras no existe o no está activo.'
 
   return null
 }
@@ -131,7 +131,8 @@ function hasDuplicates(ids: string[]): boolean {
 
 /**
  * Same text as the SQL `describe_pizza`, e.g.
- * `Pizza Grande · Mitades: ½ Estilo Varas + Jalapeños | ½ Estilo Chuy's`.
+ * `Pizza Grande · Mitades: ½ Estilo Varas + Jalapeños | ½ Estilo Chuy's · Extras: Extra queso`.
+ * A whole pizza lists its extras like its extra ingredients: `Pizza Chica: Estilo Varas + Extra queso`.
  * Ingredients and extras are listed in catalog order; unknown ids are skipped.
  */
 export function describePizza(config: PizzaConfig, catalog: PizzaCatalog): string {
@@ -147,14 +148,12 @@ export function describePizza(config: PizzaConfig, catalog: PizzaCatalog): strin
     const extras = ingredientNames(portion.extraIngredientIds, catalog)
     if (extras.length > 0) text += ` + ${extras.join(', ')}`
 
-    const options = byCatalogOrder(catalog.extras, portion.extraIds)
-    if (options.length > 0) text += ` + ${options.join(', ')}`
-
     return count > 1 ? `${PORTION_FRACTIONS[count] ?? ''} ${text}` : text
   })
 
-  if (count === 1) return `Pizza ${sizeName}: ${parts[0]}`
-  return `Pizza ${sizeName} · ${portionLabel(count)}: ${parts.join(' | ')}`
+  const options = byCatalogOrder(catalog.extras, config.extraIds).join(', ')
+  if (count === 1) return `Pizza ${sizeName}: ${parts[0]}${options ? ` + ${options}` : ''}`
+  return `Pizza ${sizeName} · ${portionLabel(count)}: ${parts.join(' | ')}${options ? ` · Extras: ${options}` : ''}`
 }
 
 function ingredientNames(ids: string[], catalog: PizzaCatalog): string[] {

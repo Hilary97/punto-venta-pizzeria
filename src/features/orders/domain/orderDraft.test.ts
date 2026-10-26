@@ -16,7 +16,8 @@ const margarita: DraftLine = { lineId: 'l1', kind: 'product', productId: 'p1', n
 const soda: DraftLine = { lineId: 'l2', kind: 'product', productId: 'p2', name: 'Refresco', quantity: 1, notes: '', variant: null }
 const config: PizzaConfig = {
   size: 'grande',
-  portions: [{ styleId: 's1', ingredientIds: [], extraIngredientIds: [], extraIds: [] }],
+  portions: [{ styleId: 's1', ingredientIds: [], extraIngredientIds: [] }],
+  extraIds: [],
 }
 const pizzaLine: DraftLine = { lineId: 'l3', kind: 'pizza', pizza: config, name: 'Pizza Grande: Varas', quantity: 1, notes: '' }
 

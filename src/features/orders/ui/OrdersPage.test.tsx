@@ -657,7 +657,7 @@ describe('OrdersPage pizza builder and notes', () => {
       items: [
         {
           type: 'pizza',
-          pizza: { size: 'chica', portions: [{ styleId: 'varas', ingredientIds: [], extraIngredientIds: [], extraIds: [] }] },
+          pizza: { size: 'chica', portions: [{ styleId: 'varas', ingredientIds: [], extraIngredientIds: [] }], extraIds: [] },
           quantity: 1,
           notes: 'sin orilla',
         },
