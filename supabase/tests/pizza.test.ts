@@ -188,7 +188,7 @@ describe('quote_order pricing', () => {
     ).toBe(25500)
   })
 
-  it('adds extra cheese on both halves', async () => {
+  it('charges legacy extra cheese on both halves once for the whole pizza', async () => {
     expect(
       await quoteTotal([
         pizzaLine('grande', [
@@ -196,7 +196,7 @@ describe('quote_order pricing', () => {
           { style: "Estilo Chuy's", cheese: true },
         ]),
       ]),
-    ).toBe(31500)
+    ).toBe(28500)
   })
 
   it('prices a mediana custom combination', async () => {
