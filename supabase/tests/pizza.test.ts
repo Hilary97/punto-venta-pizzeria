@@ -134,10 +134,11 @@ describe('validate_pizza', () => {
     await expect(validate(pizzaConfig('gigante', [{ style: 'Estilo Varas' }]))).rejects.toThrow('Tamaño de pizza inválido.')
   })
 
-  it('rejects ingredient_ids on a special style', async () => {
+  it('rejects a special portion with 3 included ingredients', async () => {
+    await expect(validate(pizzaConfig('grande', [{ style: 'Estilo Varas', ingredients: ['Jamón'] }]))).resolves.toBeTruthy()
     await expect(
-      validate(pizzaConfig('grande', [{ style: 'Estilo Varas', ingredients: ['Jamón'] }])),
-    ).rejects.toThrow()
+      validate(pizzaConfig('grande', [{ style: 'Estilo Varas', ingredients: ['Jamón', 'Piña', 'Ajo'] }])),
+    ).rejects.toThrow('Estilo Varas incluye hasta 2 ingredientes.')
   })
 
   it('rejects a custom portion with 3 ingredients', async () => {
