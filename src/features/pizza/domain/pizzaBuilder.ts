@@ -20,13 +20,13 @@ export function resizePortions(portions: PizzaPortion[], size: PizzaSize, defaul
   return initialPortions(1, portions[0]?.styleId ?? defaultStyleId)
 }
 
-/** Switches the portion style; special styles carry their own ingredients, so picks are cleared. */
+/** Switches the portion style, keeping chosen ingredients up to the new style limit. */
 export function setPortionStyle(portion: PizzaPortion, style: PizzaStyle): PizzaPortion {
-  const ingredientIds = style.kind === 'special' ? [] : portion.ingredientIds.slice(0, style.includedIngredients)
+  const ingredientIds = portion.ingredientIds.slice(0, style.includedIngredients)
   return { ...portion, styleId: style.id, ingredientIds }
 }
 
-/** Toggles an included ingredient of a custom style, capped at the style limit. */
+/** Toggles an included ingredient, capped at the style limit. */
 export function toggleIngredient(portion: PizzaPortion, ingredientId: string, style: PizzaStyle): PizzaPortion {
   if (portion.ingredientIds.includes(ingredientId)) {
     return { ...portion, ingredientIds: portion.ingredientIds.filter((id) => id !== ingredientId) }

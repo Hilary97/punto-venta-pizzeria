@@ -20,6 +20,7 @@ export interface PizzaStyle {
   description: string
   /** `special` styles come with fixed ingredients; `custom` ones let the customer pick. */
   kind: 'special' | 'custom'
+  /** Ingredients of the customer's choice included in the price, per portion, for either kind. */
   includedIngredients: number
   sortOrder: number
 }
@@ -103,14 +104,11 @@ function validatePortion(portion: PizzaPortion, catalog: PizzaCatalog): string |
   const style = catalog.styles.find((candidate) => candidate.id === portion.styleId)
   if (!style) return 'Uno de los estilos no existe o no está activo.'
 
+  // Included ingredients are optional on a special style; a custom style needs at least one.
   const chosen = portion.ingredientIds.length
-  if (style.kind === 'special') {
-    if (chosen > 0) return `${style.name} ya incluye sus ingredientes.`
-  } else {
-    if (chosen === 0) return `Elige al menos un ingrediente para ${style.name}.`
-    if (chosen > style.includedIngredients) {
-      return `${style.name} incluye hasta ${style.includedIngredients} ingredientes.`
-    }
+  if (style.kind === 'custom' && chosen === 0) return `Elige al menos un ingrediente para ${style.name}.`
+  if (chosen > style.includedIngredients) {
+    return `${style.name} incluye hasta ${style.includedIngredients} ingredientes.`
   }
 
   if (hasDuplicates(portion.ingredientIds) || hasDuplicates(portion.extraIngredientIds)) {

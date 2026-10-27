@@ -8,8 +8,10 @@ import { Modal } from '../../../shared/ui/Modal'
 import { Textarea } from '../../../shared/ui/Textarea'
 import type { PizzaSizeCode } from '../domain/pizza'
 import {
+  DEFAULT_INCLUDED_INGREDIENTS,
   MAX_CUSTOM_INGREDIENTS,
   MIN_CUSTOM_INGREDIENTS,
+  MIN_SPECIAL_INGREDIENTS,
   styleFormSchema,
   type AdminPizzaSize,
   type AdminPizzaStyle,
@@ -25,18 +27,17 @@ interface PizzaStyleFormModalProps {
   onClose: () => void
 }
 
-const INCLUDED_OPTIONS = Array.from(
-  { length: MAX_CUSTOM_INGREDIENTS - MIN_CUSTOM_INGREDIENTS + 1 },
-  (_, index) => MIN_CUSTOM_INGREDIENTS + index,
-)
+/** Included ingredient choices per kind: a special style may include none. */
+function includedOptions(kind: AdminPizzaStyle['kind']): number[] {
+  const min = kind === 'custom' ? MIN_CUSTOM_INGREDIENTS : MIN_SPECIAL_INGREDIENTS
+  return Array.from({ length: MAX_CUSTOM_INGREDIENTS - min + 1 }, (_, index) => min + index)
+}
 
 export function PizzaStyleFormModal({ sizes, initial, defaultSortOrder, onSubmit, onClose }: PizzaStyleFormModalProps) {
   const [name, setName] = useState(initial?.name ?? '')
   const [description, setDescription] = useState(initial?.description ?? '')
   const [kind, setKind] = useState<AdminPizzaStyle['kind']>(initial?.kind ?? 'special')
-  const [included, setIncluded] = useState(
-    String(initial?.kind === 'custom' ? initial.includedIngredients : MIN_CUSTOM_INGREDIENTS + 1),
-  )
+  const [included, setIncluded] = useState(String(initial?.includedIngredients ?? DEFAULT_INCLUDED_INGREDIENTS))
   const [orderInput, setOrderInput] = useState(String(initial?.sortOrder ?? defaultSortOrder))
   const [active, setActive] = useState(initial?.active ?? true)
   const [priceInputs, setPriceInputs] = useState<Partial<Record<PizzaSizeCode, string>>>(() =>
@@ -61,7 +62,7 @@ export function PizzaStyleFormModal({ sizes, initial, defaultSortOrder, onSubmit
       name,
       description,
       kind,
-      includedIngredients: kind === 'custom' ? Number(included) : 0,
+      includedIngredients: Number(included),
       sortOrder: parseOrderInput(orderInput),
       active,
       prices,
@@ -102,7 +103,11 @@ export function PizzaStyleFormModal({ sizes, initial, defaultSortOrder, onSubmit
           <select
             id="pizza-style-kind"
             value={kind}
-            onChange={(e) => setKind(e.target.value as AdminPizzaStyle['kind'])}
+            onChange={(e) => {
+              const next = e.target.value as AdminPizzaStyle['kind']
+              setKind(next)
+              if (!includedOptions(next).includes(Number(included))) setIncluded(String(MIN_CUSTOM_INGREDIENTS))
+            }}
             className={SELECT_CLASS}
           >
             <option value="special">Ingredientes fijos</option>
@@ -117,25 +122,23 @@ export function PizzaStyleFormModal({ sizes, initial, defaultSortOrder, onSubmit
           </p>
         )}
 
-        {kind === 'custom' && (
-          <div className="flex flex-col gap-1">
-            <label htmlFor="pizza-style-included" className="text-sm font-medium text-slate-700">
-              Ingredientes a elegir
-            </label>
-            <select
-              id="pizza-style-included"
-              value={included}
-              onChange={(e) => setIncluded(e.target.value)}
-              className={SELECT_CLASS}
-            >
-              {INCLUDED_OPTIONS.map((count) => (
-                <option key={count} value={String(count)}>
-                  {count}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
+        <div className="flex flex-col gap-1">
+          <label htmlFor="pizza-style-included" className="text-sm font-medium text-slate-700">
+            Ingredientes a elegir
+          </label>
+          <select
+            id="pizza-style-included"
+            value={included}
+            onChange={(e) => setIncluded(e.target.value)}
+            className={SELECT_CLASS}
+          >
+            {includedOptions(kind).map((count) => (
+              <option key={count} value={String(count)}>
+                {count}
+              </option>
+            ))}
+          </select>
+        </div>
 
         <div className="grid gap-3 sm:grid-cols-3">
           {sizes.map((size) => (
