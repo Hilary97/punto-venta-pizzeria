@@ -1,6 +1,8 @@
 import { Input } from "../../../shared/ui/Input";
 import { MAX_ITEM_NOTES_LENGTH, productLineLabel } from "../domain/order";
 import type { DraftLine } from "../domain/orderDraft";
+import { pizzaLabelLayout } from "../../pizza/domain/pizza";
+import { PizzaLabelGroups } from "../../pizza/ui/PizzaLabelGroups";
 
 interface OrderDraftPanelProps {
   draft: DraftLine[];
@@ -32,12 +34,14 @@ export function OrderDraftPanel({
           line.kind === "product"
             ? productLineLabel(line.name, line.variant)
             : line.name;
+        const { title, groups } = pizzaLabelLayout(label);
         return (
           <li key={line.lineId} className="flex flex-col gap-2 py-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="min-w-0 flex-1 break-words font-medium text-slate-900">
-                {label}
-              </p>
+              <div className="min-w-0 flex-1 break-words">
+                <p className="font-medium text-slate-900">{title}</p>
+                <PizzaLabelGroups groups={groups} />
+              </div>
               <div className="flex items-center gap-2">
                 <button
                   type="button"

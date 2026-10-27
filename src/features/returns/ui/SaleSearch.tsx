@@ -3,6 +3,8 @@ import { Button } from '../../../shared/ui/Button'
 import { Modal } from '../../../shared/ui/Modal'
 import { MoneyText } from '../../../shared/ui/MoneyText'
 import type { SaleWithItems } from '../../sales/domain/sale'
+import { pizzaLabelLayout } from '../../pizza/domain/pizza'
+import { PizzaLabelGroups } from '../../pizza/ui/PizzaLabelGroups'
 
 interface SaleSearchProps {
   sales: SaleWithItems[]
@@ -59,17 +61,21 @@ function SaleDetailsModal({ sale, onClose }: { sale: SaleWithItems; onClose: () 
         </div>
 
         <ul className="divide-y divide-slate-100 text-sm">
-          {sale.items.map((item) => (
-            <li key={item.id} className="flex items-start justify-between gap-2 py-1.5">
-              <div className="min-w-0">
-                <p className="text-slate-800">
-                  {item.quantity} × {item.productName}
-                </p>
-                {item.returnedQuantity > 0 && <p className="text-xs text-red-700">{item.returnedQuantity} devuelto(s)</p>}
-              </div>
-              <MoneyText cents={item.unitPriceCents * item.quantity} className="shrink-0 text-slate-700" />
-            </li>
-          ))}
+          {sale.items.map((item) => {
+            const { title, groups } = pizzaLabelLayout(item.productName)
+            return (
+              <li key={item.id} className="flex items-start justify-between gap-2 py-1.5">
+                <div className="min-w-0">
+                  <p className="text-slate-800">
+                    {item.quantity} × {title}
+                  </p>
+                  <PizzaLabelGroups groups={groups} />
+                  {item.returnedQuantity > 0 && <p className="text-xs text-red-700">{item.returnedQuantity} devuelto(s)</p>}
+                </div>
+                <MoneyText cents={item.unitPriceCents * item.quantity} className="shrink-0 text-slate-700" />
+              </li>
+            )
+          })}
         </ul>
 
         <dl className="flex flex-col gap-1 rounded-lg bg-slate-50 p-3 text-sm">

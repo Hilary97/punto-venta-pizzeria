@@ -6,6 +6,8 @@ import { Spinner } from '../../../shared/ui/Spinner'
 import { toUserMessage } from '../../../shared/errors'
 import type { ReturnRecord } from '../../returns/domain/returnRecord'
 import { listSessionSalesWithItems, listSessionReturns } from '../../returns/infrastructure/returnsRepository'
+import { pizzaLabelLayout } from '../../pizza/domain/pizza'
+import { PizzaLabelGroups } from '../../pizza/ui/PizzaLabelGroups'
 import type { SaleWithItems } from '../../sales/domain/sale'
 import type { CashSession } from '../domain/cashSession'
 import { attachProductNamesToReturnItems, summarizeProductsSold } from '../domain/sessionDetailView'
@@ -140,16 +142,22 @@ export function CashSessionDetailPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 bg-white">
-                {productsSold.map((product) => (
-                  <tr key={product.productId ?? `name:${product.productName}`}>
-                    <td className="px-4 py-3">{product.productName}</td>
-                    <td className="px-4 py-3">{product.quantitySold}</td>
-                    <td className="px-4 py-3">{product.quantityReturned}</td>
-                    <td className="px-4 py-3">
-                      <MoneyText cents={product.subtotalCents} />
-                    </td>
-                  </tr>
-                ))}
+                {productsSold.map((product) => {
+                  const { title, groups } = pizzaLabelLayout(product.productName)
+                  return (
+                    <tr key={product.productId ?? `name:${product.productName}`}>
+                      <td className="px-4 py-3">
+                        {title}
+                        <PizzaLabelGroups groups={groups} />
+                      </td>
+                      <td className="px-4 py-3">{product.quantitySold}</td>
+                      <td className="px-4 py-3">{product.quantityReturned}</td>
+                      <td className="px-4 py-3">
+                        <MoneyText cents={product.subtotalCents} />
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -177,7 +185,17 @@ export function CashSessionDetailPage() {
                     <td className="px-4 py-3">{new Date(returnView.createdAt).toLocaleString('es-MX')}</td>
                     <td className="px-4 py-3">{returnView.reason ?? '—'}</td>
                     <td className="px-4 py-3">
-                      {returnView.items.map((item) => `${item.productName} (${item.quantity})`).join(', ')}
+                      <ul className="space-y-1">
+                        {returnView.items.map((item) => {
+                          const { title, groups } = pizzaLabelLayout(item.productName)
+                          return (
+                            <li key={item.saleItemId}>
+                              {`${title} (${item.quantity})`}
+                              <PizzaLabelGroups groups={groups} />
+                            </li>
+                          )
+                        })}
+                      </ul>
                     </td>
                     <td className="px-4 py-3">
                       <MoneyText cents={returnView.totalCents} />

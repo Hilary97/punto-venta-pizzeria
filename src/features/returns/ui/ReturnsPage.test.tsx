@@ -74,6 +74,23 @@ describe('ReturnsPage', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
+  it('shows each portion of a built pizza and its ingredients on their own rows in the sale details', async () => {
+    const pizzaSale = {
+      ...sales[0]!,
+      items: [{ id: 'i9', productId: null, productName: "Pizza Grande · Mitades: ½ Estilo Varas (Jamón, Piña) + Jalapeños | ½ Estilo Chuy's · Extras: Extra queso", unitPriceCents: 21000, quantity: 1, returnedQuantity: 0 }],
+    }
+    vi.mocked(returnsRepository.listSessionSalesWithItems).mockResolvedValue([pizzaSale])
+    const user = userEvent.setup()
+    render(<ReturnsPage />)
+    const card = (await screen.findByText('María López')).closest('article') as HTMLElement
+    await user.click(within(card).getByRole('button', { name: 'Ver detalles' }))
+    const line = within(screen.getByRole('dialog')).getByText('1 × Pizza Grande · Mitades').closest('li')!
+    for (const row of ['½ Estilo Varas', 'Jamón', 'Piña', 'Jalapeños', "½ Estilo Chuy's", 'Extras', 'Extra queso']) {
+      expect(within(line).getByText(row)).toBeInTheDocument()
+    }
+    expect(line.textContent).not.toMatch(/[|+()]/)
+  })
+
   it('opens a modal with all sale details and closes it', async () => {
     const user = userEvent.setup()
     render(<ReturnsPage />)

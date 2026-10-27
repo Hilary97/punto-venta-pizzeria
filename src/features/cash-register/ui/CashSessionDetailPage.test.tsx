@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as cashRegisterRepository from '../infrastructure/cashRegisterRepository'
@@ -124,5 +124,22 @@ describe('CashSessionDetailPage', () => {
     expect(returnsTable).toHaveTextContent('Pizza Hawaiana')
 
     expect(screen.getByRole('link', { name: /volver/i })).toHaveAttribute('href', '/admin/historial')
+  })
+
+  it('shows each portion of a built pizza and its ingredients on their own rows in products sold and returns', async () => {
+    const pizzaName = "Pizza Grande · Mitades: ½ Estilo Varas (Jamón, Piña) + Jalapeños | ½ Estilo Chuy's · Extras: Extra queso"
+    vi.mocked(returnsRepository.listSessionSalesWithItems).mockResolvedValue([
+      { ...sales[0]!, items: [{ ...sales[0]!.items[0]!, productId: null, productName: pizzaName }] },
+    ])
+    renderPage()
+    const cells = await screen.findAllByText((_, element) => element?.tagName === 'TD' && element.textContent?.startsWith('Pizza Grande · Mitades') === true)
+    expect(cells).toHaveLength(2)
+    for (const cell of cells) {
+      for (const row of ['½ Estilo Varas', 'Jamón', 'Piña', 'Jalapeños', "½ Estilo Chuy's", 'Extras', 'Extra queso']) {
+        expect(within(cell).getByText(row)).toBeInTheDocument()
+      }
+      expect(cell.textContent).not.toMatch(/[|+]/)
+    }
+    expect(within(cells[1]!).getByText('Pizza Grande · Mitades (1)')).toBeInTheDocument()
   })
 })

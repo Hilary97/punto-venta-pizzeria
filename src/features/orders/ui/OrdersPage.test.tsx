@@ -664,7 +664,9 @@ describe('OrdersPage pizza builder and notes', () => {
     await user.click(within(builder).getByRole('button', { name: 'Agregar pizza' }))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
 
-    expect(screen.getByText('Pizza Chica: Estilo Varas')).toBeVisible()
+    const draftLine = screen.getByText('Pizza Chica').closest('li')!
+    expect(within(draftLine).getByText('Estilo Varas')).toBeVisible()
+    expect(within(draftLine).queryByText('Pizza Chica: Estilo Varas')).not.toBeInTheDocument()
     await user.type(screen.getByLabelText('Nota para Pizza Chica: Estilo Varas'), '  sin orilla ')
     await user.click(screen.getByRole('button', { name: 'M-6' }))
     await chooseService(user)
@@ -694,7 +696,7 @@ describe('OrdersPage pizza builder and notes', () => {
       await user.click(await screen.findByRole('button', { name: /armar pizza/i }))
       await user.click(screen.getByRole('button', { name: 'Agregar pizza' }))
     }
-    expect(screen.getAllByText('Pizza Chica: Estilo Varas')).toHaveLength(2)
+    expect(screen.getAllByText('Estilo Varas')).toHaveLength(2)
   })
 
   it('adds a built pizza to an existing order', async () => {
