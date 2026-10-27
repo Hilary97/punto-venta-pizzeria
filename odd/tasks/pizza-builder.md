@@ -19,6 +19,8 @@ charges server-computed prices.
 - Divisions: chica entera only; mediana entera or mitades; grande entera, mitades,
   tercios, cuartos.
 - "Arma tu combinación": base price 110/190/210, 2 included ingredients per portion.
+  Extended by `20261110120000_pizza_included_ingredients_all_styles.sql`: every
+  style, specials too, includes 2 ingredients of the customer's choice per portion.
 - Prices always computed server-side at quote/pay time; orders never store prices.
 - Existing pizza products are kept (open orders stay payable) but hidden from the
   waiter product grid; the builder replaces them.

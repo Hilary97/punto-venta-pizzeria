@@ -44,11 +44,16 @@ export interface AdminPizzaCatalog {
 export const MAX_PORTIONS = 4
 export const MIN_CUSTOM_INGREDIENTS = 1
 export const MAX_CUSTOM_INGREDIENTS = 4
+/** Special styles may include no ingredients of the customer's choice. */
+export const MIN_SPECIAL_INGREDIENTS = 0
+/** Ingredients of the customer's choice a new style includes in its price. */
+export const DEFAULT_INCLUDED_INGREDIENTS = 2
 
 const NAME_REQUIRED = 'El nombre es obligatorio.'
 const ORDER_ERROR = 'El orden debe ser un número entero entre 0 y 10000.'
 const PRICE_ERROR = 'El precio debe ser mayor a cero.'
 const INCLUDED_ERROR = 'Los ingredientes incluidos deben estar entre 1 y 4.'
+const SPECIAL_INCLUDED_ERROR = 'Los ingredientes incluidos deben estar entre 0 y 4.'
 
 const sortOrderSchema = z
   .number()
@@ -85,7 +90,12 @@ export const styleFormSchema = z
       (style.includedIngredients >= MIN_CUSTOM_INGREDIENTS && style.includedIngredients <= MAX_CUSTOM_INGREDIENTS),
     { error: INCLUDED_ERROR, path: ['includedIngredients'] },
   )
-  .transform((style) => ({ ...style, includedIngredients: style.kind === 'special' ? 0 : style.includedIngredients }))
+  .refine(
+    (style) =>
+      style.kind === 'custom' ||
+      (style.includedIngredients >= MIN_SPECIAL_INGREDIENTS && style.includedIngredients <= MAX_CUSTOM_INGREDIENTS),
+    { error: SPECIAL_INCLUDED_ERROR, path: ['includedIngredients'] },
+  )
 
 export type StyleFormValues = z.infer<typeof styleFormSchema>
 

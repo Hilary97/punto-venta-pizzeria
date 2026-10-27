@@ -119,10 +119,10 @@ describe('admin_save_pizza_style', () => {
     expect(saved.prices).toEqual({ chica: 12000, mediana: 20000, grande: 25000 })
   })
 
-  it('stores zero included ingredients for a special style', async () => {
+  it('stores the included ingredients of a special style', async () => {
     const { style_id } = await saveStyle(admin, { kind: 'special', included: 3 })
 
-    expect((await styleRow(style_id)).style.included_ingredients).toBe(0)
+    expect((await styleRow(style_id)).style.included_ingredients).toBe(3)
   })
 
   it('rejects non-admins without changes', async () => {

@@ -62,6 +62,29 @@ describe('PizzaBuilderModal', () => {
     expect(onAdd.mock.calls[0]?.[0].name).toBe('Pizza Chica: Arma tu combinación (Pepperoni, Jalapeños)')
   })
 
+  it('lets a special style add its included ingredients without requiring them', async () => {
+    const catalog: PizzaCatalog = {
+      ...pizzaCatalogFixture,
+      styles: pizzaCatalogFixture.styles.map((style) => ({ ...style, includedIngredients: 2 })),
+    }
+    const { onAdd, user } = renderBuilder(catalog)
+    const add = screen.getByRole('button', { name: 'Agregar pizza' })
+    expect(add).toBeEnabled()
+
+    const included = screen.getByRole('group', { name: 'Ingredientes (0/2)' })
+    await user.click(within(included).getByRole('button', { name: 'Pepperoni' }))
+    await user.click(within(included).getByRole('button', { name: 'Jalapeños' }))
+    expect(within(included).getByRole('button', { name: 'Piña' })).toBeDisabled()
+
+    await user.click(add)
+    expect(onAdd.mock.calls[0]?.[0].name).toBe('Pizza Chica: Estilo Varas (Pepperoni, Jalapeños)')
+  })
+
+  it('hides included ingredients on a style that includes none', () => {
+    renderBuilder()
+    expect(screen.queryByRole('group', { name: /^Ingredientes \(/ })).not.toBeInTheDocument()
+  })
+
   it('configures extra ingredients per portion and extras once for the whole pizza', async () => {
     const { onAdd, user } = renderBuilder()
     await user.click(screen.getByRole('button', { name: 'Mitades' }))

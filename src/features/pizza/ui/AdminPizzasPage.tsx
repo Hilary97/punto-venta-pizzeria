@@ -179,7 +179,11 @@ export function AdminPizzasPage() {
                     {style.description && <p className="text-xs text-slate-500">{style.description}</p>}
                   </td>
                   <td className={CELL}>
-                    {style.kind === 'custom' ? `Elige ${style.includedIngredients}` : 'Ingredientes fijos'}
+                    {style.kind === 'custom'
+                      ? `Elige ${style.includedIngredients}`
+                      : style.includedIngredients > 0
+                        ? `Fijos + elige ${style.includedIngredients}`
+                        : 'Ingredientes fijos'}
                   </td>
                   {catalog.sizes.map((size) => (
                     <td key={size.code} className={CELL}>

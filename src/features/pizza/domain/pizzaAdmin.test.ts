@@ -43,6 +43,14 @@ describe('styleFormSchema', () => {
     expect(styleFormSchema.safeParse({ ...style, kind: 'custom', includedIngredients: 4 }).success).toBe(true)
   })
 
+  it('keeps 0-4 included ingredients on a special style', () => {
+    expect(styleFormSchema.parse({ ...style, includedIngredients: 2 }).includedIngredients).toBe(2)
+    expect(styleFormSchema.parse({ ...style, includedIngredients: 0 }).includedIngredients).toBe(0)
+    expect(firstError(styleFormSchema.safeParse({ ...style, includedIngredients: 5 }))).toBe(
+      'Los ingredientes incluidos deben estar entre 0 y 4.',
+    )
+  })
+
   it('rejects a custom style outside 1-4 included ingredients', () => {
     for (const includedIngredients of [0, 5]) {
       expect(firstError(styleFormSchema.safeParse({ ...style, kind: 'custom', includedIngredients }))).toBe(

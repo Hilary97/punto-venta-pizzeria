@@ -38,9 +38,15 @@ describe('resizePortions', () => {
 })
 
 describe('setPortionStyle', () => {
-  it('clears chosen ingredients when switching to a special style', () => {
-    const portion = { ...empty, styleId: 'custom', ingredientIds: ['a'], extraIngredientIds: ['b'] }
+  it('keeps chosen ingredients up to the limit when switching to a special style', () => {
+    const portion = { ...empty, styleId: 'custom', ingredientIds: ['a', 'c'], extraIngredientIds: ['b'] }
     expect(setPortionStyle(portion, special)).toEqual({ ...empty, styleId: 'varas', extraIngredientIds: ['b'] })
+    expect(setPortionStyle(portion, { ...special, includedIngredients: 2 })).toEqual({
+      ...empty,
+      styleId: 'varas',
+      ingredientIds: ['a', 'c'],
+      extraIngredientIds: ['b'],
+    })
   })
 
   it('keeps ingredients up to the custom limit', () => {

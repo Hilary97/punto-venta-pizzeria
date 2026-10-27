@@ -198,7 +198,7 @@ describe('AdminPizzasPage styles', () => {
     await user.click(within(section('Estilos')).getByRole('button', { name: 'Nuevo estilo' }))
     await user.type(screen.getByLabelText('Nombre'), 'Estilo Nuevo')
     await user.type(screen.getByLabelText('Descripción'), 'Jamón y piña')
-    expect(screen.queryByLabelText('Ingredientes a elegir')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Ingredientes a elegir')).toHaveValue('2')
     expect(screen.queryByText(/no se podrán cobrar/)).not.toBeInTheDocument()
     await user.type(screen.getByLabelText('Precio Grande (MXN)'), '210')
     await user.type(screen.getByLabelText('Precio Mediana (MXN)'), '190.50')
@@ -209,7 +209,7 @@ describe('AdminPizzasPage styles', () => {
       name: 'Estilo Nuevo',
       description: 'Jamón y piña',
       kind: 'special',
-      includedIngredients: 0,
+      includedIngredients: 2,
       sortOrder: 2,
       active: true,
       prices: { grande: 21000, mediana: 19050, chica: 11000 },
@@ -235,6 +235,27 @@ describe('AdminPizzasPage styles', () => {
       active: true,
       prices: { chica: 11000, mediana: 19000, grande: 21000 },
     })
+  })
+
+  it('lets a special style include 0-4 ingredients and a custom one 1-4', async () => {
+    const user = await renderPage()
+    await user.click(within(section('Estilos')).getByRole('button', { name: 'Nuevo estilo' }))
+    const included = screen.getByLabelText('Ingredientes a elegir')
+    const options = () => within(included).getAllByRole('option').map((option) => option.textContent)
+    expect(options()).toEqual(['0', '1', '2', '3', '4'])
+    await user.selectOptions(included, '0')
+    await user.selectOptions(screen.getByLabelText('Tipo'), 'custom')
+    expect(options()).toEqual(['1', '2', '3', '4'])
+    expect(included).toHaveValue('1')
+  })
+
+  it('lists the included ingredients of a special style', async () => {
+    vi.mocked(listAdminPizzaCatalog).mockResolvedValue({
+      ...catalog,
+      styles: catalog.styles.map((style) => ({ ...style, includedIngredients: 2 })),
+    })
+    await renderPage()
+    expect(within(rowOf(section('Estilos'), 'Estilo Varas')).getByText('Fijos + elige 2')).toBeInTheDocument()
   })
 
   it('rejects an invalid price without calling the repository', async () => {

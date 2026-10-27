@@ -111,9 +111,18 @@ describe('validatePizzaConfig', () => {
     expect(validatePizzaConfig(config, catalog)).toEqual(['Uno de los estilos no existe o no está activo.'])
   })
 
-  it('rejects ingredients on special styles', () => {
-    const config: PizzaConfig = { size: 'chica', portions: [portion({ styleId: 'varas', ingredientIds: ['pep'] })], extraIds: [] }
-    expect(validatePizzaConfig(config, catalog)).toEqual(['Estilo Varas ya incluye sus ingredientes.'])
+  it('allows 0..included ingredients on special styles', () => {
+    const special = { ...catalog, styles: catalog.styles.map((style) => ({ ...style, includedIngredients: 2 })) }
+    const none: PizzaConfig = { size: 'chica', portions: [portion({ styleId: 'varas' })], extraIds: [] }
+    expect(validatePizzaConfig(none, special)).toEqual([])
+    const two: PizzaConfig = { size: 'chica', portions: [portion({ styleId: 'varas', ingredientIds: ['pep', 'jal'] })], extraIds: [] }
+    expect(validatePizzaConfig(two, special)).toEqual([])
+    const many: PizzaConfig = {
+      size: 'chica',
+      portions: [portion({ styleId: 'varas', ingredientIds: ['pep', 'jal', 'pina'] })],
+      extraIds: [],
+    }
+    expect(validatePizzaConfig(many, special)).toEqual(['Estilo Varas incluye hasta 2 ingredientes.'])
   })
 
   it('requires 1..included ingredients on custom styles', () => {

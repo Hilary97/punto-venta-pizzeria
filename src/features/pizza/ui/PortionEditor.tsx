@@ -42,7 +42,7 @@ export function PortionEditor({ title, portion, styles, ingredients, onChange }:
         {style?.description && <p className="break-words text-sm text-slate-500">{style.description}</p>}
       </div>
 
-      {style?.kind === 'custom' && (
+      {style && style.includedIngredients > 0 && (
         <fieldset className="flex flex-col gap-2">
           <legend className="text-sm font-medium text-slate-700">
             Ingredientes ({portion.ingredientIds.length}/{style.includedIngredients})
