@@ -261,6 +261,24 @@ describe('DeliveryBoard', () => {
     expect(await card('M-3')).toHaveClass('bg-red-100')
   })
 
+  it('keeps cards and their labels dark in dark mode instead of white', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    vi.setSystemTime(new Date('2026-01-01T15:30:00Z'))
+    const orders = [
+      order({ id: 'b', tableNumber: 2, customerName: null, createdAt: '2026-01-01T15:10:00Z', service: 'takeaway' }),
+      order({ id: 'c', tableNumber: 3, customerName: null, createdAt: '2026-01-01T15:00:00Z', service: 'dine_in' }),
+    ]
+    render(<DeliveryBoard source={makeSource([orders])} />)
+    const card = async (label: string) => (await screen.findByText(label)).closest('li')!
+    expect(await card('M-2')).toHaveClass('dark:bg-yellow-950')
+    expect(await card('M-3')).toHaveClass('dark:bg-red-950')
+    const late = await card('M-3')
+    expect(within(late).getByText('Ficha 7')).toHaveClass('dark:bg-amber-950', 'dark:text-amber-100')
+    expect(within(late).getByText(/Sin cebolla en todo/)).toHaveClass('dark:bg-amber-900', 'dark:text-amber-100')
+    expect(within(late).getByText('Aquí')).toHaveClass('dark:bg-teal-950', 'dark:text-teal-100')
+    expect(within(await card('M-2')).getByText('Para llevar')).toHaveClass('dark:bg-violet-950', 'dark:text-violet-100')
+  })
+
   describe('token buttons', () => {
     const byToken = [
       order({ id: 'a', token: 12, tableNumber: 2, customerName: null }),

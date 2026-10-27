@@ -7,8 +7,8 @@ import { delayLevel, pendingStationsLabel, type DelayLevel, type KitchenLine, ty
 
 const DELAY_CLASSES: Record<DelayLevel, string> = {
   ok: 'border-slate-200 bg-white',
-  warning: 'border-yellow-400 bg-yellow-100',
-  late: 'border-red-500 bg-red-100',
+  warning: 'border-yellow-400 bg-yellow-100 dark:bg-yellow-950',
+  late: 'border-red-500 bg-red-100 dark:bg-red-950',
 }
 
 /** Current time, refreshed every `intervalMs` so delay colours change while the board stays open. */
@@ -55,7 +55,7 @@ function LineList({ lines, size }: { lines: KitchenLine[]; size: TextSize }) {
             )}
             <PizzaLabelGroups groups={groups} />
             {line.notes && (
-              <span className={`mt-1 block rounded-lg bg-amber-100 px-2 py-1 font-medium text-amber-900 ${text.note}`}>
+              <span className={`mt-1 block rounded-lg bg-amber-100 px-2 py-1 font-medium text-amber-900 dark:bg-amber-900 dark:text-amber-100 ${text.note}`}>
                 Nota: {line.notes}
               </span>
             )}
@@ -91,14 +91,14 @@ export function WaitingTicketCard({ order, textSize = 'normal' }: WaitingTicketC
     <li data-delay="ok" className={`flex min-w-0 flex-col gap-3 rounded-xl border-2 border-dashed p-4 shadow-sm ${DELAY_CLASSES.ok}`}>
       <h3 className={`min-w-0 break-words font-bold text-slate-900 ${text.title}`}>{orderLabel(order)}</h3>
       <ServiceBadge service={order.service} className={text.token} />
-      <p className={`self-start rounded-lg border-2 border-sky-500 bg-sky-50 px-3 py-1 font-bold text-sky-900 ${text.token}`}>
+      <p className={`self-start rounded-lg border-2 border-sky-500 bg-sky-50 px-3 py-1 font-bold text-sky-900 dark:bg-sky-950 dark:text-sky-100 ${text.token}`}>
         Programado
       </p>
       {order.scheduledFor && <p className={`font-bold text-slate-700 ${text.waiter}`}>{pickupTimeLabel(order.scheduledFor)}</p>}
       {order.waiterName && <p className={`text-slate-500 ${text.waiter}`}>Atendió: {order.waiterName}</p>}
       <LineList lines={order.lines} size={textSize} />
       {order.notes && (
-        <p className={`break-words rounded-lg bg-amber-100 px-3 py-2 font-medium text-amber-900 ${text.note}`}>
+        <p className={`break-words rounded-lg bg-amber-100 px-3 py-2 font-medium text-amber-900 dark:bg-amber-900 dark:text-amber-100 ${text.note}`}>
           Nota del pedido: {order.notes}
         </p>
       )}
@@ -142,13 +142,13 @@ export function OrderTicketCard({
         </span>
       </div>
       <ServiceBadge service={order.service} className={text.token} />
-      <p className={`self-start rounded-lg border-2 border-amber-500 bg-amber-50 px-3 py-1 font-bold text-amber-900 ${text.token}`}>
+      <p className={`self-start rounded-lg border-2 border-amber-500 bg-amber-50 px-3 py-1 font-bold text-amber-900 dark:bg-amber-950 dark:text-amber-100 ${text.token}`}>
         {tokenLabel(order.token)}
       </p>
       {order.scheduledFor && <p className={`font-bold text-slate-700 ${text.waiter}`}>{pickupTimeLabel(order.scheduledFor)}</p>}
       {order.waiterName && <p className={`text-slate-500 ${text.waiter}`}>Atendió: {order.waiterName}</p>}
       {missing && (
-        <p className={`self-start rounded-lg border-2 border-sky-500 bg-sky-50 px-3 py-1 font-bold text-sky-900 ${text.waiter}`}>
+        <p className={`self-start rounded-lg border-2 border-sky-500 bg-sky-50 px-3 py-1 font-bold text-sky-900 dark:bg-sky-950 dark:text-sky-100 ${text.waiter}`}>
           {missing}
         </p>
       )}
@@ -156,7 +156,7 @@ export function OrderTicketCard({
         <LineList lines={order.lines} size={textSize} />
       </div>
       {order.notes && (
-        <p className={`break-words rounded-lg bg-amber-100 px-3 py-2 font-medium text-amber-900 ${text.note}`}>
+        <p className={`break-words rounded-lg bg-amber-100 px-3 py-2 font-medium text-amber-900 dark:bg-amber-900 dark:text-amber-100 ${text.note}`}>
           Nota del pedido: {order.notes}
         </p>
       )}
