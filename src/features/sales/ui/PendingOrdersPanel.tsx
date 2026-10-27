@@ -3,6 +3,8 @@ import { Link } from 'react-router'
 import { ErrorBanner } from '../../../shared/ui/ErrorBanner'
 import { toUserMessage } from '../../../shared/errors'
 import { cn } from '../../../shared/ui/cn'
+import { pizzaLabelLayout } from '../../pizza/domain/pizza'
+import { PizzaLabelGroups } from '../../pizza/ui/PizzaLabelGroups'
 import { orderLabel, productLineLabel, TABLE_NUMBERS, tableLabel, type Order } from '../../orders/domain/order'
 import { filterOrders } from '../../orders/domain/orderFilter'
 import { listOpenOrders } from '../../orders/infrastructure/ordersRepository'
@@ -147,12 +149,16 @@ export function PendingOrdersPanel({ onCharge }: PendingOrdersPanelProps) {
                 {order.waiterName && <p className="text-sm text-slate-500">Atendió: {order.waiterName}</p>}
                 {order.notes && <p className="break-words text-sm text-slate-600">{`Nota del pedido: ${order.notes}`}</p>}
                 <ul className="flex flex-1 flex-col gap-1 text-slate-700">
-                  {order.items.map((item) => (
-                    <li key={item.id} className="break-words">
-                      {`${productLineLabel(item.productName, item.variant)} × ${item.quantity}`}
-                      {item.notes && <span className="block text-sm text-slate-600">{`Nota: ${item.notes}`}</span>}
-                    </li>
-                  ))}
+                  {order.items.map((item) => {
+                    const { title, groups } = pizzaLabelLayout(productLineLabel(item.productName, item.variant))
+                    return (
+                      <li key={item.id} className="break-words">
+                        {`${title} × ${item.quantity}`}
+                        <PizzaLabelGroups groups={groups} />
+                        {item.notes && <span className="block text-sm text-slate-600">{`Nota: ${item.notes}`}</span>}
+                      </li>
+                    )
+                  })}
                 </ul>
                 <button
                   type="button"

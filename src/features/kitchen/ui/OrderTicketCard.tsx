@@ -1,6 +1,8 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { orderLabel, pickupTimeLabel, productLineLabel, tokenLabel } from '../../orders/domain/order'
 import { ServiceBadge } from '../../orders/ui/ServiceBadge'
+import { pizzaLabelLayout } from '../../pizza/domain/pizza'
+import { PizzaLabelGroups } from '../../pizza/ui/PizzaLabelGroups'
 import { delayLevel, pendingStationsLabel, type DelayLevel, type KitchenLine, type KitchenOrder } from '../domain/kitchen'
 
 const DELAY_CLASSES: Record<DelayLevel, string> = {
@@ -39,23 +41,27 @@ function LineList({ lines, size }: { lines: KitchenLine[]; size: TextSize }) {
   const text = TEXT[size]
   return (
     <ul className={`${text.lines} text-slate-800`}>
-      {lines.map((line) => (
-        <li key={line.id} className="break-words">
-          <span className="font-semibold">
-            {line.quantity} × {productLineLabel(line.productName, line.variant)}
-          </span>
-          {line.addedAt && (
-            <span className={`ml-2 inline-block rounded-lg bg-sky-600 px-2 py-0.5 align-middle font-bold text-white ${text.note}`}>
-              Agregado {formatTime(line.addedAt)}
+      {lines.map((line) => {
+        const { title, groups } = pizzaLabelLayout(productLineLabel(line.productName, line.variant))
+        return (
+          <li key={line.id} className="break-words">
+            <span className="font-semibold">
+              {line.quantity} × {title}
             </span>
-          )}
-          {line.notes && (
-            <span className={`mt-1 block rounded-lg bg-amber-100 px-2 py-1 font-medium text-amber-900 ${text.note}`}>
-              Nota: {line.notes}
-            </span>
-          )}
-        </li>
-      ))}
+            {line.addedAt && (
+              <span className={`ml-2 inline-block rounded-lg bg-sky-600 px-2 py-0.5 align-middle font-bold text-white ${text.note}`}>
+                Agregado {formatTime(line.addedAt)}
+              </span>
+            )}
+            <PizzaLabelGroups groups={groups} />
+            {line.notes && (
+              <span className={`mt-1 block rounded-lg bg-amber-100 px-2 py-1 font-medium text-amber-900 ${text.note}`}>
+                Nota: {line.notes}
+              </span>
+            )}
+          </li>
+        )
+      })}
     </ul>
   )
 }

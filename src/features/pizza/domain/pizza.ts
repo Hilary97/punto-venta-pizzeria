@@ -164,3 +164,38 @@ function byCatalogOrder(rows: { id: string; name: string; sortOrder: number }[],
     .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name))
     .map((row) => row.name)
 }
+
+/** How a card shows a line label: its title plus, for built pizzas, one group per style or portion with its ingredients. */
+export interface PizzaLabelLayout {
+  title: string
+  groups: { name: string; items: string[] }[]
+}
+
+/**
+ * Lays out a `describePizza` label so cards show one ingredient per row instead of `|`, `+` and `()`-joined text.
+ * `Pizza Grande · Mitades: ½ A (X, Y) + Z | ½ B · Extras: E` becomes title `Pizza Grande · Mitades` with groups
+ * `½ A` [X, Y, Z], `½ B` [] and `Extras` [E]; `Pizza Chica: A (X) + Z + E` becomes `Pizza Chica` with `A` [X, Z, E].
+ * Any other label (not a built pizza) is just its title.
+ */
+export function pizzaLabelLayout(label: string): PizzaLabelLayout {
+  const header = label.indexOf(': ')
+  if (header === -1 || !label.startsWith('Pizza ')) return { title: label, groups: [] }
+  const portions = label.slice(header + 2).split(' | ')
+  const groups = []
+  const last = portions.pop() ?? ''
+  const extras = last.indexOf(' · Extras: ')
+  for (const portion of extras === -1 ? [...portions, last] : [...portions, last.slice(0, extras)]) {
+    groups.push(portionGroup(portion))
+  }
+  if (extras !== -1) groups.push({ name: 'Extras', items: last.slice(extras + 11).split(', ') })
+  return { title: label.slice(0, header), groups }
+}
+
+/** `½ A (X, Y) + Z, W` → `½ A` with [X, Y, Z, W]. */
+function portionGroup(text: string): { name: string; items: string[] } {
+  const [style = '', ...added] = text.split(' + ')
+  const items = added.flatMap((names) => names.split(', '))
+  const open = style.lastIndexOf(' (')
+  if (open === -1 || !style.endsWith(')')) return { name: style, items }
+  return { name: style.slice(0, open), items: [...style.slice(open + 2, -1).split(', '), ...items] }
+}

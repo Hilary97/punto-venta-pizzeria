@@ -55,6 +55,48 @@ describe('KitchenBoard', () => {
     expect(screen.getByRole('button', { name: 'Marcar pedido listo' })).toBeEnabled()
   })
 
+  it('shows each portion of a split pizza and its ingredients on their own rows, without "|" or "+"', async () => {
+    const lines: KitchenOrder['lines'] = [
+      {
+        id: 'l1',
+        productName: "Pizza Grande · Mitades: ½ Estilo Varas + Jalapeños | ½ Estilo Chuy's · Extras: Extra queso",
+        quantity: 1,
+        type: 'pizza',
+        pizza: null,
+        notes: null,
+        variant: null,
+      },
+    ]
+    render(<KitchenBoard source={makeSource([[order({ lines })]])} stationLabel="Pizzas" />)
+    const pizza = (await screen.findByText('1 × Pizza Grande · Mitades')).closest('li')!
+    expect(within(pizza).getByText('½ Estilo Varas')).toBeVisible()
+    expect(within(pizza).getByText('Jalapeños')).toBeVisible()
+    expect(within(pizza).getByText("½ Estilo Chuy's")).toBeVisible()
+    expect(within(pizza).getByText('Extras')).toBeVisible()
+    expect(within(pizza).getByText('Extra queso')).toBeVisible()
+    expect(pizza.textContent).not.toMatch(/[|+]/)
+  })
+
+  it('shows every ingredient and extra of a whole pizza one per row, without "+" or "()"', async () => {
+    const lines: KitchenOrder['lines'] = [
+      {
+        id: 'l1',
+        productName: 'Pizza Chica: Estilo Varas (Jamón, Piña) + Jalapeños + Extra queso',
+        quantity: 1,
+        type: 'pizza',
+        pizza: null,
+        notes: null,
+        variant: null,
+      },
+    ]
+    render(<KitchenBoard source={makeSource([[order({ lines })]])} stationLabel="Pizzas" />)
+    const pizza = (await screen.findByText('1 × Pizza Chica')).closest('li')!
+    for (const row of ['Estilo Varas', 'Jamón', 'Piña', 'Jalapeños', 'Extra queso']) {
+      expect(within(pizza).getByText(row)).toBeVisible()
+    }
+    expect(pizza.textContent).not.toMatch(/[+()]/)
+  })
+
   it('flags lines added to the ticket while it was being cooked, with their arrival time', async () => {
     const addedAt = new Date(2026, 0, 1, 15, 12).toISOString()
     const lines: KitchenOrder['lines'] = [

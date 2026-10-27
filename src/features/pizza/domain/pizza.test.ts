@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { describePizza, isSizeSoldOut, portionLabel, validatePizzaConfig } from './pizza'
+import { describePizza, isSizeSoldOut, pizzaLabelLayout, portionLabel, validatePizzaConfig } from './pizza'
 import type { PizzaCatalog, PizzaConfig, PizzaPortion } from './pizza'
 
 const catalog: PizzaCatalog = {
@@ -174,5 +174,50 @@ describe('isSizeSoldOut', () => {
     expect(isSizeSoldOut({ ...chica, doughLeft: 3 })).toBe(false)
     expect(isSizeSoldOut({ ...chica, doughLeft: 0 })).toBe(true)
     expect(isSizeSoldOut({ ...chica, doughLeft: -1 })).toBe(true)
+  })
+})
+
+describe('pizzaLabelLayout', () => {
+  it('splits a split pizza into one group per portion, each ingredient on its own row, extras last', () => {
+    expect(
+      pizzaLabelLayout("Pizza Grande · Mitades: ½ Estilo Varas (Jamón, Piña) + Jalapeños, Champiñones | ½ Estilo Chuy's · Extras: Extra queso, Orilla rellena"),
+    ).toEqual({
+      title: 'Pizza Grande · Mitades',
+      groups: [
+        { name: '½ Estilo Varas', items: ['Jamón', 'Piña', 'Jalapeños', 'Champiñones'] },
+        { name: "½ Estilo Chuy's", items: [] },
+        { name: 'Extras', items: ['Extra queso', 'Orilla rellena'] },
+      ],
+    })
+    expect(pizzaLabelLayout('Pizza Mediana · Cuartos: ¼ A | ¼ B (X) | ¼ C + Y | ¼ D')).toEqual({
+      title: 'Pizza Mediana · Cuartos',
+      groups: [
+        { name: '¼ A', items: [] },
+        { name: '¼ B', items: ['X'] },
+        { name: '¼ C', items: ['Y'] },
+        { name: '¼ D', items: [] },
+      ],
+    })
+  })
+
+  it('splits a whole pizza into its style with each chosen, added and extra ingredient on its own row, without "+" or "()"', () => {
+    expect(pizzaLabelLayout('Pizza Chica: Estilo Varas (Jamón, Piña) + Jalapeños, Champiñones + Extra queso, Orilla rellena')).toEqual({
+      title: 'Pizza Chica',
+      groups: [{ name: 'Estilo Varas', items: ['Jamón', 'Piña', 'Jalapeños', 'Champiñones', 'Extra queso', 'Orilla rellena'] }],
+    })
+    expect(pizzaLabelLayout('Pizza Grande: Estilo Varas + Extra queso')).toEqual({
+      title: 'Pizza Grande',
+      groups: [{ name: 'Estilo Varas', items: ['Extra queso'] }],
+    })
+    expect(pizzaLabelLayout("Pizza Mediana: Estilo Chuy's (Salami, Pepperoni)")).toEqual({
+      title: 'Pizza Mediana',
+      groups: [{ name: "Estilo Chuy's", items: ['Salami', 'Pepperoni'] }],
+    })
+  })
+
+  it('keeps a product label as a single row', () => {
+    for (const label of ['Pizza Hawaiana', 'Combo: Hamburguesa + Papas', 'Hamburguesa Clásica (Doble)', 'Malteada Moka']) {
+      expect(pizzaLabelLayout(label)).toEqual({ title: label, groups: [] })
+    }
   })
 })

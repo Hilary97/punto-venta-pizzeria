@@ -193,6 +193,25 @@ describe('order checkout mode', () => {
     expect(await screen.findByRole('status')).toHaveTextContent('Total cobrado: $210.00')
   })
 
+  it('shows each portion of a built pizza and its ingredients on their own rows while charging, without "|", "+" or "()"', async () => {
+    const description = "Pizza Grande · Mitades: ½ Estilo Varas (Jamón, Piña) + Jalapeños | ½ Estilo Chuy's · Extras: Extra queso"
+    vi.mocked(getOrder).mockResolvedValue({
+      ...openOrder,
+      items: [{ id: 'i1', productId: null, productName: description, quantity: 1, type: 'pizza' as const, pizza: null, notes: null, variant: null }],
+    })
+    vi.mocked(quoteOrder).mockResolvedValue({
+      ...openQuote,
+      totalCents: 21000,
+      lines: [{ orderItemId: 'i1', itemType: 'pizza', name: description, notes: null, quantity: 1, unitPriceCents: 21000, lineTotalCents: 21000, available: true, reason: null }],
+    })
+    renderPos('/?pedido=o1')
+    const line = (await screen.findByText('Pizza Grande · Mitades')).closest('li')!
+    for (const row of ['½ Estilo Varas', 'Jamón', 'Piña', 'Jalapeños', "½ Estilo Chuy's", 'Extras', 'Extra queso']) {
+      expect(within(line).getByText(row)).toBeVisible()
+    }
+    expect(line.textContent).not.toMatch(/[|+()]/)
+  })
+
   it.each([
     ['not found', null],
     ['not open', { ...openOrder, status: 'paid' as const }],
@@ -220,6 +239,17 @@ describe('pending orders panel', () => {
     const card = screen.getByText('M-3 · Ana').closest('li')!
     expect(within(card).getByText('Pizza queso × 2')).toBeVisible()
     expect(within(card).getByText('Agua × 1')).toBeVisible()
+  })
+
+  it('shows each portion of a built pizza and its ingredients on their own rows, without "|", "+" or "()"', async () => {
+    const pizzaLine = { ...openOrder.items[0]!, id: 'i9', productId: null, productName: "Pizza Grande · Mitades: ½ Estilo Varas (Jamón, Piña) + Jalapeños | ½ Estilo Chuy's · Extras: Extra queso", quantity: 1, type: 'pizza' as const }
+    vi.mocked(listOpenOrders).mockResolvedValue([{ ...openOrder, items: [pizzaLine] }])
+    renderPos()
+    const line = (await screen.findByText(/Pizza Grande · Mitades × 1/)).closest('li')!
+    for (const row of ['½ Estilo Varas', 'Jamón', 'Piña', 'Jalapeños', "½ Estilo Chuy's", 'Extras', 'Extra queso']) {
+      expect(within(line).getByText(row)).toBeVisible()
+    }
+    expect(line.textContent).not.toMatch(/[|+()]/)
   })
 
   it('enters order checkout when clicking Cobrar', async () => {

@@ -1,5 +1,7 @@
 import { Link } from 'react-router'
 import { Button } from '../../../shared/ui/Button'
+import { pizzaLabelLayout } from '../../pizza/domain/pizza'
+import { PizzaLabelGroups } from '../../pizza/ui/PizzaLabelGroups'
 import { ServiceBadge } from './ServiceBadge'
 import { isFullyDelivered, isWaitingScheduled, pickupTimeLabel, productLineLabel, tableLabel, tokenLabel, type Order } from '../domain/order'
 
@@ -46,12 +48,16 @@ export function OpenOrdersList({ orders, canCharge, disabled = false, onAddItems
           {order.scheduledFor && <p className="font-semibold text-sky-800">{pickupTimeLabel(order.scheduledFor)}</p>}
           {order.waiterName && <p className="text-sm text-slate-500">Atendió: {order.waiterName}</p>}
           <ul className="flex-1 text-slate-700">
-            {order.items.map((item) => (
-              <li key={item.id} className="break-words">
-                {productLineLabel(item.productName, item.variant)} × {item.quantity}
-                {item.notes && <span className="block text-sm text-slate-500">Nota: {item.notes}</span>}
-              </li>
-            ))}
+            {order.items.map((item) => {
+              const { title, groups } = pizzaLabelLayout(productLineLabel(item.productName, item.variant))
+              return (
+                <li key={item.id} className="break-words">
+                  {title} × {item.quantity}
+                  <PizzaLabelGroups groups={groups} />
+                  {item.notes && <span className="block text-sm text-slate-500">Nota: {item.notes}</span>}
+                </li>
+              )
+            })}
           </ul>
           {order.notes && <p className="break-words rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">Nota del pedido: {order.notes}</p>}
           <div className="flex flex-wrap gap-2">

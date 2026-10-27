@@ -331,6 +331,24 @@ describe('OrdersPage', () => {
     expect(within(card).getByText(/pizza queso × 2/i)).toBeVisible()
   })
 
+  it('shows each portion of a built pizza and its ingredients on their own rows, without "|", "+" or "()"', async () => {
+    const pizzaLine = {
+      ...openOrder.items[0]!,
+      id: 'i2',
+      productId: null,
+      productName: "Pizza Grande · Mitades: ½ Estilo Varas (Jamón, Piña) + Jalapeños | ½ Estilo Chuy's · Extras: Extra queso",
+      quantity: 1,
+      type: 'pizza' as const,
+    }
+    vi.mocked(listOpenOrders).mockResolvedValue([{ ...openOrder, items: [pizzaLine] }])
+    renderPage()
+    const line = (await screen.findByText(/Pizza Grande · Mitades × 1/)).closest('li')!
+    for (const row of ['½ Estilo Varas', 'Jamón', 'Piña', 'Jalapeños', "½ Estilo Chuy's", 'Extras', 'Extra queso']) {
+      expect(within(line).getByText(row)).toBeVisible()
+    }
+    expect(line.textContent).not.toMatch(/[|+()]/)
+  })
+
   it('shows Entregado instead of a token when every line was delivered', async () => {
     const line = openOrder.items[0]!
     vi.mocked(listOpenOrders).mockResolvedValue([
