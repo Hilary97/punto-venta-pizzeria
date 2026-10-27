@@ -29,3 +29,5 @@ dist-ssr
 *.sw?
 # Local Pi runtime state
 .atl/
+.vercel
+.env*
