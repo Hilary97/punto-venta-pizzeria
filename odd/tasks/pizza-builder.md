@@ -11,7 +11,9 @@ charges server-computed prices.
 
 ## Decisions (user)
 
-- Mixed styles: charge the most expensive style for that size.
+- Mixed styles: charge the most expensive style for that size. Superseded by
+  `20261109120000_pizza_split_average_price.sql`: mitades, tercios and cuartos now
+  charge the average portion price, rounded up to the whole peso.
 - Extras cost full price even on a single portion: extra ingredient $5, extra cheese $30
   (any size), stored in a settings table.
 - Divisions: chica entera only; mediana entera or mitades; grande entera, mitades,

@@ -176,8 +176,8 @@ describe('validate_pizza', () => {
 })
 
 describe('quote_order pricing', () => {
-  it('charges the most expensive style: grande ½ Varas + ½ Chuy\'s', async () => {
-    expect(await quoteTotal([pizzaLine('grande', [{ style: 'Estilo Varas' }, { style: "Estilo Chuy's" }])])).toBe(25000)
+  it('charges the average style price: grande ½ Varas + ½ Chuy\'s', async () => {
+    expect(await quoteTotal([pizzaLine('grande', [{ style: 'Estilo Varas' }, { style: "Estilo Chuy's" }])])).toBe(24000)
   })
 
   it('adds an extra ingredient on one half', async () => {
@@ -185,7 +185,7 @@ describe('quote_order pricing', () => {
       await quoteTotal([
         pizzaLine('grande', [{ style: 'Estilo Varas', extras: ['Jalapeños'] }, { style: "Estilo Chuy's" }]),
       ]),
-    ).toBe(25500)
+    ).toBe(24500)
   })
 
   it('charges legacy extra cheese on both halves once for the whole pizza', async () => {
@@ -196,7 +196,7 @@ describe('quote_order pricing', () => {
           { style: "Estilo Chuy's", cheese: true },
         ]),
       ]),
-    ).toBe(28500)
+    ).toBe(27500)
   })
 
   it('prices a mediana custom combination', async () => {
@@ -214,9 +214,9 @@ describe('quote_order pricing', () => {
   it('multiplies by quantity', async () => {
     const line = pizzaLine('grande', [{ style: 'Estilo Varas' }, { style: "Estilo Chuy's" }], { quantity: 2 })
     const q = await quote(await createOrder([line]))
-    expect(q.total_cents).toBe(50000)
-    expect(q.lines[0].unit_price_cents).toBe(25000)
-    expect(q.lines[0].line_total_cents).toBe(50000)
+    expect(q.total_cents).toBe(48000)
+    expect(q.lines[0].unit_price_cents).toBe(24000)
+    expect(q.lines[0].line_total_cents).toBe(48000)
     expect(q.payable).toBe(true)
   })
 
@@ -352,12 +352,12 @@ describe('pay_order', () => {
   it('creates a sale equal to the quote and marks the order paid', async () => {
     const id = await createOrder([pizzaForPay(), { product_id: fx.sodaId, quantity: 2 }])
     const q = await quote(id)
-    expect(q.total_cents).toBe(25500 + 4000)
+    expect(q.total_cents).toBe(24500 + 4000)
 
     await asUser(db, cashier)
     await rpc(db, 'public.open_cash_session($1)', [0])
     const paid = await rpc(db, 'public.pay_order($1, $2)', [id, 30_000])
-    expect(paid).toMatchObject({ total_cents: q.total_cents, change_cents: 500, order_id: id })
+    expect(paid).toMatchObject({ total_cents: q.total_cents, change_cents: 1500, order_id: id })
 
     await asSuperuser(db)
     const sale = await db.query<{ total_cents: number; received_cents: number }>(
@@ -374,7 +374,7 @@ describe('pay_order', () => {
       {
         product_id: null,
         product_name: "Pizza Grande · Mitades: ½ Estilo Varas + Jalapeños | ½ Estilo Chuy's — Nota: bien cocida",
-        unit_price_cents: 25500,
+        unit_price_cents: 24500,
         quantity: 1,
       },
       { product_id: fx.sodaId, product_name: 'Refresco', unit_price_cents: 2000, quantity: 2 },

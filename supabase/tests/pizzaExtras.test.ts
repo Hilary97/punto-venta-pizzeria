@@ -169,8 +169,8 @@ describe('pizza extras', () => {
         ]),
       ]),
     )
-    // 25000 base + 500 jalapeños + 3000 queso + 4000 orilla (once)
-    expect(q.total_cents).toBe(32500)
+    // 24000 base (average of the halves) + 500 jalapeños + 3000 queso + 4000 orilla (once)
+    expect(q.total_cents).toBe(31500)
     expect(q.lines[0].name).toBe(
       "Pizza Grande · Mitades: ½ Estilo Varas + Jalapeños | ½ Estilo Chuy's · Extras: Extra queso, Orilla rellena",
     )
