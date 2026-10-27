@@ -17,6 +17,8 @@ charges server-computed prices.
   `20261111120000_pizza_split_distinct_style_average.sql`: the average is taken over
   distinct styles, so tercios and cuartos cost like a half (⅓ Varas + ⅓ Varas + ⅓ Chuy's
   = ½ Varas + ½ Chuy's); a split of a single style costs its exact whole price.
+  `20261112120000_pizza_split_round_up_ten_pesos.sql`: the split average is always
+  rounded up to the next $10 ($233.33 -> $240); whole pizzas and extras stay exact.
 - Extras cost full price even on a single portion: extra ingredient $5, extra cheese $30
   (any size), stored in a settings table.
 - Divisions: chica entera only; mediana entera or mitades; grande entera, mitades,

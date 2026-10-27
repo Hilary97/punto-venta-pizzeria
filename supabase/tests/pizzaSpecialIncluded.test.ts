@@ -98,7 +98,7 @@ describe('included ingredients on every style', () => {
       portions: [portion('Estilo Varas', ['Jamón', 'Piña']), portion("Estilo Chuy's", ['Ajo', 'Jamón'])],
     })
 
-    const average = Math.ceil(((await stylePrice('Estilo Varas', 'grande')) + (await stylePrice("Estilo Chuy's", 'grande'))) / 2 / 100) * 100
+    const average = Math.ceil(((await stylePrice('Estilo Varas', 'grande')) + (await stylePrice("Estilo Chuy's", 'grande'))) / 2 / 1000) * 1000
     expect(result.price).toBe(average)
   })
 
