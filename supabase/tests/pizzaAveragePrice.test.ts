@@ -51,59 +51,87 @@ describe('split pizza average price', () => {
 
   it('charges the average of the halves, not the most expensive one', async () => {
     await setGrandePrice('Estilo Varas', 34000)
-    // (34000 + 23000) / 2 = 28500
+    // (34000 + 23000) / 2 = 28500 -> 29000, + $10 halves fee
     const q = await quoteOf({ size: 'grande', portions: [portion('Estilo Varas'), portion("Estilo Chuy's")] })
     expect(q.total_cents).toBe(30000)
     expect(q.lines[0].unit_price_cents).toBe(30000)
   })
 
-  it('averages thirds per portion', async () => {
+  it('averages thirds per distinct style', async () => {
     const q = await quoteOf({
       size: 'grande',
       portions: [portion('Estilo Varas'), portion("Estilo Chuy's"), portion('Estilo Pepperoni')],
     })
-    // (25000 + 23000 + 21000) / 3 = 23000
+    // (25000 + 23000 + 21000) / 3 = 23000, + $20 thirds fee
     expect(q.total_cents).toBe(25000)
   })
 
-  it('counts a style repeated in thirds once, like a half', async () => {
+  it('counts a style repeated in thirds once in the average but charges the thirds fee', async () => {
     await setGrandePrice('Estilo Varas', 34000)
-    // ⅓ Varas + ⅓ Varas + ⅓ Chuy's = ½ Varas + ½ Chuy's: (34000 + 23000) / 2 = 28500
+    // ⅓ Varas + ⅓ Varas + ⅓ Chuy's: (34000 + 23000) / 2 = 28500 -> 29000, + $20 thirds fee
     const q = await quoteOf({
       size: 'grande',
       portions: [portion('Estilo Varas'), portion('Estilo Varas'), portion("Estilo Chuy's")],
     })
-    expect(q.total_cents).toBe(30000)
+    expect(q.total_cents).toBe(31000)
   })
 
-  it('counts a style repeated in quarters once', async () => {
+  it('counts a style repeated in quarters once in the average', async () => {
     await setGrandePrice('Estilo Pepperoni', 6000)
-    // (25000 + 23000 + 6000) / 3 = 18000, not (25000 + 23000 + 6000 + 6000) / 4 = 15000
+    // (25000 + 23000 + 6000) / 3 = 18000, not (25000 + 23000 + 6000 + 6000) / 4 = 15000; + $30 quarters fee
     const q = await quoteOf({
       size: 'grande',
       portions: [portion('Estilo Varas'), portion("Estilo Chuy's"), portion('Estilo Pepperoni'), portion('Estilo Pepperoni')],
     })
-    expect(q.total_cents).toBe(20000)
+    expect(q.total_cents).toBe(21000)
   })
 
-  it('rounds an inexact average up to the next $25', async () => {
+  it.each([
+    ['halves', 2, 25000],
+    ['thirds', 3, 26000],
+    ['quarters', 4, 27000],
+  ])('adds the %s elaboration fee to the averaged base', async (_name, count, total) => {
+    // Varas 25000 and Chuy's 23000 average 24000 however they are split; fee is $10 per extra portion
+    const styles = ['Estilo Varas', "Estilo Chuy's"]
+    const portions = Array.from({ length: count as number }, (_, i) => portion(styles[i % 2]))
+    const q = await quoteOf({ size: 'grande', portions })
+    expect(q.total_cents).toBe(total)
+  })
+
+  it('rounds an inexact average up to the next $10', async () => {
     await setGrandePrice('Estilo Pepperoni', 22000)
-    // (25000 + 23000 + 22000) / 3 = 23333.33
+    // (25000 + 23000 + 22000) / 3 = 23333.33 -> 24000, + $30 quarters fee
     const q = await quoteOf({
       size: 'grande',
       portions: [portion('Estilo Varas'), portion("Estilo Chuy's"), portion('Estilo Pepperoni'), portion('Estilo Varas')],
     })
-    expect(q.total_cents).toBe(25000)
+    expect(q.total_cents).toBe(27000)
   })
 
-  it('rounds a whole-peso average up to the next $25', async () => {
+  it('rounds a whole-peso average up to the next $10', async () => {
     await setGrandePrice("Estilo Chuy's", 23200)
-    // (25000 + 23200) / 2 = 24100
+    // (25000 + 23200) / 2 = 24100 -> 25000, + $10 halves fee
     const q = await quoteOf({ size: 'grande', portions: [portion('Estilo Varas'), portion("Estilo Chuy's")] })
+    expect(q.total_cents).toBe(26000)
+  })
+
+  it('does not add $10 to an average that is already a multiple of $10', async () => {
+    // (25000 + 23000 + 21000) / 3 = 23000 stays 23000, + $20 thirds fee
+    const q = await quoteOf({
+      size: 'grande',
+      portions: [portion('Estilo Varas'), portion("Estilo Chuy's"), portion('Estilo Pepperoni')],
+    })
     expect(q.total_cents).toBe(25000)
   })
 
-  it('charges a split of a single style its exact whole price', async () => {
+  it('rounds up in $10 steps, not $25', async () => {
+    await setGrandePrice("Estilo Chuy's", 26000)
+    // (25000 + 26000) / 2 = 25500 -> 26000, + $10 halves fee
+    const q = await quoteOf({ size: 'grande', portions: [portion('Estilo Varas'), portion("Estilo Chuy's")] })
+    expect(q.total_cents).toBe(27000)
+  })
+
+  it('charges a split of a single style its exact whole price, with no elaboration fee', async () => {
     await setGrandePrice('Estilo Varas', 24950)
     const q = await quoteOf({
       size: 'grande',
@@ -112,13 +140,13 @@ describe('split pizza average price', () => {
     expect(q.total_cents).toBe(24950)
   })
 
-  it('adds extra ingredients on top of the averaged base', async () => {
+  it('adds extra ingredients on top of the averaged base and fee', async () => {
     const q = await quoteOf({
       size: 'grande',
       portions: [portion('Estilo Varas', { extra_ingredient_ids: [jalapenos] }), portion("Estilo Chuy's")],
     })
-    // (25000 + 23000) / 2 = 24000 -> 25000
-    expect(q.total_cents).toBe(25000 + 500)
+    // (25000 + 23000) / 2 = 24000, + $10 halves fee, + $5 jalapeños
+    expect(q.total_cents).toBe(24000 + 1000 + 500)
   })
 
   it('keeps a whole pizza at its exact style price, cents included', async () => {
@@ -127,24 +155,10 @@ describe('split pizza average price', () => {
     expect(q.total_cents).toBe(24950)
   })
 
-  it('rounds a split with centavo prices up to the next $25', async () => {
+  it('rounds a split with centavo prices up to the next $10', async () => {
     await setGrandePrice('Estilo Varas', 24950)
-    // (24950 + 23000) / 2 = 23975
+    // (24950 + 23000) / 2 = 23975 -> 24000, + $10 halves fee
     const q = await quoteOf({ size: 'grande', portions: [portion('Estilo Varas'), portion("Estilo Chuy's")] })
     expect(q.total_cents).toBe(25000)
-  })
-
-  it('keeps an average that is already a multiple of $25', async () => {
-    await setGrandePrice("Estilo Chuy's", 30000)
-    // (25000 + 30000) / 2 = 27500
-    const q = await quoteOf({ size: 'grande', portions: [portion('Estilo Varas'), portion("Estilo Chuy's")] })
-    expect(q.total_cents).toBe(27500)
-  })
-
-  it('rounds up in $25 steps, not $20 or $50', async () => {
-    await setGrandePrice("Estilo Chuy's", 26000)
-    // (25000 + 26000) / 2 = 25500
-    const q = await quoteOf({ size: 'grande', portions: [portion('Estilo Varas'), portion("Estilo Chuy's")] })
-    expect(q.total_cents).toBe(27500)
   })
 })

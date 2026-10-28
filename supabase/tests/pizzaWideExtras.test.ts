@@ -84,7 +84,7 @@ describe('pizza-wide extras', () => {
       portions: [portion('Estilo Varas', { extra_ingredient_ids: [jalapenos] }), portion("Estilo Chuy's")],
       extra_ids: [orilla, CHEESE_ID],
     })
-    // 25000 base (average of the halves, rounded up to $25) + 500 jalapeños (per portion) + 3000 queso + 4000 orilla (once each)
+    // 24000 average of the halves + 1000 halves fee + 500 jalapeños (per portion) + 3000 queso + 4000 orilla (once each)
     expect(q.total_cents).toBe(32500)
     expect(q.lines[0].name).toBe(
       "Pizza Grande · Mitades: ½ Estilo Varas + Jalapeños | ½ Estilo Chuy's · Extras: Extra queso, Orilla rellena",
