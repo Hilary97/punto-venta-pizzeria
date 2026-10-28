@@ -10,6 +10,7 @@ const style = {
   description: 'Jamón',
   kind: 'special' as const,
   includedIngredients: 0,
+  fixedIngredients: 3,
   sortOrder: 20,
   active: true,
   prices: { chica: 11000, mediana: 19000, grande: 21000 },
@@ -49,6 +50,16 @@ describe('styleFormSchema', () => {
     expect(firstError(styleFormSchema.safeParse({ ...style, includedIngredients: 5 }))).toBe(
       'Los ingredientes incluidos deben estar entre 0 y 4.',
     )
+  })
+
+  it('accepts 0-20 fixed ingredients and rejects anything else', () => {
+    expect(styleFormSchema.parse({ ...style, fixedIngredients: 0 }).fixedIngredients).toBe(0)
+    expect(styleFormSchema.parse({ ...style, fixedIngredients: 20 }).fixedIngredients).toBe(20)
+    for (const fixedIngredients of [-1, 21, 1.5, Number.NaN]) {
+      expect(firstError(styleFormSchema.safeParse({ ...style, fixedIngredients }))).toBe(
+        'Los ingredientes fijos deben estar entre 0 y 20.',
+      )
+    }
   })
 
   it('rejects a custom style outside 1-4 included ingredients', () => {

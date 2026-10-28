@@ -10,6 +10,7 @@ import type { PizzaSizeCode } from '../domain/pizza'
 import {
   DEFAULT_INCLUDED_INGREDIENTS,
   MAX_CUSTOM_INGREDIENTS,
+  MAX_FEE_FREE_INGREDIENTS,
   MIN_CUSTOM_INGREDIENTS,
   MIN_SPECIAL_INGREDIENTS,
   styleFormSchema,
@@ -27,6 +28,11 @@ interface PizzaStyleFormModalProps {
   onClose: () => void
 }
 
+/** Whole number typed by the admin; anything else is `NaN` so the schema rejects it. */
+function parseFixedInput(input: string): number {
+  return /^\s*\d+\s*$/.test(input) ? Number(input) : Number.NaN
+}
+
 /** Included ingredient choices per kind: a special style may include none. */
 function includedOptions(kind: AdminPizzaStyle['kind']): number[] {
   const min = kind === 'custom' ? MIN_CUSTOM_INGREDIENTS : MIN_SPECIAL_INGREDIENTS
@@ -38,6 +44,7 @@ export function PizzaStyleFormModal({ sizes, initial, defaultSortOrder, onSubmit
   const [description, setDescription] = useState(initial?.description ?? '')
   const [kind, setKind] = useState<AdminPizzaStyle['kind']>(initial?.kind ?? 'special')
   const [included, setIncluded] = useState(String(initial?.includedIngredients ?? DEFAULT_INCLUDED_INGREDIENTS))
+  const [fixedInput, setFixedInput] = useState(initial?.kind === 'special' ? String(initial.fixedIngredients) : '')
   const [orderInput, setOrderInput] = useState(String(initial?.sortOrder ?? defaultSortOrder))
   const [active, setActive] = useState(initial?.active ?? true)
   const [priceInputs, setPriceInputs] = useState<Partial<Record<PizzaSizeCode, string>>>(() =>
@@ -63,6 +70,8 @@ export function PizzaStyleFormModal({ sizes, initial, defaultSortOrder, onSubmit
       description,
       kind,
       includedIngredients: Number(included),
+      // Custom styles count the customer's chosen ingredients instead.
+      fixedIngredients: kind === 'custom' ? 0 : parseFixedInput(fixedInput),
       sortOrder: parseOrderInput(orderInput),
       active,
       prices,
@@ -120,6 +129,22 @@ export function PizzaStyleFormModal({ sizes, initial, defaultSortOrder, onSubmit
             Si cambias el tipo o los ingredientes a elegir, los pedidos abiertos con este estilo no se podrán cobrar
             hasta que se corrijan.
           </p>
+        )}
+
+        {kind === 'special' && (
+          <div className="flex flex-col gap-1">
+            <Input
+              id="pizza-style-fixed"
+              label="Ingredientes fijos"
+              inputMode="numeric"
+              placeholder="3"
+              value={fixedInput}
+              onChange={(e) => setFixedInput(e.target.value)}
+            />
+            <p className="text-xs text-slate-500">
+              Con {MAX_FEE_FREE_INGREDIENTS} o menos no se cobra elaboración al dividir la pizza.
+            </p>
+          </div>
         )}
 
         <div className="flex flex-col gap-1">

@@ -47,6 +47,7 @@ describe('listAdminPizzaCatalog', () => {
             description: 'Pepperoni',
             kind: 'special',
             included_ingredients: 0,
+            fixed_ingredients: 1,
             sort_order: 1,
             active: false,
           },
@@ -86,6 +87,7 @@ describe('listAdminPizzaCatalog', () => {
           description: 'Pepperoni',
           kind: 'special',
           includedIngredients: 0,
+          fixedIngredients: 1,
           sortOrder: 1,
           active: false,
           prices: { grande: 25000, chica: 13000 },
@@ -144,6 +146,7 @@ describe('style writes', () => {
     description: 'Jamón',
     kind: 'custom' as const,
     includedIngredients: 2,
+    fixedIngredients: 0,
     sortOrder: 20,
     active: true,
     prices: { chica: 11000, mediana: 19000, grande: 21000 },
@@ -162,6 +165,7 @@ describe('style writes', () => {
       p_sort_order: 20,
       p_active: true,
       p_prices: { chica: 11000, mediana: 19000, grande: 21000 },
+      p_fixed_ingredients: 0,
     })
   })
 

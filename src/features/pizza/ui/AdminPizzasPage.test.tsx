@@ -46,6 +46,7 @@ const catalog: AdminPizzaCatalog = {
       description: 'Incluye dos ingredientes',
       kind: 'custom',
       includedIngredients: 2,
+      fixedIngredients: 0,
       sortOrder: 0,
       active: true,
       prices: { chica: 11000, mediana: 19000, grande: 21000 },
@@ -56,6 +57,7 @@ const catalog: AdminPizzaCatalog = {
       description: 'Pepperoni y jamón',
       kind: 'special',
       includedIngredients: 0,
+      fixedIngredients: 2,
       sortOrder: 1,
       active: false,
       prices: { chica: 13000, mediana: 22000, grande: 25000 },
@@ -114,7 +116,7 @@ describe('AdminPizzasPage listing', () => {
 
     expect(within(rowOf(section('Tamaños'), 'Grande')).getByText('Entera, Mitades, Tercios, Cuartos')).toBeInTheDocument()
     const varas = rowOf(section('Estilos'), 'Estilo Varas')
-    expect(within(varas).getByText('Ingredientes fijos')).toBeInTheDocument()
+    expect(within(varas).getByText('2 fijos')).toBeInTheDocument()
     expect(within(varas).getByText('$130.00')).toBeInTheDocument()
     expect(within(varas).getByText('$250.00')).toBeInTheDocument()
     expect(within(varas).getByText('Inactivo')).toBeInTheDocument()
@@ -204,6 +206,8 @@ describe('AdminPizzasPage styles', () => {
     await user.type(screen.getByLabelText('Descripción'), 'Jamón y piña')
     expect(screen.getByLabelText('Ingredientes a elegir')).toHaveValue('2')
     expect(screen.queryByText(/no se podrán cobrar/)).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Ingredientes fijos')).toHaveValue('')
+    await user.type(screen.getByLabelText('Ingredientes fijos'), '2')
     await user.type(screen.getByLabelText('Precio Grande (MXN)'), '210')
     await user.type(screen.getByLabelText('Precio Mediana (MXN)'), '190.50')
     await user.type(screen.getByLabelText('Precio Chica (MXN)'), '110')
@@ -214,6 +218,7 @@ describe('AdminPizzasPage styles', () => {
       description: 'Jamón y piña',
       kind: 'special',
       includedIngredients: 2,
+      fixedIngredients: 2,
       sortOrder: 2,
       active: true,
       prices: { grande: 21000, mediana: 19050, chica: 11000 },
@@ -221,10 +226,43 @@ describe('AdminPizzasPage styles', () => {
     expect(listAdminPizzaCatalog).toHaveBeenCalledTimes(2)
   })
 
+  it('requires the fixed ingredients of a new special style', async () => {
+    const user = await renderPage()
+    await user.click(within(section('Estilos')).getByRole('button', { name: 'Nuevo estilo' }))
+    await user.type(screen.getByLabelText('Nombre'), 'Estilo Nuevo')
+    await user.type(screen.getByLabelText('Precio Grande (MXN)'), '210')
+    await user.type(screen.getByLabelText('Precio Mediana (MXN)'), '190')
+    await user.type(screen.getByLabelText('Precio Chica (MXN)'), '110')
+    await user.click(screen.getByRole('button', { name: 'Guardar' }))
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Los ingredientes fijos deben estar entre 0 y 20.')
+    expect(saveStyle).not.toHaveBeenCalled()
+  })
+
+  it('edits the fixed ingredients of a special style', async () => {
+    const user = await renderPage()
+    await user.click(within(rowOf(section('Estilos'), 'Estilo Varas')).getByRole('button', { name: 'Editar' }))
+    const fixed = screen.getByLabelText('Ingredientes fijos')
+    expect(fixed).toHaveValue('2')
+    await user.clear(fixed)
+    await user.type(fixed, '7')
+    await user.click(screen.getByRole('button', { name: 'Guardar' }))
+
+    expect(saveStyle).toHaveBeenCalledWith('varas', expect.objectContaining({ kind: 'special', fixedIngredients: 7 }))
+  })
+
+  it('marks the styles that pay no elaboration fee', async () => {
+    await renderPage()
+    expect(within(rowOf(section('Estilos'), 'Estilo Varas')).getByText('2 fijos')).toBeInTheDocument()
+    expect(within(rowOf(section('Estilos'), 'Estilo Varas')).getByText('Sin cargo por elaboración')).toBeInTheDocument()
+    expect(within(rowOf(section('Estilos'), 'Arma tu combinación')).getByText('Sin cargo por elaboración')).toBeInTheDocument()
+  })
+
   it('edits a custom style and its included ingredients', async () => {
     const user = await renderPage()
     await user.click(within(rowOf(section('Estilos'), 'Arma tu combinación')).getByRole('button', { name: 'Editar' }))
     expect(screen.getByText(/los pedidos abiertos con este estilo no se podrán cobrar/)).toBeInTheDocument()
+    expect(screen.queryByLabelText('Ingredientes fijos')).not.toBeInTheDocument()
     const included = screen.getByLabelText('Ingredientes a elegir')
     expect(included).toHaveValue('2')
     await user.selectOptions(included, '3')
@@ -235,6 +273,7 @@ describe('AdminPizzasPage styles', () => {
       description: 'Incluye dos ingredientes',
       kind: 'custom',
       includedIngredients: 3,
+      fixedIngredients: 0,
       sortOrder: 0,
       active: true,
       prices: { chica: 11000, mediana: 19000, grande: 21000 },
@@ -256,10 +295,11 @@ describe('AdminPizzasPage styles', () => {
   it('lists the included ingredients of a special style', async () => {
     vi.mocked(listAdminPizzaCatalog).mockResolvedValue({
       ...catalog,
-      styles: catalog.styles.map((style) => ({ ...style, includedIngredients: 2 })),
+      styles: catalog.styles.map((style) => ({ ...style, includedIngredients: 2, fixedIngredients: 7 })),
     })
     await renderPage()
-    expect(within(rowOf(section('Estilos'), 'Estilo Varas')).getByText('Fijos + elige 2')).toBeInTheDocument()
+    expect(within(rowOf(section('Estilos'), 'Estilo Varas')).getByText('7 fijos + elige 2')).toBeInTheDocument()
+    expect(within(rowOf(section('Estilos'), 'Estilo Varas')).queryByText('Sin cargo por elaboración')).not.toBeInTheDocument()
   })
 
   it('rejects an invalid price without calling the repository', async () => {

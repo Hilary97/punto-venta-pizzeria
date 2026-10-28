@@ -11,6 +11,8 @@ export interface AdminPizzaSize {
 
 /** A style, active or not, with its price in cents per size. */
 export interface AdminPizzaStyle extends PizzaStyle {
+  /** Ingredients the style itself has (0 for custom styles); split pizzas pay no elaboration fee at 2 or fewer. */
+  fixedIngredients: number
   active: boolean
   prices: Partial<Record<PizzaSizeCode, number>>
 }
@@ -50,6 +52,18 @@ export const MAX_CUSTOM_INGREDIENTS = 4
 export const MIN_SPECIAL_INGREDIENTS = 0
 /** Ingredients of the customer's choice a new style includes in its price. */
 export const DEFAULT_INCLUDED_INGREDIENTS = 2
+export const MAX_FIXED_INGREDIENTS = 20
+/** Split pizzas whose portions all have this many ingredients or fewer pay no elaboration fee. */
+export const MAX_FEE_FREE_INGREDIENTS = 2
+
+/**
+ * True when a split pizza made only of this style pays no elaboration fee. Mirrors
+ * `price_pizza`: a custom style counts the chosen ingredients, at most `includedIngredients`.
+ */
+export function isFeeFree(style: Pick<AdminPizzaStyle, 'kind' | 'includedIngredients' | 'fixedIngredients'>): boolean {
+  const ingredients = style.kind === 'custom' ? style.includedIngredients : style.fixedIngredients
+  return ingredients <= MAX_FEE_FREE_INGREDIENTS
+}
 
 const NAME_REQUIRED = 'El nombre es obligatorio.'
 const ORDER_ERROR = 'El orden debe ser un número entero entre 0 y 10000.'
@@ -57,6 +71,7 @@ const PRICE_ERROR = 'El precio debe ser mayor a cero.'
 const FEE_ERROR = 'El cargo debe ser un monto válido de cero o más.'
 const INCLUDED_ERROR = 'Los ingredientes incluidos deben estar entre 1 y 4.'
 const SPECIAL_INCLUDED_ERROR = 'Los ingredientes incluidos deben estar entre 0 y 4.'
+const FIXED_ERROR = 'Los ingredientes fijos deben estar entre 0 y 20.'
 
 const sortOrderSchema = z
   .number()
@@ -83,6 +98,11 @@ export const styleFormSchema = z
     description: z.string().trim().max(300, { error: 'La descripción del estilo es demasiado larga.' }),
     kind: z.enum(['special', 'custom'], { error: 'El tipo de estilo no es válido.' }),
     includedIngredients: z.number().int({ error: INCLUDED_ERROR }),
+    fixedIngredients: z
+      .number({ error: FIXED_ERROR })
+      .int({ error: FIXED_ERROR })
+      .min(0, { error: FIXED_ERROR })
+      .max(MAX_FIXED_INGREDIENTS, { error: FIXED_ERROR }),
     sortOrder: sortOrderSchema,
     active: z.boolean(),
     prices: z.object({ chica: priceSchema, mediana: priceSchema, grande: priceSchema }),

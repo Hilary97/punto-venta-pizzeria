@@ -18,6 +18,7 @@ import type {
   SizeFormValues,
   StyleFormValues,
 } from '../domain/pizzaAdmin'
+import { isFeeFree } from '../domain/pizzaAdmin'
 import {
   createExtra,
   createIngredient,
@@ -207,11 +208,14 @@ export function AdminPizzasPage() {
                     {style.description && <p className="text-xs text-slate-500">{style.description}</p>}
                   </td>
                   <td className={CELL}>
-                    {style.kind === 'custom'
-                      ? `Elige ${style.includedIngredients}`
-                      : style.includedIngredients > 0
-                        ? `Fijos + elige ${style.includedIngredients}`
-                        : 'Ingredientes fijos'}
+                    <p>
+                      {style.kind === 'custom'
+                        ? `Elige ${style.includedIngredients}`
+                        : style.includedIngredients > 0
+                          ? `${style.fixedIngredients} fijos + elige ${style.includedIngredients}`
+                          : `${style.fixedIngredients} fijos`}
+                    </p>
+                    {isFeeFree(style) && <p className="text-xs text-emerald-700">Sin cargo por elaboración</p>}
                   </td>
                   {catalog.sizes.map((size) => (
                     <td key={size.code} className={CELL}>
