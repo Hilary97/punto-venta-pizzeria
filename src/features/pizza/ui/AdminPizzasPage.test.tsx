@@ -14,6 +14,7 @@ import {
   updateExtraIngredientPrice,
   updateIngredient,
   updateSize,
+  updateSplitFees,
 } from '../infrastructure/pizzaAdminRepository'
 import { AdminPizzasPage } from './AdminPizzasPage'
 
@@ -26,6 +27,7 @@ vi.mock('../infrastructure/pizzaAdminRepository', () => ({
   setStyleActive: vi.fn(),
   updateSize: vi.fn(),
   updateExtraIngredientPrice: vi.fn(),
+  updateSplitFees: vi.fn(),
   createExtra: vi.fn(),
   updateExtra: vi.fn(),
   setExtraActive: vi.fn(),
@@ -64,6 +66,7 @@ const catalog: AdminPizzaCatalog = {
     { id: 'garlic', name: 'Ajo', sortOrder: 15, active: false },
   ],
   extraIngredientCents: 500,
+  splitFees: { halves: 1000, thirds: 2000, quarters: 3000 },
   extras: [
     { id: 'cheese', name: 'Extra queso', priceCents: 3000, sortOrder: 1, active: true },
     { id: 'crust', name: 'Orilla rellena', priceCents: 4000, sortOrder: 2, active: false },
@@ -95,6 +98,7 @@ beforeEach(() => {
     setStyleActive,
     updateSize,
     updateExtraIngredientPrice,
+    updateSplitFees,
     createExtra,
     updateExtra,
     setExtraActive,
@@ -313,6 +317,49 @@ describe('AdminPizzasPage sizes and extras', () => {
 
     expect(updateExtraIngredientPrice).toHaveBeenCalledWith({ extraIngredientCents: 700 })
     expect(listAdminPizzaCatalog).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('AdminPizzasPage split fees', () => {
+  it('shows the three fees', async () => {
+    await renderPage()
+    const fees = within(section('Estilos')).getByText('Cargo por elaboración').closest('dl') as HTMLElement
+    expect(fees).toHaveTextContent('Mitades')
+    expect(fees).toHaveTextContent('$10.00')
+    expect(fees).toHaveTextContent('Tercios')
+    expect(fees).toHaveTextContent('$20.00')
+    expect(fees).toHaveTextContent('Cuartos')
+    expect(fees).toHaveTextContent('$30.00')
+  })
+
+  it('edits the fees and reloads', async () => {
+    const user = await renderPage()
+    await user.click(within(section('Estilos')).getByRole('button', { name: 'Editar cargo' }))
+    expect(screen.getByRole('dialog', { name: 'Cargo por elaboración' })).toBeInTheDocument()
+    const halves = screen.getByLabelText('Mitades (MXN)')
+    await user.clear(halves)
+    await user.type(halves, '0')
+    const quarters = screen.getByLabelText('Cuartos (MXN)')
+    await user.clear(quarters)
+    await user.type(quarters, '45.50')
+    await user.click(screen.getByRole('button', { name: 'Guardar' }))
+
+    expect(updateSplitFees).toHaveBeenCalledWith({ halves: 0, thirds: 2000, quarters: 4550 })
+    expect(listAdminPizzaCatalog).toHaveBeenCalledTimes(2)
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('rejects invalid input without saving', async () => {
+    const user = await renderPage()
+    await user.click(within(section('Estilos')).getByRole('button', { name: 'Editar cargo' }))
+    const thirds = screen.getByLabelText('Tercios (MXN)')
+    await user.clear(thirds)
+    await user.type(thirds, 'abc')
+    await user.click(screen.getByRole('button', { name: 'Guardar' }))
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Ingresa un precio válido, por ejemplo 150.50.')
+    expect(updateSplitFees).not.toHaveBeenCalled()
+    expect(listAdminPizzaCatalog).toHaveBeenCalledTimes(1)
   })
 })
 

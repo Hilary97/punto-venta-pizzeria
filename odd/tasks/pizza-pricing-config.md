@@ -16,10 +16,10 @@ The split elaboration fee (hardcoded $10/$20/$30 in `price_pizza`) becomes three
 
 ## Tasks
 
-- T1 (S1) — migration: fee columns + `price_pizza` reads them; PGlite tests. Route: inline. Commit: pending.
-- T2 (S2) — admin UI: domain schema, repository, modal, page section, types; tests. Route: inline. Commit: pending.
-- T3 (S3) — price tier migration + PGlite test. Route: inline. Commit: pending.
-- T4 — verify: full tests, tsc, oxlint, build. Route: inline. Commit: pending.
+- T1 (S1) — migration `20261115120000_pizza_split_fee_settings.sql`: fee columns + `price_pizza` reads them; PGlite tests. Route: inline. Commit: d02b7ee (done; RED 11 failing -> GREEN 11, supabase suite 365/365).
+- T2 (S2) — admin UI: domain schema, repository, modal, page section, types; tests. Route: gentle-ai-worker (context backstop). Commit: see git log (feat(pizza): edit split elaboration fees from admin) (done; RED 8 failing -> GREEN 121 pizza tests).
+- T3 (S3) — migration `20261116120000_pizza_style_price_tiers.sql` + PGlite test. Route: inline. Commit: ed939ec (done; RED 3 failing -> GREEN 3, supabase suite 368/368).
+- T4 — verify: full tests, tsc, oxlint, build. Route: inline. Done: 1069 tests pass (91 files), tsc -b OK, oxlint 0 errors and the same 12 warnings as main (none in pizza), build OK. Commit: with T2.
 
 ## Log
 

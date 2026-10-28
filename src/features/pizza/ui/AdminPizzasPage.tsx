@@ -13,6 +13,7 @@ import type {
   AdminPizzaStyle,
   ExtraFormValues,
   ExtraIngredientPriceFormValues,
+  SplitFeesFormValues,
   IngredientFormValues,
   SizeFormValues,
   StyleFormValues,
@@ -27,11 +28,13 @@ import {
   setStyleActive,
   updateExtra,
   updateExtraIngredientPrice,
+  updateSplitFees,
   updateIngredient,
   updateSize,
 } from '../infrastructure/pizzaAdminRepository'
 import { PizzaExtraFormModal } from './PizzaExtraFormModal'
 import { PizzaExtraIngredientPriceModal } from './PizzaExtraIngredientPriceModal'
+import { PizzaSplitFeesModal } from './PizzaSplitFeesModal'
 import { PizzaIngredientFormModal } from './PizzaIngredientFormModal'
 import { PizzaSizeFormModal } from './PizzaSizeFormModal'
 import { PizzaStyleFormModal } from './PizzaStyleFormModal'
@@ -44,6 +47,7 @@ type ModalState =
   | { kind: 'ingredient'; ingredient?: AdminPizzaIngredient }
   | { kind: 'extra'; extra?: AdminPizzaExtra }
   | { kind: 'extraIngredientPrice' }
+  | { kind: 'splitFees' }
 
 const HEAD_CELL = 'px-4 py-3 font-semibold'
 const CELL = 'px-4 py-3'
@@ -134,6 +138,11 @@ export function AdminPizzasPage() {
     await reload()
   }
 
+  async function handleSplitFees(values: SplitFeesFormValues) {
+    await updateSplitFees(values)
+    await reload()
+  }
+
   if (isLoading) return <Spinner label="Cargando pizzas…" />
 
   return (
@@ -170,6 +179,25 @@ export function AdminPizzasPage() {
             title="Estilos"
             action={<Button onClick={() => setModal({ kind: 'style' })}>Nuevo estilo</Button>}
           >
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4 text-sm">
+              <dl>
+                <dt className="text-slate-500">Cargo por elaboración</dt>
+                <dd className="flex flex-wrap gap-x-4 text-lg font-semibold text-slate-900">
+                  <span>
+                    Mitades <MoneyText cents={catalog.splitFees.halves} />
+                  </span>
+                  <span>
+                    Tercios <MoneyText cents={catalog.splitFees.thirds} />
+                  </span>
+                  <span>
+                    Cuartos <MoneyText cents={catalog.splitFees.quarters} />
+                  </span>
+                </dd>
+              </dl>
+              <Button variant="secondary" onClick={() => setModal({ kind: 'splitFees' })}>
+                Editar cargo
+              </Button>
+            </div>
             <Table headers={['Orden', 'Estilo', 'Tipo', ...catalog.sizes.map((size) => size.name), 'Estado', 'Acciones']}>
               {catalog.styles.map((style) => (
                 <tr key={style.id}>
@@ -306,6 +334,9 @@ export function AdminPizzasPage() {
               onSubmit={handleExtra}
               onClose={close}
             />
+          )}
+          {modal.kind === 'splitFees' && (
+            <PizzaSplitFeesModal initial={catalog.splitFees} onSubmit={handleSplitFees} onClose={close} />
           )}
           {modal.kind === 'extraIngredientPrice' && (
             <PizzaExtraIngredientPriceModal

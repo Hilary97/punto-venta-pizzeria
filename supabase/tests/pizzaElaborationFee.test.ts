@@ -36,7 +36,12 @@ async function totalOf(pizza: Json): Promise<number> {
 
 async function fees() {
   await asSuperuser(db)
-  return (await db.query(`select ${FEES} from public.pizza_settings`)).rows[0]
+  const res = await db.query<{
+    split_halves_fee_cents: number
+    split_thirds_fee_cents: number
+    split_quarters_fee_cents: number
+  }>(`select ${FEES} from public.pizza_settings`)
+  return res.rows[0]
 }
 
 async function setFees(halves: number, thirds: number, quarters: number) {

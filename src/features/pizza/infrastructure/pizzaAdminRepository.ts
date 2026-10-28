@@ -6,6 +6,7 @@ import type {
   AdminPizzaCatalog,
   ExtraFormValues,
   ExtraIngredientPriceFormValues,
+  SplitFeesFormValues,
   IngredientFormValues,
   SizeFormValues,
   StyleFormValues,
@@ -35,7 +36,7 @@ export async function listAdminPizzaCatalog(): Promise<AdminPizzaCatalog> {
       .select('id, name, price_cents, sort_order, active')
       .order('sort_order', { ascending: true })
       .order('name', { ascending: true }),
-    client.from('pizza_settings').select('extra_ingredient_cents').eq('id', true).single(),
+    client.from('pizza_settings').select('extra_ingredient_cents, split_halves_fee_cents, split_thirds_fee_cents, split_quarters_fee_cents').eq('id', true).single(),
   ])
 
   if (sizes.error || styles.error || prices.error || ingredients.error || extras.error || settings.error || !settings.data) {
@@ -73,6 +74,11 @@ export async function listAdminPizzaCatalog(): Promise<AdminPizzaCatalog> {
       active: ingredient.active,
     })),
     extraIngredientCents: settings.data.extra_ingredient_cents,
+    splitFees: {
+      halves: settings.data.split_halves_fee_cents,
+      thirds: settings.data.split_thirds_fee_cents,
+      quarters: settings.data.split_quarters_fee_cents,
+    },
     extras: extras.data.map((extra) => ({
       id: extra.id,
       name: extra.name,
@@ -81,6 +87,18 @@ export async function listAdminPizzaCatalog(): Promise<AdminPizzaCatalog> {
       active: extra.active,
     })),
   }
+}
+
+export async function updateSplitFees(values: SplitFeesFormValues): Promise<void> {
+  const { error } = await getSupabaseClient()
+    .from('pizza_settings')
+    .update({
+      split_halves_fee_cents: values.halves,
+      split_thirds_fee_cents: values.thirds,
+      split_quarters_fee_cents: values.quarters,
+    })
+    .eq('id', true)
+  if (error) throw new Error('No se pudo actualizar el cargo por elaboración.')
 }
 
 /** The unique index on the name is the only one an ingredient form can hit. */

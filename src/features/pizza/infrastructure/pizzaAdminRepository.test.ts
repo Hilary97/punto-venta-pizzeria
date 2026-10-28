@@ -11,6 +11,7 @@ import {
   updateExtraIngredientPrice,
   updateIngredient,
   updateSize,
+  updateSplitFees,
 } from './pizzaAdminRepository'
 
 const { from, rpc } = vi.hoisted(() => ({ from: vi.fn(), rpc: vi.fn() }))
@@ -64,7 +65,15 @@ describe('listAdminPizzaCatalog', () => {
         data: [{ id: 'e1', name: 'Extra queso', price_cents: 3000, sort_order: 1, active: false }],
         error: null,
       }),
-      pizza_settings: query({ data: { extra_ingredient_cents: 500 }, error: null }),
+      pizza_settings: query({
+        data: {
+          extra_ingredient_cents: 500,
+          split_halves_fee_cents: 1000,
+          split_thirds_fee_cents: 2000,
+          split_quarters_fee_cents: 0,
+        },
+        error: null,
+      }),
     }
     from.mockImplementation((table: keyof typeof tables) => tables[table])
 
@@ -84,13 +93,16 @@ describe('listAdminPizzaCatalog', () => {
       ],
       ingredients: [{ id: 'i1', name: 'Jamón', sortOrder: 1, active: false }],
       extraIngredientCents: 500,
+      splitFees: { halves: 1000, thirds: 2000, quarters: 0 },
       extras: [{ id: 'e1', name: 'Extra queso', priceCents: 3000, sortOrder: 1, active: false }],
     })
     expect(tables.pizza_styles.eq).not.toHaveBeenCalled()
     expect(tables.pizza_ingredients.eq).not.toHaveBeenCalled()
     expect(tables.pizza_extras.eq).not.toHaveBeenCalled()
     expect(tables.pizza_extras.select).toHaveBeenCalledWith('id, name, price_cents, sort_order, active')
-    expect(tables.pizza_settings.select).toHaveBeenCalledWith('extra_ingredient_cents')
+    expect(tables.pizza_settings.select).toHaveBeenCalledWith(
+      'extra_ingredient_cents, split_halves_fee_cents, split_thirds_fee_cents, split_quarters_fee_cents',
+    )
   })
 
   it('fails with one message when any table fails', async () => {
@@ -194,6 +206,21 @@ describe('size and extras writes', () => {
     expect(update.eq).toHaveBeenCalledWith('id', true)
   })
 
+  it('updates the three split fees on the single settings row', async () => {
+    const update = query({ error: null })
+    from.mockReturnValue(update)
+
+    await updateSplitFees({ halves: 0, thirds: 2500, quarters: 4000 })
+
+    expect(from).toHaveBeenCalledWith('pizza_settings')
+    expect(update.update).toHaveBeenCalledWith({
+      split_halves_fee_cents: 0,
+      split_thirds_fee_cents: 2500,
+      split_quarters_fee_cents: 4000,
+    })
+    expect(update.eq).toHaveBeenCalledWith('id', true)
+  })
+
   it('reports failures', async () => {
     from.mockReturnValue(query({ error: { code: 'x' } }))
 
@@ -202,6 +229,9 @@ describe('size and extras writes', () => {
     )
     await expect(updateExtraIngredientPrice({ extraIngredientCents: 700 })).rejects.toThrow(
       'No se pudo actualizar el precio del ingrediente extra.',
+    )
+    await expect(updateSplitFees({ halves: 1000, thirds: 2000, quarters: 3000 })).rejects.toThrow(
+      'No se pudo actualizar el cargo por elaboración.',
     )
   })
 })

@@ -302,13 +302,22 @@ export interface Database {
         Row: {
           id: boolean
           extra_ingredient_cents: number
+          split_halves_fee_cents: number
+          split_thirds_fee_cents: number
+          split_quarters_fee_cents: number
         }
         Insert: {
           id?: boolean
           extra_ingredient_cents: number
+          split_halves_fee_cents?: number
+          split_thirds_fee_cents?: number
+          split_quarters_fee_cents?: number
         }
         Update: {
           extra_ingredient_cents?: number
+          split_halves_fee_cents?: number
+          split_thirds_fee_cents?: number
+          split_quarters_fee_cents?: number
         }
       }
       supplies: EmptyRelationships & {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { extraFormSchema,
-  extraIngredientPriceFormSchema, ingredientFormSchema, sizeFormSchema, styleFormSchema } from './pizzaAdmin'
+  extraIngredientPriceFormSchema, ingredientFormSchema, sizeFormSchema, splitFeesFormSchema, styleFormSchema } from './pizzaAdmin'
 
 const firstError = (result: { success: boolean; error?: { issues: { message: string }[] } }) =>
   result.success ? null : result.error?.issues[0]?.message
@@ -82,6 +82,24 @@ describe('extraIngredientPriceFormSchema', () => {
     expect(firstError(extraIngredientPriceFormSchema.safeParse({ extraIngredientCents: 0 }))).toBe(
       'El precio debe ser mayor a cero.',
     )
+  })
+})
+
+describe('splitFeesFormSchema', () => {
+  const valid = { halves: 1000, thirds: 2000, quarters: 3000 }
+
+  it('accepts zero because it turns the fee off', () => {
+    expect(splitFeesFormSchema.safeParse(valid).success).toBe(true)
+    expect(splitFeesFormSchema.safeParse({ halves: 0, thirds: 0, quarters: 0 }).success).toBe(true)
+  })
+
+  it('rejects negative, fractional and too high amounts', () => {
+    expect(splitFeesFormSchema.safeParse({ ...valid, halves: -1 }).success).toBe(false)
+    expect(splitFeesFormSchema.safeParse({ ...valid, thirds: 10.5 }).success).toBe(false)
+    expect(firstError(splitFeesFormSchema.safeParse({ ...valid, quarters: 10_000_001 }))).toBe(
+      'El precio es demasiado alto.',
+    )
+    expect(splitFeesFormSchema.safeParse({ ...valid, quarters: 10_000_000 }).success).toBe(true)
   })
 })
 
