@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { extraFormSchema,
-  extraIngredientPriceFormSchema, ingredientFormSchema, sizeFormSchema, splitFeesFormSchema, styleFormSchema } from './pizzaAdmin'
+  extraIngredientPriceFormSchema, ingredientFormSchema, sizeFormSchema, styleFormSchema } from './pizzaAdmin'
 
 const firstError = (result: { success: boolean; error?: { issues: { message: string }[] } }) =>
   result.success ? null : result.error?.issues[0]?.message
@@ -10,7 +10,7 @@ const style = {
   description: 'Jamón',
   kind: 'special' as const,
   includedIngredients: 0,
-  chargesElaboration: true,
+  splitFees: { halves: 1000, thirds: 2000, quarters: 3000 },
   sortOrder: 20,
   active: true,
   prices: { chica: 11000, mediana: 19000, grande: 21000 },
@@ -52,9 +52,28 @@ describe('styleFormSchema', () => {
     )
   })
 
-  it('requires a yes or no elaboration mark', () => {
-    expect(styleFormSchema.parse({ ...style, chargesElaboration: false }).chargesElaboration).toBe(false)
-    expect(styleFormSchema.safeParse({ ...style, chargesElaboration: undefined }).success).toBe(false)
+  it('requires the three elaboration fees', () => {
+    expect(styleFormSchema.safeParse({ ...style, splitFees: undefined }).success).toBe(false)
+    expect(styleFormSchema.safeParse({ ...style, splitFees: { halves: 1000, thirds: 2000 } }).success).toBe(false)
+  })
+
+  it('accepts a $0 elaboration fee because it turns the fee off', () => {
+    const free = { halves: 0, thirds: 0, quarters: 0 }
+    expect(styleFormSchema.parse({ ...style, splitFees: free }).splitFees).toEqual(free)
+  })
+
+  it('rejects negative, fractional and too high elaboration fees', () => {
+    const fees = style.splitFees
+    expect(firstError(styleFormSchema.safeParse({ ...style, splitFees: { ...fees, halves: -1 } }))).toBe(
+      'El cargo debe ser un monto válido de cero o más.',
+    )
+    expect(firstError(styleFormSchema.safeParse({ ...style, splitFees: { ...fees, thirds: 10.5 } }))).toBe(
+      'El cargo debe ser un monto válido de cero o más.',
+    )
+    expect(firstError(styleFormSchema.safeParse({ ...style, splitFees: { ...fees, quarters: 10_000_001 } }))).toBe(
+      'El precio es demasiado alto.',
+    )
+    expect(styleFormSchema.safeParse({ ...style, splitFees: { ...fees, quarters: 10_000_000 } }).success).toBe(true)
   })
 
   it('rejects a custom style outside 1-4 included ingredients', () => {
@@ -88,24 +107,6 @@ describe('extraIngredientPriceFormSchema', () => {
     expect(firstError(extraIngredientPriceFormSchema.safeParse({ extraIngredientCents: 0 }))).toBe(
       'El precio debe ser mayor a cero.',
     )
-  })
-})
-
-describe('splitFeesFormSchema', () => {
-  const valid = { halves: 1000, thirds: 2000, quarters: 3000 }
-
-  it('accepts zero because it turns the fee off', () => {
-    expect(splitFeesFormSchema.safeParse(valid).success).toBe(true)
-    expect(splitFeesFormSchema.safeParse({ halves: 0, thirds: 0, quarters: 0 }).success).toBe(true)
-  })
-
-  it('rejects negative, fractional and too high amounts', () => {
-    expect(splitFeesFormSchema.safeParse({ ...valid, halves: -1 }).success).toBe(false)
-    expect(splitFeesFormSchema.safeParse({ ...valid, thirds: 10.5 }).success).toBe(false)
-    expect(firstError(splitFeesFormSchema.safeParse({ ...valid, quarters: 10_000_001 }))).toBe(
-      'El precio es demasiado alto.',
-    )
-    expect(splitFeesFormSchema.safeParse({ ...valid, quarters: 10_000_000 }).success).toBe(true)
   })
 })
 

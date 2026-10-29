@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { toUserMessage } from '../../../shared/errors'
+import { formatMoney } from '../../../shared/money'
 import { Button } from '../../../shared/ui/Button'
 import { ErrorBanner } from '../../../shared/ui/ErrorBanner'
 import { MoneyText } from '../../../shared/ui/MoneyText'
@@ -11,9 +12,9 @@ import type {
   AdminPizzaIngredient,
   AdminPizzaSize,
   AdminPizzaStyle,
+  SplitFees,
   ExtraFormValues,
   ExtraIngredientPriceFormValues,
-  SplitFeesFormValues,
   IngredientFormValues,
   SizeFormValues,
   StyleFormValues,
@@ -28,13 +29,11 @@ import {
   setStyleActive,
   updateExtra,
   updateExtraIngredientPrice,
-  updateSplitFees,
   updateIngredient,
   updateSize,
 } from '../infrastructure/pizzaAdminRepository'
 import { PizzaExtraFormModal } from './PizzaExtraFormModal'
 import { PizzaExtraIngredientPriceModal } from './PizzaExtraIngredientPriceModal'
-import { PizzaSplitFeesModal } from './PizzaSplitFeesModal'
 import { PizzaIngredientFormModal } from './PizzaIngredientFormModal'
 import { PizzaSizeFormModal } from './PizzaSizeFormModal'
 import { PizzaStyleFormModal } from './PizzaStyleFormModal'
@@ -47,7 +46,6 @@ type ModalState =
   | { kind: 'ingredient'; ingredient?: AdminPizzaIngredient }
   | { kind: 'extra'; extra?: AdminPizzaExtra }
   | { kind: 'extraIngredientPrice' }
-  | { kind: 'splitFees' }
 
 const HEAD_CELL = 'px-4 py-3 font-semibold'
 const CELL = 'px-4 py-3'
@@ -138,11 +136,6 @@ export function AdminPizzasPage() {
     await reload()
   }
 
-  async function handleSplitFees(values: SplitFeesFormValues) {
-    await updateSplitFees(values)
-    await reload()
-  }
-
   if (isLoading) return <Spinner label="Cargando pizzas…" />
 
   return (
@@ -179,26 +172,7 @@ export function AdminPizzasPage() {
             title="Estilos"
             action={<Button onClick={() => setModal({ kind: 'style' })}>Nuevo estilo</Button>}
           >
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4 text-sm">
-              <dl>
-                <dt className="text-slate-500">Cargo por elaboración</dt>
-                <dd className="flex flex-wrap gap-x-4 text-lg font-semibold text-slate-900">
-                  <span>
-                    Mitades <MoneyText cents={catalog.splitFees.halves} />
-                  </span>
-                  <span>
-                    Tercios <MoneyText cents={catalog.splitFees.thirds} />
-                  </span>
-                  <span>
-                    Cuartos <MoneyText cents={catalog.splitFees.quarters} />
-                  </span>
-                </dd>
-              </dl>
-              <Button variant="secondary" onClick={() => setModal({ kind: 'splitFees' })}>
-                Editar cargo
-              </Button>
-            </div>
-            <Table headers={['Orden', 'Estilo', 'Tipo', ...catalog.sizes.map((size) => size.name), 'Estado', 'Acciones']}>
+<Table headers={['Orden', 'Estilo', 'Tipo', ...catalog.sizes.map((size) => size.name), 'Estado', 'Acciones']}>
               {catalog.styles.map((style) => (
                 <tr key={style.id}>
                   <td className={`${CELL} text-slate-500`}>{style.sortOrder}</td>
@@ -214,7 +188,7 @@ export function AdminPizzasPage() {
                           ? `Fijos + elige ${style.includedIngredients}`
                           : 'Fijos'}
                     </p>
-                    {!style.chargesElaboration && <p className="text-xs text-emerald-700">Sin cargo por elaboración</p>}
+                    <SplitFeesText fees={style.splitFees} />
                   </td>
                   {catalog.sizes.map((size) => (
                     <td key={size.code} className={CELL}>
@@ -338,9 +312,6 @@ export function AdminPizzasPage() {
               onClose={close}
             />
           )}
-          {modal.kind === 'splitFees' && (
-            <PizzaSplitFeesModal initial={catalog.splitFees} onSubmit={handleSplitFees} onClose={close} />
-          )}
           {modal.kind === 'extraIngredientPrice' && (
             <PizzaExtraIngredientPriceModal
               initialCents={catalog.extraIngredientCents}
@@ -398,5 +369,16 @@ function ActiveBadge({ active }: { active: boolean }) {
     >
       {active ? 'Activo' : 'Inactivo'}
     </span>
+  )
+}
+
+function SplitFeesText({ fees }: { fees: SplitFees }) {
+  if (fees.halves === 0 && fees.thirds === 0 && fees.quarters === 0) {
+    return <p className="text-xs text-emerald-700">Sin cargo por elaboración</p>
+  }
+  return (
+    <p className="text-xs text-slate-500">
+      {`Elaboración: Mitades ${formatMoney(fees.halves)} · Tercios ${formatMoney(fees.thirds)} · Cuartos ${formatMoney(fees.quarters)}`}
+    </p>
   )
 }

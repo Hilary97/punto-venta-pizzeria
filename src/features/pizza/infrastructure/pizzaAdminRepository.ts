@@ -6,7 +6,6 @@ import type {
   AdminPizzaCatalog,
   ExtraFormValues,
   ExtraIngredientPriceFormValues,
-  SplitFeesFormValues,
   IngredientFormValues,
   SizeFormValues,
   StyleFormValues,
@@ -22,7 +21,7 @@ export async function listAdminPizzaCatalog(): Promise<AdminPizzaCatalog> {
     client.from('pizza_sizes').select('code, name, allowed_portions, sort_order').order('sort_order', { ascending: true }),
     client
       .from('pizza_styles')
-      .select('id, name, description, kind, included_ingredients, charges_elaboration, sort_order, active')
+      .select('id, name, description, kind, included_ingredients, split_halves_fee_cents, split_thirds_fee_cents, split_quarters_fee_cents, sort_order, active')
       .order('sort_order', { ascending: true })
       .order('name', { ascending: true }),
     client.from('pizza_style_prices').select('style_id, size_code, price_cents'),
@@ -36,7 +35,7 @@ export async function listAdminPizzaCatalog(): Promise<AdminPizzaCatalog> {
       .select('id, name, price_cents, sort_order, active')
       .order('sort_order', { ascending: true })
       .order('name', { ascending: true }),
-    client.from('pizza_settings').select('extra_ingredient_cents, split_halves_fee_cents, split_thirds_fee_cents, split_quarters_fee_cents').eq('id', true).single(),
+    client.from('pizza_settings').select('extra_ingredient_cents').eq('id', true).single(),
   ])
 
   if (sizes.error || styles.error || prices.error || ingredients.error || extras.error || settings.error || !settings.data) {
@@ -63,7 +62,11 @@ export async function listAdminPizzaCatalog(): Promise<AdminPizzaCatalog> {
       description: style.description,
       kind: style.kind,
       includedIngredients: style.included_ingredients,
-      chargesElaboration: style.charges_elaboration,
+      splitFees: {
+        halves: style.split_halves_fee_cents,
+        thirds: style.split_thirds_fee_cents,
+        quarters: style.split_quarters_fee_cents,
+      },
       sortOrder: style.sort_order,
       active: style.active,
       prices: pricesByStyle.get(style.id) ?? {},
@@ -75,11 +78,6 @@ export async function listAdminPizzaCatalog(): Promise<AdminPizzaCatalog> {
       active: ingredient.active,
     })),
     extraIngredientCents: settings.data.extra_ingredient_cents,
-    splitFees: {
-      halves: settings.data.split_halves_fee_cents,
-      thirds: settings.data.split_thirds_fee_cents,
-      quarters: settings.data.split_quarters_fee_cents,
-    },
     extras: extras.data.map((extra) => ({
       id: extra.id,
       name: extra.name,
@@ -88,18 +86,6 @@ export async function listAdminPizzaCatalog(): Promise<AdminPizzaCatalog> {
       active: extra.active,
     })),
   }
-}
-
-export async function updateSplitFees(values: SplitFeesFormValues): Promise<void> {
-  const { error } = await getSupabaseClient()
-    .from('pizza_settings')
-    .update({
-      split_halves_fee_cents: values.halves,
-      split_thirds_fee_cents: values.thirds,
-      split_quarters_fee_cents: values.quarters,
-    })
-    .eq('id', true)
-  if (error) throw new Error('No se pudo actualizar el cargo por elaboración.')
 }
 
 /** The unique index on the name is the only one an ingredient form can hit. */
@@ -129,7 +115,7 @@ export async function setIngredientActive(id: string, active: boolean): Promise<
 
 const savedStyleSchema = z.object({ style_id: z.string() }).transform((row) => row.style_id)
 
-/** Creates (`id` null) or updates a style together with its three prices; returns the style id. */
+/** Creates (`id` null) or updates a style with its three prices and elaboration fees; returns the style id. */
 export async function saveStyle(id: string | null, values: StyleFormValues): Promise<string> {
   const { data, error } = await getSupabaseClient().rpc('admin_save_pizza_style', {
     p_style_id: id,
@@ -140,7 +126,7 @@ export async function saveStyle(id: string | null, values: StyleFormValues): Pro
     p_sort_order: values.sortOrder,
     p_active: values.active,
     p_prices: values.prices,
-    p_charges_elaboration: values.chargesElaboration,
+    p_split_fees: values.splitFees,
   })
   return parseRpcResult(savedStyleSchema, data, error, 'No se pudo guardar el estilo.')
 }

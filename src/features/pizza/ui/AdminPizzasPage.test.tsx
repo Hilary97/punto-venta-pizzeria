@@ -14,7 +14,6 @@ import {
   updateExtraIngredientPrice,
   updateIngredient,
   updateSize,
-  updateSplitFees,
 } from '../infrastructure/pizzaAdminRepository'
 import { AdminPizzasPage } from './AdminPizzasPage'
 
@@ -27,7 +26,6 @@ vi.mock('../infrastructure/pizzaAdminRepository', () => ({
   setStyleActive: vi.fn(),
   updateSize: vi.fn(),
   updateExtraIngredientPrice: vi.fn(),
-  updateSplitFees: vi.fn(),
   createExtra: vi.fn(),
   updateExtra: vi.fn(),
   setExtraActive: vi.fn(),
@@ -46,7 +44,7 @@ const catalog: AdminPizzaCatalog = {
       description: 'Incluye dos ingredientes',
       kind: 'custom',
       includedIngredients: 2,
-      chargesElaboration: false,
+      splitFees: { halves: 0, thirds: 0, quarters: 0 },
       sortOrder: 0,
       active: true,
       prices: { chica: 11000, mediana: 19000, grande: 21000 },
@@ -57,7 +55,7 @@ const catalog: AdminPizzaCatalog = {
       description: 'Pepperoni y jamón',
       kind: 'special',
       includedIngredients: 0,
-      chargesElaboration: false,
+      splitFees: { halves: 1000, thirds: 2000, quarters: 3000 },
       sortOrder: 1,
       active: false,
       prices: { chica: 13000, mediana: 22000, grande: 25000 },
@@ -68,7 +66,6 @@ const catalog: AdminPizzaCatalog = {
     { id: 'garlic', name: 'Ajo', sortOrder: 15, active: false },
   ],
   extraIngredientCents: 500,
-  splitFees: { halves: 1000, thirds: 2000, quarters: 3000 },
   extras: [
     { id: 'cheese', name: 'Extra queso', priceCents: 3000, sortOrder: 1, active: true },
     { id: 'crust', name: 'Orilla rellena', priceCents: 4000, sortOrder: 2, active: false },
@@ -100,7 +97,6 @@ beforeEach(() => {
     setStyleActive,
     updateSize,
     updateExtraIngredientPrice,
-    updateSplitFees,
     createExtra,
     updateExtra,
     setExtraActive,
@@ -206,8 +202,11 @@ describe('AdminPizzasPage styles', () => {
     await user.type(screen.getByLabelText('Descripción'), 'Jamón y piña')
     expect(screen.getByLabelText('Ingredientes a elegir')).toHaveValue('2')
     expect(screen.queryByText(/no se podrán cobrar/)).not.toBeInTheDocument()
-    expect(screen.getByLabelText('Cobra elaboración al dividir')).toBeChecked()
-    await user.click(screen.getByLabelText('Cobra elaboración al dividir'))
+    expect(screen.getByLabelText('Mitades (MXN)')).toHaveValue('0.00')
+    expect(screen.getByLabelText('Tercios (MXN)')).toHaveValue('0.00')
+    expect(screen.getByLabelText('Cuartos (MXN)')).toHaveValue('0.00')
+    await user.clear(screen.getByLabelText('Mitades (MXN)'))
+    await user.type(screen.getByLabelText('Mitades (MXN)'), '15')
     await user.type(screen.getByLabelText('Precio Grande (MXN)'), '210')
     await user.type(screen.getByLabelText('Precio Mediana (MXN)'), '190.50')
     await user.type(screen.getByLabelText('Precio Chica (MXN)'), '110')
@@ -218,7 +217,7 @@ describe('AdminPizzasPage styles', () => {
       description: 'Jamón y piña',
       kind: 'special',
       includedIngredients: 2,
-      chargesElaboration: false,
+      splitFees: { halves: 1500, thirds: 0, quarters: 0 },
       sortOrder: 2,
       active: true,
       prices: { grande: 21000, mediana: 19050, chica: 11000 },
@@ -226,29 +225,60 @@ describe('AdminPizzasPage styles', () => {
     expect(listAdminPizzaCatalog).toHaveBeenCalledTimes(2)
   })
 
-  it('marks a style to charge the elaboration fee', async () => {
+  it('edits the elaboration fees of a style', async () => {
     const user = await renderPage()
     await user.click(within(rowOf(section('Estilos'), 'Estilo Varas')).getByRole('button', { name: 'Editar' }))
-    const charges = screen.getByLabelText('Cobra elaboración al dividir')
-    expect(charges).not.toBeChecked()
-    await user.click(charges)
+    expect(screen.getByLabelText('Mitades (MXN)')).toHaveValue('10.00')
+    expect(screen.getByLabelText('Tercios (MXN)')).toHaveValue('20.00')
+    const quarters = screen.getByLabelText('Cuartos (MXN)')
+    expect(quarters).toHaveValue('30.00')
+    await user.clear(quarters)
+    await user.type(quarters, '45.50')
+    const halves = screen.getByLabelText('Mitades (MXN)')
+    await user.clear(halves)
+    await user.type(halves, '0')
     await user.click(screen.getByRole('button', { name: 'Guardar' }))
 
-    expect(saveStyle).toHaveBeenCalledWith('varas', expect.objectContaining({ kind: 'special', chargesElaboration: true }))
+    expect(saveStyle).toHaveBeenCalledWith(
+      'varas',
+      expect.objectContaining({ kind: 'special', splitFees: { halves: 0, thirds: 2000, quarters: 4550 } }),
+    )
+    expect(listAdminPizzaCatalog).toHaveBeenCalledTimes(2)
   })
 
-  it('marks the styles that pay no elaboration fee', async () => {
+  it('rejects an invalid elaboration fee without calling the repository', async () => {
+    const user = await renderPage()
+    await user.click(within(rowOf(section('Estilos'), 'Estilo Varas')).getByRole('button', { name: 'Editar' }))
+    const thirds = screen.getByLabelText('Tercios (MXN)')
+    await user.clear(thirds)
+    await user.type(thirds, 'abc')
+    await user.click(screen.getByRole('button', { name: 'Guardar' }))
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Ingresa un cargo por elaboración válido para Tercios, por ejemplo 10.00.',
+    )
+    expect(saveStyle).not.toHaveBeenCalled()
+    expect(listAdminPizzaCatalog).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows each style\'s elaboration fees', async () => {
     await renderPage()
-    expect(within(rowOf(section('Estilos'), 'Estilo Varas')).getByText('Fijos')).toBeInTheDocument()
-    expect(within(rowOf(section('Estilos'), 'Estilo Varas')).getByText('Sin cargo por elaboración')).toBeInTheDocument()
+    const varas = rowOf(section('Estilos'), 'Estilo Varas')
+    expect(within(varas).getByText('Fijos')).toBeInTheDocument()
+    expect(within(varas).getByText('Elaboración: Mitades $10.00 · Tercios $20.00 · Cuartos $30.00')).toBeInTheDocument()
     expect(within(rowOf(section('Estilos'), 'Arma tu combinación')).getByText('Sin cargo por elaboración')).toBeInTheDocument()
+  })
+
+  it('has no global elaboration fee', async () => {
+    await renderPage()
+    expect(within(section('Estilos')).queryByRole('button', { name: 'Editar cargo' })).not.toBeInTheDocument()
   })
 
   it('edits a custom style and its included ingredients', async () => {
     const user = await renderPage()
     await user.click(within(rowOf(section('Estilos'), 'Arma tu combinación')).getByRole('button', { name: 'Editar' }))
     expect(screen.getByText(/los pedidos abiertos con este estilo no se podrán cobrar/)).toBeInTheDocument()
-    expect(screen.getByLabelText('Cobra elaboración al dividir')).not.toBeChecked()
+    expect(screen.getByLabelText('Mitades (MXN)')).toHaveValue('0.00')
     const included = screen.getByLabelText('Ingredientes a elegir')
     expect(included).toHaveValue('2')
     await user.selectOptions(included, '3')
@@ -259,7 +289,7 @@ describe('AdminPizzasPage styles', () => {
       description: 'Incluye dos ingredientes',
       kind: 'custom',
       includedIngredients: 3,
-      chargesElaboration: false,
+      splitFees: { halves: 0, thirds: 0, quarters: 0 },
       sortOrder: 0,
       active: true,
       prices: { chica: 11000, mediana: 19000, grande: 21000 },
@@ -281,7 +311,7 @@ describe('AdminPizzasPage styles', () => {
   it('lists the included ingredients of a special style', async () => {
     vi.mocked(listAdminPizzaCatalog).mockResolvedValue({
       ...catalog,
-      styles: catalog.styles.map((style) => ({ ...style, includedIngredients: 2, chargesElaboration: true })),
+      styles: catalog.styles.map((style) => ({ ...style, includedIngredients: 2 })),
     })
     await renderPage()
     expect(within(rowOf(section('Estilos'), 'Estilo Varas')).getByText('Fijos + elige 2')).toBeInTheDocument()
@@ -343,49 +373,6 @@ describe('AdminPizzasPage sizes and extras', () => {
 
     expect(updateExtraIngredientPrice).toHaveBeenCalledWith({ extraIngredientCents: 700 })
     expect(listAdminPizzaCatalog).toHaveBeenCalledTimes(2)
-  })
-})
-
-describe('AdminPizzasPage split fees', () => {
-  it('shows the three fees', async () => {
-    await renderPage()
-    const fees = within(section('Estilos')).getByText('Cargo por elaboración').closest('dl') as HTMLElement
-    expect(fees).toHaveTextContent('Mitades')
-    expect(fees).toHaveTextContent('$10.00')
-    expect(fees).toHaveTextContent('Tercios')
-    expect(fees).toHaveTextContent('$20.00')
-    expect(fees).toHaveTextContent('Cuartos')
-    expect(fees).toHaveTextContent('$30.00')
-  })
-
-  it('edits the fees and reloads', async () => {
-    const user = await renderPage()
-    await user.click(within(section('Estilos')).getByRole('button', { name: 'Editar cargo' }))
-    expect(screen.getByRole('dialog', { name: 'Cargo por elaboración' })).toBeInTheDocument()
-    const halves = screen.getByLabelText('Mitades (MXN)')
-    await user.clear(halves)
-    await user.type(halves, '0')
-    const quarters = screen.getByLabelText('Cuartos (MXN)')
-    await user.clear(quarters)
-    await user.type(quarters, '45.50')
-    await user.click(screen.getByRole('button', { name: 'Guardar' }))
-
-    expect(updateSplitFees).toHaveBeenCalledWith({ halves: 0, thirds: 2000, quarters: 4550 })
-    expect(listAdminPizzaCatalog).toHaveBeenCalledTimes(2)
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-  })
-
-  it('rejects invalid input without saving', async () => {
-    const user = await renderPage()
-    await user.click(within(section('Estilos')).getByRole('button', { name: 'Editar cargo' }))
-    const thirds = screen.getByLabelText('Tercios (MXN)')
-    await user.clear(thirds)
-    await user.type(thirds, 'abc')
-    await user.click(screen.getByRole('button', { name: 'Guardar' }))
-
-    expect(screen.getByRole('alert')).toHaveTextContent('Ingresa un precio válido, por ejemplo 150.50.')
-    expect(updateSplitFees).not.toHaveBeenCalled()
-    expect(listAdminPizzaCatalog).toHaveBeenCalledTimes(1)
   })
 })
 

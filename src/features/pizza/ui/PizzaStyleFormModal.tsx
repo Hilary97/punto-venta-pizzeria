@@ -15,6 +15,7 @@ import {
   styleFormSchema,
   type AdminPizzaSize,
   type AdminPizzaStyle,
+  type SplitFees,
   type StyleFormValues,
 } from '../domain/pizzaAdmin'
 import { CHECKBOX_CLASS, SELECT_CLASS, centsToInput, parseOrderInput } from './pizzaAdminForm'
@@ -27,6 +28,12 @@ interface PizzaStyleFormModalProps {
   onClose: () => void
 }
 
+const SPLIT_FEE_FIELDS: { key: keyof SplitFees; label: string }[] = [
+  { key: 'halves', label: 'Mitades' },
+  { key: 'thirds', label: 'Tercios' },
+  { key: 'quarters', label: 'Cuartos' },
+]
+
 /** Included ingredient choices per kind: a special style may include none. */
 function includedOptions(kind: AdminPizzaStyle['kind']): number[] {
   const min = kind === 'custom' ? MIN_CUSTOM_INGREDIENTS : MIN_SPECIAL_INGREDIENTS
@@ -38,7 +45,11 @@ export function PizzaStyleFormModal({ sizes, initial, defaultSortOrder, onSubmit
   const [description, setDescription] = useState(initial?.description ?? '')
   const [kind, setKind] = useState<AdminPizzaStyle['kind']>(initial?.kind ?? 'special')
   const [included, setIncluded] = useState(String(initial?.includedIngredients ?? DEFAULT_INCLUDED_INGREDIENTS))
-  const [chargesElaboration, setChargesElaboration] = useState(initial?.chargesElaboration ?? true)
+  const [feeInputs, setFeeInputs] = useState<Record<keyof SplitFees, string>>(() => ({
+    halves: centsToInput(initial?.splitFees.halves ?? 0),
+    thirds: centsToInput(initial?.splitFees.thirds ?? 0),
+    quarters: centsToInput(initial?.splitFees.quarters ?? 0),
+  }))
   const [orderInput, setOrderInput] = useState(String(initial?.sortOrder ?? defaultSortOrder))
   const [active, setActive] = useState(initial?.active ?? true)
   const [priceInputs, setPriceInputs] = useState<Partial<Record<PizzaSizeCode, string>>>(() =>
@@ -58,13 +69,22 @@ export function PizzaStyleFormModal({ sizes, initial, defaultSortOrder, onSubmit
       }
       prices[size.code] = cents
     }
+    const splitFees: Partial<SplitFees> = {}
+    for (const field of SPLIT_FEE_FIELDS) {
+      const cents = parseMoneyInput(feeInputs[field.key])
+      if (cents === null) {
+        setError(`Ingresa un cargo por elaboración válido para ${field.label}, por ejemplo 10.00.`)
+        return
+      }
+      splitFees[field.key] = cents
+    }
 
     const parsed = styleFormSchema.safeParse({
       name,
       description,
       kind,
       includedIngredients: Number(included),
-      chargesElaboration,
+      splitFees,
       sortOrder: parseOrderInput(orderInput),
       active,
       prices,
@@ -125,21 +145,6 @@ export function PizzaStyleFormModal({ sizes, initial, defaultSortOrder, onSubmit
         )}
 
         <div className="flex flex-col gap-1">
-          <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
-            <input
-              type="checkbox"
-              checked={chargesElaboration}
-              onChange={(e) => setChargesElaboration(e.target.checked)}
-              className={CHECKBOX_CLASS}
-            />
-            Cobra elaboración al dividir
-          </label>
-          <p className="text-xs text-slate-500">
-            Una pizza en mitades, tercios o cuartos paga el cargo por elaboración si lleva este estilo.
-          </p>
-        </div>
-
-        <div className="flex flex-col gap-1">
           <label htmlFor="pizza-style-included" className="text-sm font-medium text-slate-700">
             Ingredientes a elegir
           </label>
@@ -170,6 +175,27 @@ export function PizzaStyleFormModal({ sizes, initial, defaultSortOrder, onSubmit
             />
           ))}
         </div>
+
+        <fieldset className="flex flex-col gap-2">
+          <legend className="text-sm font-medium text-slate-700">Cargo por elaboración</legend>
+          <p className="text-xs text-slate-500">
+            Se cobra al dividir la pizza con otro estilo. Si los estilos tienen cargos distintos, se cobra uno: el más
+            alto. Usa 0 para no cobrar.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {SPLIT_FEE_FIELDS.map((field) => (
+              <Input
+                key={field.key}
+                id={`pizza-style-fee-${field.key}`}
+                label={`${field.label} (MXN)`}
+                inputMode="decimal"
+                placeholder="10.00"
+                value={feeInputs[field.key]}
+                onChange={(e) => setFeeInputs((current) => ({ ...current, [field.key]: e.target.value }))}
+              />
+            ))}
+          </div>
+        </fieldset>
 
         <Input
           id="pizza-style-order"

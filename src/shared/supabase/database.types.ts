@@ -223,6 +223,9 @@ export interface Database {
           included_ingredients: number
           fixed_ingredients: number
           charges_elaboration: boolean
+          split_halves_fee_cents: number
+          split_thirds_fee_cents: number
+          split_quarters_fee_cents: number
           sort_order: number
           active: boolean
         }
@@ -234,6 +237,9 @@ export interface Database {
           included_ingredients?: number
           fixed_ingredients?: number
           charges_elaboration?: boolean
+          split_halves_fee_cents?: number
+          split_thirds_fee_cents?: number
+          split_quarters_fee_cents?: number
           sort_order?: number
           active?: boolean
         }
@@ -244,6 +250,9 @@ export interface Database {
           included_ingredients?: number
           fixed_ingredients?: number
           charges_elaboration?: boolean
+          split_halves_fee_cents?: number
+          split_thirds_fee_cents?: number
+          split_quarters_fee_cents?: number
           sort_order?: number
           active?: boolean
         }
@@ -455,7 +464,7 @@ export interface Database {
           p_sort_order: number
           p_active: boolean
           p_prices: Partial<Record<PizzaSizeCode, number>>
-          p_charges_elaboration?: boolean | null
+          p_split_fees?: { halves: number; thirds: number; quarters: number } | null
         }
         Returns: unknown
       }

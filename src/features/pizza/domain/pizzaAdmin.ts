@@ -9,10 +9,17 @@ export interface AdminPizzaSize {
   sortOrder: number
 }
 
+/** Elaboration fee in cents per way of splitting a pizza; $0 charges nothing. */
+export interface SplitFees {
+  halves: number
+  thirds: number
+  quarters: number
+}
+
 /** A style, active or not, with its price in cents per size. */
 export interface AdminPizzaStyle extends PizzaStyle {
-  /** Split pizzas pay the elaboration fee only when a portion is a style marked with this. */
-  chargesElaboration: boolean
+  /** Elaboration fee, in cents, for halves, thirds and quarters; a split pizza pays the highest of its styles. */
+  splitFees: SplitFees
   active: boolean
   prices: Partial<Record<PizzaSizeCode, number>>
 }
@@ -40,8 +47,6 @@ export interface AdminPizzaCatalog {
   ingredients: AdminPizzaIngredient[]
   /** Price charged per portion for each extra ingredient. */
   extraIngredientCents: number
-  /** Elaboration fee, in cents, added to split pizzas with different styles. */
-  splitFees: { halves: number; thirds: number; quarters: number }
   extras: AdminPizzaExtra[]
 }
 
@@ -71,6 +76,13 @@ const priceSchema = z.number().int({ error: PRICE_ERROR }).positive({ error: PRI
   error: 'El precio es demasiado alto.',
 })
 
+// Zero is allowed: it turns the fee off.
+const feeSchema = z
+  .number()
+  .int({ error: FEE_ERROR })
+  .min(0, { error: FEE_ERROR })
+  .max(10_000_000, { error: 'El precio es demasiado alto.' })
+
 export const ingredientFormSchema = z.object({
   name: z.string().trim().min(1, { error: NAME_REQUIRED }).max(60, { error: 'El nombre es demasiado largo.' }),
   sortOrder: sortOrderSchema,
@@ -85,7 +97,7 @@ export const styleFormSchema = z
     description: z.string().trim().max(300, { error: 'La descripción del estilo es demasiado larga.' }),
     kind: z.enum(['special', 'custom'], { error: 'El tipo de estilo no es válido.' }),
     includedIngredients: z.number().int({ error: INCLUDED_ERROR }),
-    chargesElaboration: z.boolean(),
+    splitFees: z.object({ halves: feeSchema, thirds: feeSchema, quarters: feeSchema }),
     sortOrder: sortOrderSchema,
     active: z.boolean(),
     prices: z.object({ chica: priceSchema, mediana: priceSchema, grande: priceSchema }),
@@ -119,21 +131,6 @@ export const extraIngredientPriceFormSchema = z.object({
 })
 
 export type ExtraIngredientPriceFormValues = z.infer<typeof extraIngredientPriceFormSchema>
-
-// Zero is allowed: it turns the fee off.
-const feeSchema = z
-  .number()
-  .int({ error: FEE_ERROR })
-  .min(0, { error: FEE_ERROR })
-  .max(10_000_000, { error: 'El precio es demasiado alto.' })
-
-export const splitFeesFormSchema = z.object({
-  halves: feeSchema,
-  thirds: feeSchema,
-  quarters: feeSchema,
-})
-
-export type SplitFeesFormValues = z.infer<typeof splitFeesFormSchema>
 
 export const extraFormSchema = z.object({
   name: z.string().trim().min(1, { error: NAME_REQUIRED }).max(60, { error: 'El nombre es demasiado largo.' }),

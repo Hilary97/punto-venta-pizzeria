@@ -11,7 +11,6 @@ import {
   updateExtraIngredientPrice,
   updateIngredient,
   updateSize,
-  updateSplitFees,
 } from './pizzaAdminRepository'
 
 const { from, rpc } = vi.hoisted(() => ({ from: vi.fn(), rpc: vi.fn() }))
@@ -47,7 +46,9 @@ describe('listAdminPizzaCatalog', () => {
             description: 'Pepperoni',
             kind: 'special',
             included_ingredients: 0,
-            charges_elaboration: false,
+            split_halves_fee_cents: 1000,
+            split_thirds_fee_cents: 2000,
+            split_quarters_fee_cents: 0,
             sort_order: 1,
             active: false,
           },
@@ -67,12 +68,7 @@ describe('listAdminPizzaCatalog', () => {
         error: null,
       }),
       pizza_settings: query({
-        data: {
-          extra_ingredient_cents: 500,
-          split_halves_fee_cents: 1000,
-          split_thirds_fee_cents: 2000,
-          split_quarters_fee_cents: 0,
-        },
+        data: { extra_ingredient_cents: 500 },
         error: null,
       }),
     }
@@ -87,7 +83,7 @@ describe('listAdminPizzaCatalog', () => {
           description: 'Pepperoni',
           kind: 'special',
           includedIngredients: 0,
-          chargesElaboration: false,
+          splitFees: { halves: 1000, thirds: 2000, quarters: 0 },
           sortOrder: 1,
           active: false,
           prices: { grande: 25000, chica: 13000 },
@@ -95,16 +91,16 @@ describe('listAdminPizzaCatalog', () => {
       ],
       ingredients: [{ id: 'i1', name: 'Jamón', sortOrder: 1, active: false }],
       extraIngredientCents: 500,
-      splitFees: { halves: 1000, thirds: 2000, quarters: 0 },
       extras: [{ id: 'e1', name: 'Extra queso', priceCents: 3000, sortOrder: 1, active: false }],
     })
     expect(tables.pizza_styles.eq).not.toHaveBeenCalled()
     expect(tables.pizza_ingredients.eq).not.toHaveBeenCalled()
     expect(tables.pizza_extras.eq).not.toHaveBeenCalled()
     expect(tables.pizza_extras.select).toHaveBeenCalledWith('id, name, price_cents, sort_order, active')
-    expect(tables.pizza_settings.select).toHaveBeenCalledWith(
-      'extra_ingredient_cents, split_halves_fee_cents, split_thirds_fee_cents, split_quarters_fee_cents',
+    expect(tables.pizza_styles.select).toHaveBeenCalledWith(
+      'id, name, description, kind, included_ingredients, split_halves_fee_cents, split_thirds_fee_cents, split_quarters_fee_cents, sort_order, active',
     )
+    expect(tables.pizza_settings.select).toHaveBeenCalledWith('extra_ingredient_cents')
   })
 
   it('fails with one message when any table fails', async () => {
@@ -146,7 +142,7 @@ describe('style writes', () => {
     description: 'Jamón',
     kind: 'custom' as const,
     includedIngredients: 2,
-    chargesElaboration: true,
+    splitFees: { halves: 1500, thirds: 0, quarters: 3000 },
     sortOrder: 20,
     active: true,
     prices: { chica: 11000, mediana: 19000, grande: 21000 },
@@ -165,7 +161,7 @@ describe('style writes', () => {
       p_sort_order: 20,
       p_active: true,
       p_prices: { chica: 11000, mediana: 19000, grande: 21000 },
-      p_charges_elaboration: true,
+      p_split_fees: { halves: 1500, thirds: 0, quarters: 3000 },
     })
   })
 
@@ -210,21 +206,6 @@ describe('size and extras writes', () => {
     expect(update.eq).toHaveBeenCalledWith('id', true)
   })
 
-  it('updates the three split fees on the single settings row', async () => {
-    const update = query({ error: null })
-    from.mockReturnValue(update)
-
-    await updateSplitFees({ halves: 0, thirds: 2500, quarters: 4000 })
-
-    expect(from).toHaveBeenCalledWith('pizza_settings')
-    expect(update.update).toHaveBeenCalledWith({
-      split_halves_fee_cents: 0,
-      split_thirds_fee_cents: 2500,
-      split_quarters_fee_cents: 4000,
-    })
-    expect(update.eq).toHaveBeenCalledWith('id', true)
-  })
-
   it('reports failures', async () => {
     from.mockReturnValue(query({ error: { code: 'x' } }))
 
@@ -233,9 +214,6 @@ describe('size and extras writes', () => {
     )
     await expect(updateExtraIngredientPrice({ extraIngredientCents: 700 })).rejects.toThrow(
       'No se pudo actualizar el precio del ingrediente extra.',
-    )
-    await expect(updateSplitFees({ halves: 1000, thirds: 2000, quarters: 3000 })).rejects.toThrow(
-      'No se pudo actualizar el cargo por elaboración.',
     )
   })
 })
