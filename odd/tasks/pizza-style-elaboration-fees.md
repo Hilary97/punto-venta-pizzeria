@@ -14,7 +14,7 @@ Each style gets its own halves, thirds and quarters elaboration fee, edited in t
 
 - T1 (S1-S3) — migration `20261118120000_pizza_style_split_fees.sql` + PGlite tests; replaces the superseded `pizzaElaborationFee` and `pizzaStyleElaborationFlag` tests. Route: inline. Commit: this one (RED 16 failing -> GREEN 20; supabase suite 374/374).
 - T2 (S1, S3-S4) — app: domain schema, repository, style form, page, types; remove global fees modal; tests. Route: inline. Commit: this one (RED 8 domain/repo + whole page suite failing -> GREEN 122 pizza tests; tsc -b OK).
-- T3 — verify: full tests, tsc, oxlint, build. Route: inline. Commit: pending.
+- T3 — verify: full tests, tsc, oxlint, build. Route: inline. Done: 1076 tests pass (90 files), tsc -b OK, oxlint 0 errors and the same 12 warnings as main (none in pizza), build OK. Independent verifier not admitted by the runtime; RDD assess: medium, reviewDue false. Commit: this one.
 
 ## Log
 
