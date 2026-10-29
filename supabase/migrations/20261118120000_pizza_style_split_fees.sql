@@ -1,15 +1,14 @@
 -- The split elaboration fee (halves, thirds or quarters) is set per style by
--- the admin. This replaces the global fees of 20261115120000 and the
--- "Cobra elaboración" mark of 20261117120000.
+-- the admin. This replaces the global fees of 20261115120000; the
+-- "Cobra elaboración" mark of 20261117120000 still turns a style's fee on or off.
 --
 --   * pizza_styles.split_{halves,thirds,quarters}_fee_cents, $0 to $100,000.
---     $0 means the style charges nothing for that split.
---   * A split pizza with different styles pays one fee: the highest among its
---     styles for its number of portions.
---   * Seeded from the current rule so no price changes when this runs: a
---     marked style gets the current global fees, the rest $0.
---   * pizza_settings.split_*_fee_cents and pizza_styles.charges_elaboration
---     are kept but no longer used for pricing.
+--   * A split pizza with different styles pays one fee: the highest, for its
+--     number of portions, among its styles marked "Cobra elaboración". An
+--     unmarked style charges nothing whatever its amounts.
+--   * Every style is seeded with the current global fees and keeps its mark,
+--     so no price changes when this runs.
+--   * pizza_settings.split_*_fee_cents is kept but no longer used for pricing.
 --   * The distinct-style average, its rounding, whole and single-style pizzas
 --     and extras are unchanged. Only new quotes change.
 --
@@ -28,10 +27,10 @@ set split_halves_fee_cents = ps.split_halves_fee_cents,
     split_thirds_fee_cents = ps.split_thirds_fee_cents,
     split_quarters_fee_cents = ps.split_quarters_fee_cents
 from public.pizza_settings ps
-where ps.id and s.charges_elaboration;
+where ps.id;
 
--- Same as 20261117120000_pizza_style_elaboration_flag.sql with p_split_fees
--- ({"halves", "thirds", "quarters"} in cents) instead of p_charges_elaboration.
+-- Same as 20261117120000_pizza_style_elaboration_flag.sql plus p_split_fees
+-- ({"halves", "thirds", "quarters"} in cents), before p_charges_elaboration.
 drop function public.admin_save_pizza_style(uuid, text, text, text, integer, integer, boolean, jsonb, boolean);
 
 create function public.admin_save_pizza_style(
@@ -43,7 +42,8 @@ create function public.admin_save_pizza_style(
   p_sort_order integer,
   p_active boolean,
   p_prices jsonb,
-  p_split_fees jsonb default null
+  p_split_fees jsonb default null,
+  p_charges_elaboration boolean default null
 )
 returns jsonb
 language plpgsql
@@ -98,7 +98,7 @@ begin
     end if;
   end loop;
 
-  -- Null keeps the stored fees on update and gives a new style $0 fees.
+  -- Null keeps the stored fees and mark on update; a new style gets $0 fees, unmarked.
   if p_split_fees is not null then
     foreach v_fee_key in array array['halves', 'thirds', 'quarters']
     loop
@@ -116,11 +116,12 @@ begin
   begin
     if p_style_id is null then
       insert into public.pizza_styles (
-        name, description, kind, included_ingredients, sort_order, active,
+        name, description, kind, included_ingredients, sort_order, active, charges_elaboration,
         split_halves_fee_cents, split_thirds_fee_cents, split_quarters_fee_cents
       )
       values (
         v_name, v_description, p_kind, v_included, v_sort_order, coalesce(p_active, true),
+        coalesce(p_charges_elaboration, false),
         coalesce((p_split_fees ->> 'halves')::numeric::integer, 0),
         coalesce((p_split_fees ->> 'thirds')::numeric::integer, 0),
         coalesce((p_split_fees ->> 'quarters')::numeric::integer, 0)
@@ -132,6 +133,7 @@ begin
           description = v_description,
           kind = p_kind,
           included_ingredients = v_included,
+          charges_elaboration = coalesce(p_charges_elaboration, charges_elaboration),
           split_halves_fee_cents = coalesce((p_split_fees ->> 'halves')::numeric::integer, split_halves_fee_cents),
           split_thirds_fee_cents = coalesce((p_split_fees ->> 'thirds')::numeric::integer, split_thirds_fee_cents),
           split_quarters_fee_cents = coalesce((p_split_fees ->> 'quarters')::numeric::integer, split_quarters_fee_cents),
@@ -158,13 +160,13 @@ begin
 end;
 $$;
 
-revoke all on function public.admin_save_pizza_style(uuid, text, text, text, integer, integer, boolean, jsonb, jsonb)
+revoke all on function public.admin_save_pizza_style(uuid, text, text, text, integer, integer, boolean, jsonb, jsonb, boolean)
   from public, anon;
-grant execute on function public.admin_save_pizza_style(uuid, text, text, text, integer, integer, boolean, jsonb, jsonb)
+grant execute on function public.admin_save_pizza_style(uuid, text, text, text, integer, integer, boolean, jsonb, jsonb, boolean)
   to authenticated;
 
--- Same as 20261117120000_pizza_style_elaboration_flag.sql; the fee comes from
--- the styles instead of pizza_settings.
+-- Same as 20261117120000_pizza_style_elaboration_flag.sql; the fee amount comes
+-- from the marked styles instead of pizza_settings.
 create or replace function public.price_pizza(p_config jsonb)
 returns integer
 language plpgsql
@@ -199,7 +201,7 @@ begin
       select (p ->> 'style_id')::uuid from jsonb_array_elements(p_config -> 'portions') as p
     );
 
-  -- One elaboration fee per pizza: the highest of its styles for this many portions.
+  -- One elaboration fee per pizza: the highest of its marked styles for this many portions.
   select coalesce(max(case
            when v_portions = 2 then s.split_halves_fee_cents
            when v_portions = 3 then s.split_thirds_fee_cents
@@ -207,9 +209,10 @@ begin
          end), 0)
   into v_fee
   from public.pizza_styles s
-  where s.id in (
-    select (p ->> 'style_id')::uuid from jsonb_array_elements(p_config -> 'portions') as p
-  );
+  where s.charges_elaboration
+    and s.id in (
+      select (p ->> 'style_id')::uuid from jsonb_array_elements(p_config -> 'portions') as p
+    );
 
   select * into v_settings from public.pizza_settings where id;
 

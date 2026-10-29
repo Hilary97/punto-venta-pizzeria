@@ -20,6 +20,8 @@ export interface SplitFees {
 export interface AdminPizzaStyle extends PizzaStyle {
   /** Elaboration fee, in cents, for halves, thirds and quarters; a split pizza pays the highest of its styles. */
   splitFees: SplitFees
+  /** Whether the style's elaboration fee applies; off keeps the amounts but charges nothing. */
+  chargesElaboration: boolean
   active: boolean
   prices: Partial<Record<PizzaSizeCode, number>>
 }
@@ -97,6 +99,7 @@ export const styleFormSchema = z
     description: z.string().trim().max(300, { error: 'La descripción del estilo es demasiado larga.' }),
     kind: z.enum(['special', 'custom'], { error: 'El tipo de estilo no es válido.' }),
     includedIngredients: z.number().int({ error: INCLUDED_ERROR }),
+    chargesElaboration: z.boolean(),
     splitFees: z.object({ halves: feeSchema, thirds: feeSchema, quarters: feeSchema }),
     sortOrder: sortOrderSchema,
     active: z.boolean(),

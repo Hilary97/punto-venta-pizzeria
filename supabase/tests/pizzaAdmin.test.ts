@@ -20,12 +20,13 @@ interface StyleArgs {
   active?: boolean | null
   prices?: unknown
   fees?: unknown
+  charges?: boolean | null
 }
 
 async function saveStyle(user: string, args: StyleArgs = {}): Promise<Json> {
   await asUser(db, user)
   const res = await db.query<{ r: Json }>(
-    `select public.admin_save_pizza_style($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb) as r`,
+    `select public.admin_save_pizza_style($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb, $10) as r`,
     [
       args.id ?? null,
       args.name ?? 'Estilo Nuevo',
@@ -36,6 +37,7 @@ async function saveStyle(user: string, args: StyleArgs = {}): Promise<Json> {
       args.active === undefined ? true : args.active,
       JSON.stringify(args.prices === undefined ? PRICES : args.prices),
       args.fees === undefined ? null : JSON.stringify(args.fees),
+      args.charges === undefined ? null : args.charges,
     ],
   )
   return res.rows[0].r

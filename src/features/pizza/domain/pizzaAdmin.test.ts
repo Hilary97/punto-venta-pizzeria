@@ -10,6 +10,7 @@ const style = {
   description: 'Jamón',
   kind: 'special' as const,
   includedIngredients: 0,
+  chargesElaboration: true,
   splitFees: { halves: 1000, thirds: 2000, quarters: 3000 },
   sortOrder: 20,
   active: true,
@@ -50,6 +51,11 @@ describe('styleFormSchema', () => {
     expect(firstError(styleFormSchema.safeParse({ ...style, includedIngredients: 5 }))).toBe(
       'Los ingredientes incluidos deben estar entre 0 y 4.',
     )
+  })
+
+  it('requires the elaboration flag and accepts it off', () => {
+    expect(styleFormSchema.safeParse({ ...style, chargesElaboration: undefined }).success).toBe(false)
+    expect(styleFormSchema.parse({ ...style, chargesElaboration: false }).chargesElaboration).toBe(false)
   })
 
   it('requires the three elaboration fees', () => {

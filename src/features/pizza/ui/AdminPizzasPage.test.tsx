@@ -44,6 +44,7 @@ const catalog: AdminPizzaCatalog = {
       description: 'Incluye dos ingredientes',
       kind: 'custom',
       includedIngredients: 2,
+      chargesElaboration: false,
       splitFees: { halves: 0, thirds: 0, quarters: 0 },
       sortOrder: 0,
       active: true,
@@ -55,6 +56,7 @@ const catalog: AdminPizzaCatalog = {
       description: 'Pepperoni y jamón',
       kind: 'special',
       includedIngredients: 0,
+      chargesElaboration: true,
       splitFees: { halves: 1000, thirds: 2000, quarters: 3000 },
       sortOrder: 1,
       active: false,
@@ -202,9 +204,17 @@ describe('AdminPizzasPage styles', () => {
     await user.type(screen.getByLabelText('Descripción'), 'Jamón y piña')
     expect(screen.getByLabelText('Ingredientes a elegir')).toHaveValue('2')
     expect(screen.queryByText(/no se podrán cobrar/)).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Cobra elaboración al dividir')).not.toBeChecked()
     expect(screen.getByLabelText('Mitades (MXN)')).toHaveValue('0.00')
+    expect(screen.getByLabelText('Mitades (MXN)')).toBeDisabled()
     expect(screen.getByLabelText('Tercios (MXN)')).toHaveValue('0.00')
+    expect(screen.getByLabelText('Tercios (MXN)')).toBeDisabled()
     expect(screen.getByLabelText('Cuartos (MXN)')).toHaveValue('0.00')
+    expect(screen.getByLabelText('Cuartos (MXN)')).toBeDisabled()
+    await user.click(screen.getByLabelText('Cobra elaboración al dividir'))
+    expect(screen.getByLabelText('Mitades (MXN)')).toBeEnabled()
+    expect(screen.getByLabelText('Tercios (MXN)')).toBeEnabled()
+    expect(screen.getByLabelText('Cuartos (MXN)')).toBeEnabled()
     await user.clear(screen.getByLabelText('Mitades (MXN)'))
     await user.type(screen.getByLabelText('Mitades (MXN)'), '15')
     await user.type(screen.getByLabelText('Precio Grande (MXN)'), '210')
@@ -217,6 +227,7 @@ describe('AdminPizzasPage styles', () => {
       description: 'Jamón y piña',
       kind: 'special',
       includedIngredients: 2,
+      chargesElaboration: true,
       splitFees: { halves: 1500, thirds: 0, quarters: 0 },
       sortOrder: 2,
       active: true,
@@ -244,6 +255,35 @@ describe('AdminPizzasPage styles', () => {
       expect.objectContaining({ kind: 'special', splitFees: { halves: 0, thirds: 2000, quarters: 4550 } }),
     )
     expect(listAdminPizzaCatalog).toHaveBeenCalledTimes(2)
+  })
+
+  it('turns a style\'s elaboration off keeping its fees', async () => {
+    const user = await renderPage()
+    await user.click(within(rowOf(section('Estilos'), 'Estilo Varas')).getByRole('button', { name: 'Editar' }))
+    const toggle = screen.getByLabelText('Cobra elaboración al dividir')
+    expect(toggle).toBeChecked()
+    await user.click(toggle)
+    expect(screen.getByLabelText('Mitades (MXN)')).toBeDisabled()
+    expect(screen.getByLabelText('Mitades (MXN)')).toHaveValue('10.00')
+    expect(screen.getByLabelText('Tercios (MXN)')).toHaveValue('20.00')
+    expect(screen.getByLabelText('Cuartos (MXN)')).toHaveValue('30.00')
+    await user.click(screen.getByRole('button', { name: 'Guardar' }))
+
+    expect(saveStyle).toHaveBeenCalledWith(
+      'varas',
+      expect.objectContaining({ chargesElaboration: false, splitFees: { halves: 1000, thirds: 2000, quarters: 3000 } }),
+    )
+  })
+
+  it('shows no elaboration charge for an unmarked style even with fees', async () => {
+    vi.mocked(listAdminPizzaCatalog).mockResolvedValue({
+      ...catalog,
+      styles: catalog.styles.map((style) => ({ ...style, chargesElaboration: false })),
+    })
+    await renderPage()
+    const varas = rowOf(section('Estilos'), 'Estilo Varas')
+    expect(within(varas).getByText('Sin cargo por elaboración')).toBeInTheDocument()
+    expect(within(varas).queryByText(/Elaboración:/)).not.toBeInTheDocument()
   })
 
   it('rejects an invalid elaboration fee without calling the repository', async () => {
@@ -289,6 +329,7 @@ describe('AdminPizzasPage styles', () => {
       description: 'Incluye dos ingredientes',
       kind: 'custom',
       includedIngredients: 3,
+      chargesElaboration: false,
       splitFees: { halves: 0, thirds: 0, quarters: 0 },
       sortOrder: 0,
       active: true,

@@ -46,6 +46,7 @@ describe('listAdminPizzaCatalog', () => {
             description: 'Pepperoni',
             kind: 'special',
             included_ingredients: 0,
+            charges_elaboration: false,
             split_halves_fee_cents: 1000,
             split_thirds_fee_cents: 2000,
             split_quarters_fee_cents: 0,
@@ -83,6 +84,7 @@ describe('listAdminPizzaCatalog', () => {
           description: 'Pepperoni',
           kind: 'special',
           includedIngredients: 0,
+          chargesElaboration: false,
           splitFees: { halves: 1000, thirds: 2000, quarters: 0 },
           sortOrder: 1,
           active: false,
@@ -98,7 +100,7 @@ describe('listAdminPizzaCatalog', () => {
     expect(tables.pizza_extras.eq).not.toHaveBeenCalled()
     expect(tables.pizza_extras.select).toHaveBeenCalledWith('id, name, price_cents, sort_order, active')
     expect(tables.pizza_styles.select).toHaveBeenCalledWith(
-      'id, name, description, kind, included_ingredients, split_halves_fee_cents, split_thirds_fee_cents, split_quarters_fee_cents, sort_order, active',
+      'id, name, description, kind, included_ingredients, charges_elaboration, split_halves_fee_cents, split_thirds_fee_cents, split_quarters_fee_cents, sort_order, active',
     )
     expect(tables.pizza_settings.select).toHaveBeenCalledWith('extra_ingredient_cents')
   })
@@ -142,6 +144,7 @@ describe('style writes', () => {
     description: 'Jamón',
     kind: 'custom' as const,
     includedIngredients: 2,
+    chargesElaboration: true,
     splitFees: { halves: 1500, thirds: 0, quarters: 3000 },
     sortOrder: 20,
     active: true,
@@ -162,6 +165,7 @@ describe('style writes', () => {
       p_active: true,
       p_prices: { chica: 11000, mediana: 19000, grande: 21000 },
       p_split_fees: { halves: 1500, thirds: 0, quarters: 3000 },
+      p_charges_elaboration: true,
     })
   })
 

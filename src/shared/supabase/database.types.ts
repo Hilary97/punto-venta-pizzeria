@@ -464,6 +464,7 @@ export interface Database {
           p_sort_order: number
           p_active: boolean
           p_prices: Partial<Record<PizzaSizeCode, number>>
+          p_charges_elaboration?: boolean | null
           p_split_fees?: { halves: number; thirds: number; quarters: number } | null
         }
         Returns: unknown

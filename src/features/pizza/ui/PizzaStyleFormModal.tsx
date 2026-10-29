@@ -45,6 +45,7 @@ export function PizzaStyleFormModal({ sizes, initial, defaultSortOrder, onSubmit
   const [description, setDescription] = useState(initial?.description ?? '')
   const [kind, setKind] = useState<AdminPizzaStyle['kind']>(initial?.kind ?? 'special')
   const [included, setIncluded] = useState(String(initial?.includedIngredients ?? DEFAULT_INCLUDED_INGREDIENTS))
+  const [chargesElaboration, setChargesElaboration] = useState(initial?.chargesElaboration ?? false)
   const [feeInputs, setFeeInputs] = useState<Record<keyof SplitFees, string>>(() => ({
     halves: centsToInput(initial?.splitFees.halves ?? 0),
     thirds: centsToInput(initial?.splitFees.thirds ?? 0),
@@ -84,6 +85,7 @@ export function PizzaStyleFormModal({ sizes, initial, defaultSortOrder, onSubmit
       description,
       kind,
       includedIngredients: Number(included),
+      chargesElaboration,
       splitFees,
       sortOrder: parseOrderInput(orderInput),
       active,
@@ -176,11 +178,21 @@ export function PizzaStyleFormModal({ sizes, initial, defaultSortOrder, onSubmit
           ))}
         </div>
 
+        <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+          <input
+            type="checkbox"
+            checked={chargesElaboration}
+            onChange={(e) => setChargesElaboration(e.target.checked)}
+            className={CHECKBOX_CLASS}
+          />
+          Cobra elaboración al dividir
+        </label>
+
         <fieldset className="flex flex-col gap-2">
           <legend className="text-sm font-medium text-slate-700">Cargo por elaboración</legend>
           <p className="text-xs text-slate-500">
             Se cobra al dividir la pizza con otro estilo. Si los estilos tienen cargos distintos, se cobra uno: el más
-            alto. Usa 0 para no cobrar.
+            alto.
           </p>
           <div className="grid gap-3 sm:grid-cols-3">
             {SPLIT_FEE_FIELDS.map((field) => (
@@ -190,6 +202,7 @@ export function PizzaStyleFormModal({ sizes, initial, defaultSortOrder, onSubmit
                 label={`${field.label} (MXN)`}
                 inputMode="decimal"
                 placeholder="10.00"
+                disabled={!chargesElaboration}
                 value={feeInputs[field.key]}
                 onChange={(e) => setFeeInputs((current) => ({ ...current, [field.key]: e.target.value }))}
               />

@@ -188,7 +188,7 @@ export function AdminPizzasPage() {
                           ? `Fijos + elige ${style.includedIngredients}`
                           : 'Fijos'}
                     </p>
-                    <SplitFeesText fees={style.splitFees} />
+                    <SplitFeesText fees={style.splitFees} charges={style.chargesElaboration} />
                   </td>
                   {catalog.sizes.map((size) => (
                     <td key={size.code} className={CELL}>
@@ -372,8 +372,8 @@ function ActiveBadge({ active }: { active: boolean }) {
   )
 }
 
-function SplitFeesText({ fees }: { fees: SplitFees }) {
-  if (fees.halves === 0 && fees.thirds === 0 && fees.quarters === 0) {
+function SplitFeesText({ fees, charges }: { fees: SplitFees; charges: boolean }) {
+  if (!charges) {
     return <p className="text-xs text-emerald-700">Sin cargo por elaboración</p>
   }
   return (
