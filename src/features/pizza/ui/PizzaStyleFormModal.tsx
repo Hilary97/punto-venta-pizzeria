@@ -203,6 +203,7 @@ export function PizzaStyleFormModal({ sizes, initial, defaultSortOrder, onSubmit
                 inputMode="decimal"
                 placeholder="10.00"
                 disabled={!chargesElaboration}
+                className="disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
                 value={feeInputs[field.key]}
                 onChange={(e) => setFeeInputs((current) => ({ ...current, [field.key]: e.target.value }))}
               />
