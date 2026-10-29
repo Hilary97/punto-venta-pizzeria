@@ -10,7 +10,6 @@ import type { PizzaSizeCode } from '../domain/pizza'
 import {
   DEFAULT_INCLUDED_INGREDIENTS,
   MAX_CUSTOM_INGREDIENTS,
-  MAX_FEE_FREE_INGREDIENTS,
   MIN_CUSTOM_INGREDIENTS,
   MIN_SPECIAL_INGREDIENTS,
   styleFormSchema,
@@ -28,11 +27,6 @@ interface PizzaStyleFormModalProps {
   onClose: () => void
 }
 
-/** Whole number typed by the admin; anything else is `NaN` so the schema rejects it. */
-function parseFixedInput(input: string): number {
-  return /^\s*\d+\s*$/.test(input) ? Number(input) : Number.NaN
-}
-
 /** Included ingredient choices per kind: a special style may include none. */
 function includedOptions(kind: AdminPizzaStyle['kind']): number[] {
   const min = kind === 'custom' ? MIN_CUSTOM_INGREDIENTS : MIN_SPECIAL_INGREDIENTS
@@ -44,7 +38,7 @@ export function PizzaStyleFormModal({ sizes, initial, defaultSortOrder, onSubmit
   const [description, setDescription] = useState(initial?.description ?? '')
   const [kind, setKind] = useState<AdminPizzaStyle['kind']>(initial?.kind ?? 'special')
   const [included, setIncluded] = useState(String(initial?.includedIngredients ?? DEFAULT_INCLUDED_INGREDIENTS))
-  const [fixedInput, setFixedInput] = useState(initial?.kind === 'special' ? String(initial.fixedIngredients) : '')
+  const [chargesElaboration, setChargesElaboration] = useState(initial?.chargesElaboration ?? true)
   const [orderInput, setOrderInput] = useState(String(initial?.sortOrder ?? defaultSortOrder))
   const [active, setActive] = useState(initial?.active ?? true)
   const [priceInputs, setPriceInputs] = useState<Partial<Record<PizzaSizeCode, string>>>(() =>
@@ -70,8 +64,7 @@ export function PizzaStyleFormModal({ sizes, initial, defaultSortOrder, onSubmit
       description,
       kind,
       includedIngredients: Number(included),
-      // Custom styles count the customer's chosen ingredients instead.
-      fixedIngredients: kind === 'custom' ? 0 : parseFixedInput(fixedInput),
+      chargesElaboration,
       sortOrder: parseOrderInput(orderInput),
       active,
       prices,
@@ -131,21 +124,20 @@ export function PizzaStyleFormModal({ sizes, initial, defaultSortOrder, onSubmit
           </p>
         )}
 
-        {kind === 'special' && (
-          <div className="flex flex-col gap-1">
-            <Input
-              id="pizza-style-fixed"
-              label="Ingredientes fijos"
-              inputMode="numeric"
-              placeholder="3"
-              value={fixedInput}
-              onChange={(e) => setFixedInput(e.target.value)}
+        <div className="flex flex-col gap-1">
+          <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+            <input
+              type="checkbox"
+              checked={chargesElaboration}
+              onChange={(e) => setChargesElaboration(e.target.checked)}
+              className={CHECKBOX_CLASS}
             />
-            <p className="text-xs text-slate-500">
-              Con {MAX_FEE_FREE_INGREDIENTS} o menos no se cobra elaboración al dividir la pizza.
-            </p>
-          </div>
-        )}
+            Cobra elaboración al dividir
+          </label>
+          <p className="text-xs text-slate-500">
+            Una pizza en mitades, tercios o cuartos paga el cargo por elaboración si lleva este estilo.
+          </p>
+        </div>
 
         <div className="flex flex-col gap-1">
           <label htmlFor="pizza-style-included" className="text-sm font-medium text-slate-700">

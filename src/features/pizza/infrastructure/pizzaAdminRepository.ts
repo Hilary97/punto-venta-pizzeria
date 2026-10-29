@@ -22,7 +22,7 @@ export async function listAdminPizzaCatalog(): Promise<AdminPizzaCatalog> {
     client.from('pizza_sizes').select('code, name, allowed_portions, sort_order').order('sort_order', { ascending: true }),
     client
       .from('pizza_styles')
-      .select('id, name, description, kind, included_ingredients, fixed_ingredients, sort_order, active')
+      .select('id, name, description, kind, included_ingredients, charges_elaboration, sort_order, active')
       .order('sort_order', { ascending: true })
       .order('name', { ascending: true }),
     client.from('pizza_style_prices').select('style_id, size_code, price_cents'),
@@ -63,7 +63,7 @@ export async function listAdminPizzaCatalog(): Promise<AdminPizzaCatalog> {
       description: style.description,
       kind: style.kind,
       includedIngredients: style.included_ingredients,
-      fixedIngredients: style.fixed_ingredients,
+      chargesElaboration: style.charges_elaboration,
       sortOrder: style.sort_order,
       active: style.active,
       prices: pricesByStyle.get(style.id) ?? {},
@@ -140,7 +140,7 @@ export async function saveStyle(id: string | null, values: StyleFormValues): Pro
     p_sort_order: values.sortOrder,
     p_active: values.active,
     p_prices: values.prices,
-    p_fixed_ingredients: values.fixedIngredients,
+    p_charges_elaboration: values.chargesElaboration,
   })
   return parseRpcResult(savedStyleSchema, data, error, 'No se pudo guardar el estilo.')
 }

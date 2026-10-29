@@ -222,6 +222,7 @@ export interface Database {
           kind: PizzaStyleKind
           included_ingredients: number
           fixed_ingredients: number
+          charges_elaboration: boolean
           sort_order: number
           active: boolean
         }
@@ -232,6 +233,7 @@ export interface Database {
           kind: PizzaStyleKind
           included_ingredients?: number
           fixed_ingredients?: number
+          charges_elaboration?: boolean
           sort_order?: number
           active?: boolean
         }
@@ -241,6 +243,7 @@ export interface Database {
           kind?: PizzaStyleKind
           included_ingredients?: number
           fixed_ingredients?: number
+          charges_elaboration?: boolean
           sort_order?: number
           active?: boolean
         }
@@ -452,7 +455,7 @@ export interface Database {
           p_sort_order: number
           p_active: boolean
           p_prices: Partial<Record<PizzaSizeCode, number>>
-          p_fixed_ingredients?: number | null
+          p_charges_elaboration?: boolean | null
         }
         Returns: unknown
       }
