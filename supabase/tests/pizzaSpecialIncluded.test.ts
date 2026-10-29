@@ -108,7 +108,7 @@ describe('included ingredients on every style', () => {
       await asUser(db, admin)
       const res = await db.query<{ r: Json }>(
         `select public.admin_save_pizza_style(null, $1, '', 'special', $2, 30, true,
-          '{"chica": 11000, "mediana": 19000, "grande": 21000}'::jsonb, true) as r`,
+          '{"chica": 11000, "mediana": 19000, "grande": 21000}'::jsonb, null) as r`,
         [`Estilo ${included}`, included],
       )
       await asSuperuser(db)

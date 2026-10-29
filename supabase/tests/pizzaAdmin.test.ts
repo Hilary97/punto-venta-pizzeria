@@ -19,13 +19,13 @@ interface StyleArgs {
   sortOrder?: number | null
   active?: boolean | null
   prices?: unknown
-  charges?: boolean | null
+  fees?: unknown
 }
 
 async function saveStyle(user: string, args: StyleArgs = {}): Promise<Json> {
   await asUser(db, user)
   const res = await db.query<{ r: Json }>(
-    `select public.admin_save_pizza_style($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9) as r`,
+    `select public.admin_save_pizza_style($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb) as r`,
     [
       args.id ?? null,
       args.name ?? 'Estilo Nuevo',
@@ -35,7 +35,7 @@ async function saveStyle(user: string, args: StyleArgs = {}): Promise<Json> {
       args.sortOrder === undefined ? 20 : args.sortOrder,
       args.active === undefined ? true : args.active,
       JSON.stringify(args.prices === undefined ? PRICES : args.prices),
-      args.charges === undefined ? true : args.charges,
+      args.fees === undefined ? null : JSON.stringify(args.fees),
     ],
   )
   return res.rows[0].r
@@ -169,7 +169,7 @@ describe('admin_save_pizza_style', () => {
     await asUser(db, admin)
     const res = await db.query<{ r: Json }>(
       `select public.admin_save_pizza_style(null, 'Estilo Punto', '', 'special', 0, 0, true,
-         '{"chica": 11000.0, "mediana": 19000, "grande": 21000}'::jsonb, true) as r`,
+         '{"chica": 11000.0, "mediana": 19000, "grande": 21000}'::jsonb, null) as r`,
     )
 
     expect((await styleRow(res.rows[0].r.style_id)).prices).toEqual(PRICES)
