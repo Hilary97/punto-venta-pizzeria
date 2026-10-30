@@ -9,14 +9,23 @@ interface OpenOrdersListProps {
   orders: Order[]
   canCharge: boolean
   disabled?: boolean
+  emptyMessage?: string
   onAddItems: (order: Order) => void
   onCancel: (order: Order) => void
   onEditNotes: (order: Order) => void
 }
 
-export function OpenOrdersList({ orders, canCharge, disabled = false, onAddItems, onCancel, onEditNotes }: OpenOrdersListProps) {
+export function OpenOrdersList({
+  orders,
+  canCharge,
+  disabled = false,
+  emptyMessage = 'No hay pedidos abiertos.',
+  onAddItems,
+  onCancel,
+  onEditNotes,
+}: OpenOrdersListProps) {
   if (orders.length === 0) {
-    return <p className="p-4 text-center text-slate-500">No hay pedidos abiertos.</p>
+    return <p className="p-4 text-center text-slate-500">{emptyMessage}</p>
   }
 
   return (

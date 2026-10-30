@@ -39,7 +39,7 @@ import {
   type DraftLine,
 } from '../domain/orderDraft'
 import { hideLegacyPizza } from '../domain/legacyPizza'
-import { sortOrdersByName } from '../domain/orderFilter'
+import { filterOrders, sortOrdersByName } from '../domain/orderFilter'
 import type { OrdersSource } from '../domain/ordersSource'
 import { AddingToOrderBar } from './AddingToOrderBar'
 import { OpenOrdersList } from './OpenOrdersList'
@@ -90,6 +90,7 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
   const [addingToOrder, setAddingToOrder] = useState<Order | null>(null)
   const [orderToCancel, setOrderToCancel] = useState<Order | null>(null)
   const [filterTable, setFilterTable] = useState<number | null>(null)
+  const [nameQuery, setNameQuery] = useState('')
   const pending = useRef(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isDraftOpen, setIsDraftOpen] = useState(false)
@@ -350,7 +351,8 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
 
   const legacyHidden = hideLegacyPizza(categories, products)
   const hasPizzaBuilder = pizzaCatalog !== null && pizzaCatalog.sizes.length > 0
-  const visibleOrders = sortOrdersByName(filterTable === null ? orders : orders.filter((order) => order.tableNumber === filterTable))
+  const visibleOrders = sortOrdersByName(filterOrders(orders, { tableNumber: filterTable, nameQuery }))
+  const isFiltering = filterTable !== null || nameQuery.trim() !== ''
 
   const openOrdersSection = (
     <section className="flex min-w-0 flex-col gap-4" aria-labelledby={`${filterId}-title`}>
@@ -358,7 +360,17 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
         <h2 id={`${filterId}-title`} className="text-xl font-bold text-slate-900">
           Pedidos abiertos
         </h2>
-        <div className="flex items-end gap-3">
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="flex flex-col gap-1 text-sm font-medium text-slate-700">
+            Buscar por nombre
+            <input
+              type="search"
+              value={nameQuery}
+              placeholder="Nombre del cliente"
+              onChange={(event) => setNameQuery(event.target.value)}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-base font-normal text-slate-900"
+            />
+          </label>
           <div className="flex flex-col gap-1">
             <label htmlFor={filterId} className="text-sm font-medium text-slate-700">
               Filtrar por mesa
@@ -384,6 +396,7 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
       </div>
       <OpenOrdersList
         orders={visibleOrders}
+        emptyMessage={isFiltering && orders.length > 0 ? 'No hay pedidos que coincidan.' : undefined}
         canCharge={canCharge}
         disabled={isSubmitting}
         onAddItems={handleStartAdding}

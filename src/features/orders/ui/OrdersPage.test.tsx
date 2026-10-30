@@ -309,6 +309,38 @@ describe('OrdersPage', () => {
     expect(screen.getByText('Ana')).toBeVisible()
   })
 
+  it('searches open orders by customer name, ignoring case and accents, combined with the table filter', async () => {
+    vi.mocked(listOpenOrders).mockResolvedValue([
+      { ...openOrder, customerName: 'José' },
+      { ...openOrder, id: 'order-2', tableNumber: 5, customerName: 'Josefina' },
+      { ...openOrder, id: 'order-3', tableNumber: 3, customerName: 'Beto' },
+      { ...openOrder, id: 'order-4', tableNumber: 7, customerName: null },
+    ])
+    const user = userEvent.setup()
+    renderPage()
+    expect(await screen.findByText('Beto')).toBeVisible()
+    const cardCount = () => screen.queryAllByText(/pizza queso × 2/i).length
+    const search = screen.getByRole('searchbox', { name: /buscar por nombre/i })
+
+    await user.type(search, 'JOSE')
+    expect(cardCount()).toBe(2)
+    expect(screen.getByText('José')).toBeVisible()
+    expect(screen.getByText('Josefina')).toBeVisible()
+    expect(screen.queryByText('Beto')).not.toBeInTheDocument()
+
+    await user.selectOptions(screen.getByLabelText(/filtrar por mesa/i), '3')
+    expect(cardCount()).toBe(1)
+    expect(screen.getByText('José')).toBeVisible()
+
+    await user.clear(search)
+    await user.type(search, 'zzz')
+    expect(cardCount()).toBe(0)
+    expect(screen.getByText('No hay pedidos que coincidan.')).toBeVisible()
+
+    await user.clear(search)
+    expect(cardCount()).toBe(2)
+  })
+
   it('shows an error banner and keeps the draft when creation fails', async () => {
     vi.mocked(createOrder).mockRejectedValueOnce(new Error('No se pudo crear el pedido.'))
     const user = userEvent.setup()
