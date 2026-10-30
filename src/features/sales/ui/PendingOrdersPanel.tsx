@@ -6,7 +6,7 @@ import { cn } from '../../../shared/ui/cn'
 import { pizzaLabelLayout } from '../../pizza/domain/pizza'
 import { PizzaLabelGroups } from '../../pizza/ui/PizzaLabelGroups'
 import { orderLabel, productLineLabel, TABLE_NUMBERS, tableLabel, type Order } from '../../orders/domain/order'
-import { filterOrders } from '../../orders/domain/orderFilter'
+import { filterOrders, sortOrdersByName } from '../../orders/domain/orderFilter'
 import { listOpenOrders } from '../../orders/infrastructure/ordersRepository'
 import { subscribeKitchenChanges } from '../../kitchen/infrastructure/kitchenRepository'
 import { useChangeSignal } from '../../../shared/realtime/useChangeSignal'
@@ -24,7 +24,10 @@ export function PendingOrdersPanel({ onCharge }: PendingOrdersPanelProps) {
   const [tableNumber, setTableNumber] = useState<number | null>(null)
   const [nameQuery, setNameQuery] = useState('')
 
-  const visibleOrders = useMemo(() => filterOrders(orders, { tableNumber, nameQuery }), [orders, tableNumber, nameQuery])
+  const visibleOrders = useMemo(
+    () => sortOrdersByName(filterOrders(orders, { tableNumber, nameQuery })),
+    [orders, tableNumber, nameQuery],
+  )
   const isFiltering = tableNumber !== null || nameQuery.trim() !== ''
 
   function clearFilters() {

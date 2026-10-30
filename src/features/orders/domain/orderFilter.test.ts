@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Order } from './order'
-import { filterOrders } from './orderFilter'
+import { filterOrders, sortOrdersByName } from './orderFilter'
 
 function order(id: string, tableNumber: number | null, customerName: string | null): Order {
   return { id, tableNumber, customerName, status: 'open', createdAt: '2026-01-01T00:00:00Z', items: [], waiterName: null, notes: null }
@@ -47,5 +47,27 @@ describe('filterOrders', () => {
 
   it('returns an empty list when nothing matches', () => {
     expect(filterOrders(orders, { ...none, nameQuery: 'zzz' })).toEqual([])
+  })
+})
+
+describe('sortOrdersByName', () => {
+  it('sorts named orders A-Z and leaves table-only orders last, by table number', () => {
+    const list = [
+      order('t5', 5, null),
+      order('jose', 3, 'José'),
+      order('t2', 2, null),
+      order('ana', null, 'ana'),
+      order('none', null, null),
+      order('beto', 1, 'Beto'),
+    ]
+    expect(ids(sortOrdersByName(list))).toEqual(['ana', 'beto', 'jose', 't2', 't5', 'none'])
+  })
+
+  it('keeps the oldest first among orders with the same name and does not mutate the input', () => {
+    const late = { ...order('late', 4, 'Ana'), createdAt: '2026-01-01T02:00:00Z' }
+    const early = { ...order('early', 4, 'Ana'), createdAt: '2026-01-01T01:00:00Z' }
+    const list = [late, early]
+    expect(ids(sortOrdersByName(list))).toEqual(['early', 'late'])
+    expect(ids(list)).toEqual(['late', 'early'])
   })
 })

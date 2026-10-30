@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { byName } from '../../../shared/sortByName'
 import { getSupabaseClient } from '../../../shared/supabase/client'
 import { parseRpcResult } from '../../../shared/supabase/rpc'
 import type { PizzaSizeCode } from '../domain/pizza'
@@ -14,7 +15,7 @@ import type {
 const LOAD_ERROR = 'No se pudo cargar la configuración de pizzas.'
 const UNIQUE_VIOLATION = '23505'
 
-/** Every size, style (with prices), ingredient and the extras, including inactive rows (admin view). */
+/** Every size, style (with prices), ingredient and the extras, including inactive rows (admin view). Styles, ingredients and extras A-Z. */
 export async function listAdminPizzaCatalog(): Promise<AdminPizzaCatalog> {
   const client = getSupabaseClient()
   const [sizes, styles, prices, ingredients, extras, settings] = await Promise.all([
@@ -71,13 +72,13 @@ export async function listAdminPizzaCatalog(): Promise<AdminPizzaCatalog> {
       sortOrder: style.sort_order,
       active: style.active,
       prices: pricesByStyle.get(style.id) ?? {},
-    })),
+    })).sort(byName),
     ingredients: ingredients.data.map((ingredient) => ({
       id: ingredient.id,
       name: ingredient.name,
       sortOrder: ingredient.sort_order,
       active: ingredient.active,
-    })),
+    })).sort(byName),
     extraIngredientCents: settings.data.extra_ingredient_cents,
     extras: extras.data.map((extra) => ({
       id: extra.id,
@@ -85,7 +86,7 @@ export async function listAdminPizzaCatalog(): Promise<AdminPizzaCatalog> {
       priceCents: extra.price_cents,
       sortOrder: extra.sort_order,
       active: extra.active,
-    })),
+    })).sort(byName),
   }
 }
 

@@ -5,6 +5,7 @@ import {
   initialPortions,
   resizePortions,
   setPortionStyle,
+  sortBuilderStyles,
   toggleExtra,
   toggleIngredient,
   togglePizzaExtra,
@@ -120,5 +121,36 @@ describe('togglePizzaExtra', () => {
 describe('buildConfig', () => {
   it('combines size and portions', () => {
     expect(buildConfig('chica', [empty], ['queso'])).toEqual({ size: 'chica', portions: [empty], extraIds: ['queso'] })
+  })
+})
+
+describe('sortBuilderStyles', () => {
+  const style = (name: string, sortOrder: number): PizzaStyle => ({ ...special, id: name, name, sortOrder })
+
+  it('puts Pepperoni and Hawaiana first, then the rest alphabetically, ignoring their sort order', () => {
+    const styles = [
+      style('Estilo Varas', 1),
+      style('Estilo Hawaiana', 2),
+      style('Arma tu combinación', 3),
+      style('Estilo Pepperoni', 4),
+      style("Estilo Chuy's", 5),
+    ]
+    expect(sortBuilderStyles(styles).map((row) => row.name)).toEqual([
+      'Estilo Pepperoni',
+      'Estilo Hawaiana',
+      'Arma tu combinación',
+      "Estilo Chuy's",
+      'Estilo Varas',
+    ])
+    expect(styles[0]?.name).toBe('Estilo Varas')
+  })
+
+  it('matches the pinned styles ignoring case, accents and spaces', () => {
+    const styles = [style('Arma', 1), style(' estilo  HAWÁIANA ', 2), style('ESTILO PEPPERONI', 3)]
+    expect(sortBuilderStyles(styles).map((row) => row.name)).toEqual(['ESTILO PEPPERONI', ' estilo  HAWÁIANA ', 'Arma'])
+  })
+
+  it('sorts alphabetically when no pinned style exists', () => {
+    expect(sortBuilderStyles([style('Varas', 1), style('Chuy', 2)]).map((row) => row.name)).toEqual(['Chuy', 'Varas'])
   })
 })
