@@ -105,6 +105,50 @@ describe('listAdminPizzaCatalog', () => {
     expect(tables.pizza_settings.select).toHaveBeenCalledWith('extra_ingredient_cents')
   })
 
+  it('lists styles, ingredients and extras A-Z, ignoring their sort order', async () => {
+    const style = (id: string, name: string, sortOrder: number) => ({
+      id,
+      name,
+      description: '',
+      kind: 'special',
+      included_ingredients: 0,
+      charges_elaboration: false,
+      split_halves_fee_cents: 0,
+      split_thirds_fee_cents: 0,
+      split_quarters_fee_cents: 0,
+      sort_order: sortOrder,
+      active: true,
+    })
+    const tables = {
+      pizza_sizes: query({ data: [], error: null }),
+      pizza_styles: query({ data: [style('s1', 'Mexicana', 1), style('s2', 'Hawaiana', 2)], error: null }),
+      pizza_style_prices: query({ data: [], error: null }),
+      pizza_ingredients: query({
+        data: [
+          { id: 'i1', name: 'Salami', sort_order: 1, active: true },
+          { id: 'i2', name: 'champiñones', sort_order: 2, active: true },
+          { id: 'i3', name: 'Ñora', sort_order: 3, active: true },
+          { id: 'i4', name: 'Nopal', sort_order: 4, active: true },
+        ],
+        error: null,
+      }),
+      pizza_extras: query({
+        data: [
+          { id: 'e1', name: 'Orilla rellena', price_cents: 0, sort_order: 1, active: true },
+          { id: 'e2', name: 'Extra queso', price_cents: 0, sort_order: 2, active: true },
+        ],
+        error: null,
+      }),
+      pizza_settings: query({ data: { extra_ingredient_cents: 0 }, error: null }),
+    }
+    from.mockImplementation((table: keyof typeof tables) => tables[table])
+
+    const catalog = await listAdminPizzaCatalog()
+    expect(catalog.styles.map((row) => row.name)).toEqual(['Hawaiana', 'Mexicana'])
+    expect(catalog.ingredients.map((row) => row.name)).toEqual(['champiñones', 'Nopal', 'Ñora', 'Salami'])
+    expect(catalog.extras.map((row) => row.name)).toEqual(['Extra queso', 'Orilla rellena'])
+  })
+
   it('fails with one message when any table fails', async () => {
     from.mockImplementation((table: string) =>
       query(table === 'pizza_settings' ? { data: null, error: { message: 'boom' } } : { data: [], error: null }),

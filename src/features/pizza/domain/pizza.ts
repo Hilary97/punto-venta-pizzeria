@@ -1,3 +1,5 @@
+import { byName } from '../../../shared/sortByName'
+
 export type PizzaSizeCode = 'chica' | 'mediana' | 'grande'
 
 export interface PizzaSize {
@@ -134,7 +136,7 @@ function hasDuplicates(ids: string[]): boolean {
  * Same text as the SQL `describe_pizza`, e.g.
  * `Pizza Grande · Mitades: ½ Estilo Varas + Jalapeños | ½ Estilo Chuy's · Extras: Extra queso`.
  * A whole pizza lists its extras like its extra ingredients: `Pizza Chica: Estilo Varas + Extra queso`.
- * Ingredients and extras are listed in catalog order; unknown ids are skipped.
+ * Ingredients and extras are listed alphabetically; unknown ids are skipped.
  * A doubled extra ingredient is listed once as `Extra <name>`: `Pizza Chica: Estilo Varas + Extra Jalapeños`.
  * A doubled included ingredient (also one of the extras) reads `Extra <name>` inside the included list.
  */
@@ -148,7 +150,7 @@ export function describePizza(config: PizzaConfig, catalog: PizzaCatalog): strin
     // An included ingredient that is also an extra is doubled: it takes one of the extras.
     const included = catalog.ingredients
       .filter((row) => portion.ingredientIds.includes(row.id))
-      .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name))
+      .sort(byName)
       .map((row) => (portion.extraIngredientIds.includes(row.id) ? `Extra ${row.name}` : row.name))
     if (included.length > 0) text += ` (${included.join(', ')})`
 
@@ -163,23 +165,23 @@ export function describePizza(config: PizzaConfig, catalog: PizzaCatalog): strin
     return count > 1 ? `${PORTION_FRACTIONS[count] ?? ''} ${text}` : text
   })
 
-  const options = byCatalogOrder(catalog.extras, config.extraIds).join(', ')
+  const options = byNameOrder(catalog.extras, config.extraIds).join(', ')
   if (count === 1) return `Pizza ${sizeName}: ${parts[0]}${options ? ` + ${options}` : ''}`
   return `Pizza ${sizeName} · ${portionLabel(count)}: ${parts.join(' | ')}${options ? ` · Extras: ${options}` : ''}`
 }
 
-/** Each extra ingredient once, in catalog order; a doubled one reads `Extra <name>`. */
+/** Each extra ingredient once, alphabetically; a doubled one reads `Extra <name>`. */
 function extraIngredientNames(ids: string[], catalog: PizzaCatalog): string[] {
   return catalog.ingredients
     .filter((row) => ids.includes(row.id))
-    .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name))
+    .sort(byName)
     .map((row) => (ids.filter((id) => id === row.id).length > 1 ? `Extra ${row.name}` : row.name))
 }
 
-function byCatalogOrder(rows: { id: string; name: string; sortOrder: number }[], ids: string[]): string[] {
+function byNameOrder(rows: { id: string; name: string; sortOrder: number }[], ids: string[]): string[] {
   return rows
     .filter((row) => ids.includes(row.id))
-    .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name))
+    .sort(byName)
     .map((row) => row.name)
 }
 

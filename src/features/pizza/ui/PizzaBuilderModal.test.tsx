@@ -33,6 +33,19 @@ describe('PizzaBuilderModal', () => {
     })
   })
 
+  it('lists styles, ingredients and extras alphabetically, ignoring their sort order', () => {
+    renderBuilder()
+    const names = (elements: HTMLElement[]) => elements.map((element) => element.textContent)
+    expect(names(screen.getAllByRole('option'))).toEqual(['Arma tu combinación', 'Estilo Varas'])
+    const extraIngredients = screen.getByRole('group', { name: /ingredientes extra/i })
+    expect(names(within(extraIngredients).getAllByRole('button'))).toEqual(['Jalapeños', 'Pepperoni', 'Piña'])
+    const extras = screen.getByRole('group', { name: 'Extras' })
+    expect(names(within(extras).getAllByRole('button')).map((name) => name?.replace(/\$.*/, '').trim())).toEqual([
+      'Extra queso',
+      'Orilla rellena',
+    ])
+  })
+
   it('shows only the divisions allowed by the size and resets an invalid one when resizing', async () => {
     const { user } = renderBuilder()
     const division = screen.getByRole('group', { name: 'División' })
@@ -59,7 +72,7 @@ describe('PizzaBuilderModal', () => {
     expect(within(included).getByRole('button', { name: 'Piña' })).toBeDisabled()
 
     await user.click(add)
-    expect(onAdd.mock.calls[0]?.[0].name).toBe('Pizza Chica: Arma tu combinación (Pepperoni, Jalapeños)')
+    expect(onAdd.mock.calls[0]?.[0].name).toBe('Pizza Chica: Arma tu combinación (Jalapeños, Pepperoni)')
   })
 
   it('doubles an included ingredient on the second tap as a charged extra, and removes it on the third', async () => {
@@ -109,7 +122,7 @@ describe('PizzaBuilderModal', () => {
     expect(within(included).getByRole('button', { name: 'Piña' })).toBeDisabled()
 
     await user.click(add)
-    expect(onAdd.mock.calls[0]?.[0].name).toBe('Pizza Chica: Estilo Varas (Pepperoni, Jalapeños)')
+    expect(onAdd.mock.calls[0]?.[0].name).toBe('Pizza Chica: Estilo Varas (Jalapeños, Pepperoni)')
   })
 
   it('hides included ingredients on a style that includes none', () => {

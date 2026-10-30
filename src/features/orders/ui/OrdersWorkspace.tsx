@@ -39,6 +39,7 @@ import {
   type DraftLine,
 } from '../domain/orderDraft'
 import { hideLegacyPizza } from '../domain/legacyPizza'
+import { sortOrdersByName } from '../domain/orderFilter'
 import type { OrdersSource } from '../domain/ordersSource'
 import { AddingToOrderBar } from './AddingToOrderBar'
 import { OpenOrdersList } from './OpenOrdersList'
@@ -349,7 +350,7 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
 
   const legacyHidden = hideLegacyPizza(categories, products)
   const hasPizzaBuilder = pizzaCatalog !== null && pizzaCatalog.sizes.length > 0
-  const visibleOrders = filterTable === null ? orders : orders.filter((order) => order.tableNumber === filterTable)
+  const visibleOrders = sortOrdersByName(filterTable === null ? orders : orders.filter((order) => order.tableNumber === filterTable))
 
   const openOrdersSection = (
     <section className="flex min-w-0 flex-col gap-4" aria-labelledby={`${filterId}-title`}>

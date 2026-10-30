@@ -1,5 +1,6 @@
 import { useId, useMemo, useState } from 'react'
 import { Button } from '../../../shared/ui/Button'
+import { byName } from '../../../shared/sortByName'
 import { Modal } from '../../../shared/ui/Modal'
 import { Textarea } from '../../../shared/ui/Textarea'
 import { MAX_ITEM_NOTES_LENGTH } from '../../orders/domain/order'
@@ -35,15 +36,9 @@ function sizeHint(size: PizzaSize): string | undefined {
 export function PizzaBuilderModal({ catalog, onAdd, onClose }: PizzaBuilderModalProps) {
   const notesId = useId()
   const sizes = useMemo(() => [...catalog.sizes].sort((a, b) => a.sortOrder - b.sortOrder), [catalog.sizes])
-  const styles = useMemo(() => [...catalog.styles].sort((a, b) => a.sortOrder - b.sortOrder), [catalog.styles])
-  const ingredients = useMemo(
-    () => [...catalog.ingredients].sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name)),
-    [catalog.ingredients],
-  )
-  const extras = useMemo(
-    () => [...catalog.extras].sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name)),
-    [catalog.extras],
-  )
+  const styles = useMemo(() => [...catalog.styles].sort(byName), [catalog.styles])
+  const ingredients = useMemo(() => [...catalog.ingredients].sort(byName), [catalog.ingredients])
+  const extras = useMemo(() => [...catalog.extras].sort(byName), [catalog.extras])
   const defaultStyleId = (styles.find((style) => style.kind === 'special') ?? styles[0])?.id ?? ''
 
   const [sizeCode, setSizeCode] = useState<PizzaSizeCode>(sizes[0]?.code ?? 'chica')
