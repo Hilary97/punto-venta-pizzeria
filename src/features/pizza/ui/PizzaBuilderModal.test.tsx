@@ -46,6 +46,26 @@ describe('PizzaBuilderModal', () => {
     ])
   })
 
+  it('lists Pepperoni and Hawaiana first and starts on Pepperoni', () => {
+    const catalog: PizzaCatalog = {
+      ...pizzaCatalogFixture,
+      styles: [
+        ...pizzaCatalogFixture.styles,
+        { id: 'hawaiana', name: 'Estilo Hawaiana', description: '', kind: 'special', includedIngredients: 0, sortOrder: 3 },
+        { id: 'pepperoni', name: 'Estilo Pepperoni', description: '', kind: 'special', includedIngredients: 0, sortOrder: 4 },
+      ],
+    }
+    renderBuilder(catalog)
+    expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual([
+      'Estilo Pepperoni',
+      'Estilo Hawaiana',
+      'Arma tu combinación',
+      'Estilo Varas',
+    ])
+    expect(screen.getByLabelText('Estilo')).toHaveValue('pepperoni')
+    expect(screen.getByText('Pizza Chica: Estilo Pepperoni')).toBeVisible()
+  })
+
   it('shows only the divisions allowed by the size and resets an invalid one when resizing', async () => {
     const { user } = renderBuilder()
     const division = screen.getByRole('group', { name: 'División' })

@@ -1,9 +1,32 @@
+import { byName } from '../../../shared/sortByName'
 import type { PizzaConfig, PizzaPortion, PizzaSize, PizzaSizeCode, PizzaStyle } from './pizza'
 
 /*
  * Pure state helpers behind the pizza builder UI. The server stays authoritative:
  * these only keep the builder state inside what `validatePizzaConfig` accepts.
  */
+
+/** Styles the builder always lists first, in this order, matched by `styleKey`. */
+const PINNED_STYLE_KEYS = ['estilopepperoni', 'estilohawaiana']
+
+/** A style name without case, accents or anything but letters and digits: ` Estilo  HAWÁIANA ` -> `estilohawaiana`. */
+function styleKey(name: string): string {
+  return name
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '')
+}
+
+function pinRank(style: PizzaStyle): number {
+  const rank = PINNED_STYLE_KEYS.indexOf(styleKey(style.name))
+  return rank === -1 ? PINNED_STYLE_KEYS.length : rank
+}
+
+/** Builder order: Pepperoni, Hawaiana, then every other style A-Z. Returns a new array. */
+export function sortBuilderStyles(styles: PizzaStyle[]): PizzaStyle[] {
+  return [...styles].sort((a, b) => pinRank(a) - pinRank(b) || byName(a, b))
+}
 
 function emptyPortion(styleId: string): PizzaPortion {
   return { styleId, ingredientIds: [], extraIngredientIds: [] }

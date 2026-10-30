@@ -6,7 +6,7 @@ import { Textarea } from '../../../shared/ui/Textarea'
 import { MAX_ITEM_NOTES_LENGTH } from '../../orders/domain/order'
 import { describePizza, isSizeSoldOut, portionLabel, validatePizzaConfig } from '../domain/pizza'
 import type { PizzaCatalog, PizzaConfig, PizzaPortion, PizzaSize, PizzaSizeCode } from '../domain/pizza'
-import { buildConfig, initialPortions, resizePortions, togglePizzaExtra } from '../domain/pizzaBuilder'
+import { buildConfig, initialPortions, resizePortions, sortBuilderStyles, togglePizzaExtra } from '../domain/pizzaBuilder'
 import { PortionEditor } from './PortionEditor'
 import { ToggleChip } from './ToggleChip'
 
@@ -36,7 +36,7 @@ function sizeHint(size: PizzaSize): string | undefined {
 export function PizzaBuilderModal({ catalog, onAdd, onClose }: PizzaBuilderModalProps) {
   const notesId = useId()
   const sizes = useMemo(() => [...catalog.sizes].sort((a, b) => a.sortOrder - b.sortOrder), [catalog.sizes])
-  const styles = useMemo(() => [...catalog.styles].sort(byName), [catalog.styles])
+  const styles = useMemo(() => sortBuilderStyles(catalog.styles), [catalog.styles])
   const ingredients = useMemo(() => [...catalog.ingredients].sort(byName), [catalog.ingredients])
   const extras = useMemo(() => [...catalog.extras].sort(byName), [catalog.extras])
   const defaultStyleId = (styles.find((style) => style.kind === 'special') ?? styles[0])?.id ?? ''
