@@ -21,7 +21,7 @@ export function ToggleChip({ label, pressed, onToggle, disabled = false, hint, e
       onClick={onToggle}
       className={cn(
         'min-h-11 rounded-full px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-40',
-        pressed && emphasized && 'bg-amber-700 text-white',
+        pressed && emphasized && 'bg-orange-500 text-orange-950 ring-2 ring-orange-700',
         pressed && !emphasized && 'bg-red-700 text-white',
         !pressed && 'bg-slate-200 text-slate-700 hover:bg-slate-300',
       )}

@@ -76,7 +76,7 @@ describe('PizzaBuilderModal', () => {
 
     await user.click(chip())
     expect(chip()).toHaveAttribute('aria-pressed', 'true')
-    expect(chip()).toHaveClass('bg-amber-700')
+    expect(chip()).toHaveClass('bg-orange-500', 'text-orange-950', 'ring-2', 'ring-orange-700')
     expect(within(chip()).getByText('Extra')).toBeVisible()
     expect(included()).toHaveAccessibleName('Ingredientes (1/2)')
     expect(extras()).toHaveAccessibleName('Ingredientes extra (1)')
@@ -157,7 +157,7 @@ describe('PizzaBuilderModal', () => {
 
     await user.click(chip())
     expect(chip()).toHaveAttribute('aria-pressed', 'true')
-    expect(chip()).toHaveClass('bg-amber-700')
+    expect(chip()).toHaveClass('bg-orange-500', 'text-orange-950', 'ring-2', 'ring-orange-700')
     expect(within(chip()).getByText('Extra')).toBeVisible()
     expect(extraIngredients()).toHaveAccessibleName('Ingredientes extra (2)')
     expect(screen.getByText('Pizza Chica: Estilo Varas + Extra Jalapeños')).toBeVisible()
