@@ -49,12 +49,16 @@ export function PortionEditor({ title, portion, styles, ingredients, onChange }:
           </legend>
           <div className="flex flex-wrap gap-2">
             {ingredients.map((ingredient) => {
+              // Tap cycle: included, doubled (one charged extra), removed.
               const pressed = portion.ingredientIds.includes(ingredient.id)
+              const doubled = pressed && portion.extraIngredientIds.includes(ingredient.id)
               return (
                 <ToggleChip
                   key={ingredient.id}
                   label={ingredient.name}
                   pressed={pressed}
+                  emphasized={doubled}
+                  hint={doubled ? 'Extra' : undefined}
                   disabled={!pressed && portion.ingredientIds.length >= style.includedIngredients}
                   onToggle={() => onChange(toggleIngredient(portion, ingredient.id, style))}
                 />

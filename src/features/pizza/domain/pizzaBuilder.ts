@@ -26,13 +26,23 @@ export function setPortionStyle(portion: PizzaPortion, style: PizzaStyle): Pizza
   return { ...portion, styleId: style.id, ingredientIds }
 }
 
-/** Toggles an included ingredient, capped at the style limit. */
+/**
+ * Cycles an included ingredient: included (capped at the style limit), then doubled, then removed.
+ * The double is one charged extra of the same ingredient; removing it takes that extra back.
+ */
 export function toggleIngredient(portion: PizzaPortion, ingredientId: string, style: PizzaStyle): PizzaPortion {
-  if (portion.ingredientIds.includes(ingredientId)) {
-    return { ...portion, ingredientIds: portion.ingredientIds.filter((id) => id !== ingredientId) }
+  if (!portion.ingredientIds.includes(ingredientId)) {
+    if (portion.ingredientIds.length >= style.includedIngredients) return portion
+    return { ...portion, ingredientIds: [...portion.ingredientIds, ingredientId] }
   }
-  if (portion.ingredientIds.length >= style.includedIngredients) return portion
-  return { ...portion, ingredientIds: [...portion.ingredientIds, ingredientId] }
+  const extras = portion.extraIngredientIds
+  if (!extras.includes(ingredientId)) return { ...portion, extraIngredientIds: [...extras, ingredientId] }
+  const at = extras.indexOf(ingredientId)
+  return {
+    ...portion,
+    ingredientIds: portion.ingredientIds.filter((id) => id !== ingredientId),
+    extraIngredientIds: [...extras.slice(0, at), ...extras.slice(at + 1)],
+  }
 }
 
 /** Times an extra ingredient is on the portion: 0, 1 or 2 (doubled). */

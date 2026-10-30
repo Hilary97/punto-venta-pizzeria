@@ -62,6 +62,38 @@ describe('PizzaBuilderModal', () => {
     expect(onAdd.mock.calls[0]?.[0].name).toBe('Pizza Chica: Arma tu combinación (Pepperoni, Jalapeños)')
   })
 
+  it('doubles an included ingredient on the second tap as a charged extra, and removes it on the third', async () => {
+    const { onAdd, user } = renderBuilder()
+    await user.selectOptions(screen.getByLabelText('Estilo'), 'custom')
+    const included = () => screen.getByRole('group', { name: /^Ingredientes \(/ })
+    const extras = () => screen.getByRole('group', { name: /^Ingredientes extra/ })
+    const chip = () => within(included()).getByRole('button', { name: /Jalapeños/ })
+
+    await user.click(chip())
+    expect(chip()).toHaveClass('bg-red-700')
+    expect(within(chip()).queryByText('Extra')).not.toBeInTheDocument()
+    expect(included()).toHaveAccessibleName('Ingredientes (1/2)')
+
+    await user.click(chip())
+    expect(chip()).toHaveAttribute('aria-pressed', 'true')
+    expect(chip()).toHaveClass('bg-amber-700')
+    expect(within(chip()).getByText('Extra')).toBeVisible()
+    expect(included()).toHaveAccessibleName('Ingredientes (1/2)')
+    expect(extras()).toHaveAccessibleName('Ingredientes extra (1)')
+    expect(screen.getByText('Pizza Chica: Arma tu combinación (Extra Jalapeños)')).toBeVisible()
+
+    await user.click(screen.getByRole('button', { name: 'Agregar pizza' }))
+    expect(onAdd.mock.calls[0]?.[0].config.portions).toEqual([
+      { styleId: 'custom', ingredientIds: ['jal'], extraIngredientIds: ['jal'] },
+    ])
+    expect(onAdd.mock.calls[0]?.[0].name).toBe('Pizza Chica: Arma tu combinación (Extra Jalapeños)')
+
+    await user.click(chip())
+    expect(chip()).toHaveAttribute('aria-pressed', 'false')
+    expect(included()).toHaveAccessibleName('Ingredientes (0/2)')
+    expect(extras()).toHaveAccessibleName('Ingredientes extra (0)')
+  })
+
   it('lets a special style add its included ingredients without requiring them', async () => {
     const catalog: PizzaCatalog = {
       ...pizzaCatalogFixture,

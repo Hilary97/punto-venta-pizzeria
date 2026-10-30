@@ -77,18 +77,34 @@ describe('describePizza', () => {
     )
   })
 
+  it('describes a doubled included ingredient as "Extra <ingrediente>" inside the included list', () => {
+    const config: PizzaConfig = {
+      size: 'chica',
+      portions: [portion({ styleId: 'custom', ingredientIds: ['jal', 'pep'], extraIngredientIds: ['jal'] })],
+      extraIds: [],
+    }
+    expect(describePizza(config, catalog)).toBe('Pizza Chica: Arma tu pizza (Pepperoni, Extra Jalapeños)')
+
+    const more: PizzaConfig = {
+      size: 'chica',
+      portions: [portion({ styleId: 'custom', ingredientIds: ['jal'], extraIngredientIds: ['pina', 'jal', 'jal'] })],
+      extraIds: [],
+    }
+    expect(describePizza(more, catalog)).toBe('Pizza Chica: Arma tu pizza (Extra Jalapeños) + Jalapeños, Piña')
+  })
+
   it('lists chosen ingredients in catalog order and extras after them', () => {
     const config: PizzaConfig = {
       size: 'mediana',
       portions: [
-        portion({ styleId: 'custom', ingredientIds: ['jal', 'pep'], extraIngredientIds: ['pina', 'jal'] }),
+        portion({ styleId: 'custom', ingredientIds: ['jal', 'pep'], extraIngredientIds: ['pina'] }),
         portion({ styleId: 'varas' }),
         portion({ styleId: 'varas' }),
       ],
       extraIds: ['orilla', 'queso'],
     }
     expect(describePizza(config, catalog)).toBe(
-      'Pizza Mediana · Tercios: ⅓ Arma tu pizza (Pepperoni, Jalapeños) + Jalapeños, Piña | ⅓ Estilo Varas | ⅓ Estilo Varas · Extras: Extra queso, Orilla rellena',
+      'Pizza Mediana · Tercios: ⅓ Arma tu pizza (Pepperoni, Jalapeños) + Piña | ⅓ Estilo Varas | ⅓ Estilo Varas · Extras: Extra queso, Orilla rellena',
     )
   })
 

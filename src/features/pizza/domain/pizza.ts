@@ -136,6 +136,7 @@ function hasDuplicates(ids: string[]): boolean {
  * A whole pizza lists its extras like its extra ingredients: `Pizza Chica: Estilo Varas + Extra queso`.
  * Ingredients and extras are listed in catalog order; unknown ids are skipped.
  * A doubled extra ingredient is listed once as `Extra <name>`: `Pizza Chica: Estilo Varas + Extra Jalapeños`.
+ * A doubled included ingredient (also one of the extras) reads `Extra <name>` inside the included list.
  */
 export function describePizza(config: PizzaConfig, catalog: PizzaCatalog): string {
   const sizeName = catalog.sizes.find((size) => size.code === config.size)?.name ?? config.size
@@ -144,10 +145,19 @@ export function describePizza(config: PizzaConfig, catalog: PizzaCatalog): strin
   const parts = config.portions.map((portion) => {
     let text = catalog.styles.find((style) => style.id === portion.styleId)?.name ?? ''
 
-    const included = ingredientNames(portion.ingredientIds, catalog)
+    // An included ingredient that is also an extra is doubled: it takes one of the extras.
+    const included = catalog.ingredients
+      .filter((row) => portion.ingredientIds.includes(row.id))
+      .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name))
+      .map((row) => (portion.extraIngredientIds.includes(row.id) ? `Extra ${row.name}` : row.name))
     if (included.length > 0) text += ` (${included.join(', ')})`
 
-    const extras = extraIngredientNames(portion.extraIngredientIds, catalog)
+    const remaining = [...portion.extraIngredientIds]
+    for (const id of portion.ingredientIds) {
+      const at = remaining.indexOf(id)
+      if (at !== -1) remaining.splice(at, 1)
+    }
+    const extras = extraIngredientNames(remaining, catalog)
     if (extras.length > 0) text += ` + ${extras.join(', ')}`
 
     return count > 1 ? `${PORTION_FRACTIONS[count] ?? ''} ${text}` : text
@@ -156,10 +166,6 @@ export function describePizza(config: PizzaConfig, catalog: PizzaCatalog): strin
   const options = byCatalogOrder(catalog.extras, config.extraIds).join(', ')
   if (count === 1) return `Pizza ${sizeName}: ${parts[0]}${options ? ` + ${options}` : ''}`
   return `Pizza ${sizeName} · ${portionLabel(count)}: ${parts.join(' | ')}${options ? ` · Extras: ${options}` : ''}`
-}
-
-function ingredientNames(ids: string[], catalog: PizzaCatalog): string[] {
-  return byCatalogOrder(catalog.ingredients, ids)
 }
 
 /** Each extra ingredient once, in catalog order; a doubled one reads `Extra <name>`. */

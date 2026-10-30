@@ -57,10 +57,22 @@ describe('setPortionStyle', () => {
 })
 
 describe('toggleIngredient', () => {
-  it('adds and removes ingredients', () => {
+  it('cycles an ingredient through included, doubled (one charged extra) and removed', () => {
     const added = toggleIngredient(empty, 'a', custom)
-    expect(added.ingredientIds).toEqual(['a'])
-    expect(toggleIngredient(added, 'a', custom).ingredientIds).toEqual([])
+    expect(added).toMatchObject({ ingredientIds: ['a'], extraIngredientIds: [] })
+    const doubled = toggleIngredient(added, 'a', custom)
+    expect(doubled).toMatchObject({ ingredientIds: ['a'], extraIngredientIds: ['a'] })
+    expect(toggleIngredient(doubled, 'a', custom)).toMatchObject({ ingredientIds: [], extraIngredientIds: [] })
+  })
+
+  it('removes an included ingredient that already has extras, taking back one of them', () => {
+    const portion = { ...empty, ingredientIds: ['a', 'b'], extraIngredientIds: ['c', 'a', 'a'] }
+    expect(toggleIngredient(portion, 'a', custom)).toMatchObject({ ingredientIds: ['b'], extraIngredientIds: ['c', 'a'] })
+  })
+
+  it('doubles an included ingredient even when the included limit is full', () => {
+    const full = { ...empty, ingredientIds: ['a', 'b'] }
+    expect(toggleIngredient(full, 'b', custom)).toMatchObject({ ingredientIds: ['a', 'b'], extraIngredientIds: ['b'] })
   })
 
   it('ignores additions beyond the included limit', () => {
