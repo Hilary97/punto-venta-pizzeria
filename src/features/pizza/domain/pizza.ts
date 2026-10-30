@@ -111,8 +111,11 @@ function validatePortion(portion: PizzaPortion, catalog: PizzaCatalog): string |
     return `${style.name} incluye hasta ${style.includedIngredients} ingredientes.`
   }
 
-  if (hasDuplicates(portion.ingredientIds) || hasDuplicates(portion.extraIngredientIds)) {
-    return 'Los ingredientes de una porción no se pueden repetir.'
+  if (hasDuplicates(portion.ingredientIds)) return 'Los ingredientes de una porción no se pueden repetir.'
+
+  // An extra ingredient may be doubled, never more.
+  if (portion.extraIngredientIds.some((id) => portion.extraIngredientIds.filter((other) => other === id).length > 2)) {
+    return 'Un ingrediente extra se puede pedir hasta 2 veces por porción.'
   }
 
   const known = new Set(catalog.ingredients.map((ingredient) => ingredient.id))
@@ -132,6 +135,7 @@ function hasDuplicates(ids: string[]): boolean {
  * `Pizza Grande · Mitades: ½ Estilo Varas + Jalapeños | ½ Estilo Chuy's · Extras: Extra queso`.
  * A whole pizza lists its extras like its extra ingredients: `Pizza Chica: Estilo Varas + Extra queso`.
  * Ingredients and extras are listed in catalog order; unknown ids are skipped.
+ * A doubled extra ingredient is listed once as `Extra <name>`: `Pizza Chica: Estilo Varas + Extra Jalapeños`.
  */
 export function describePizza(config: PizzaConfig, catalog: PizzaCatalog): string {
   const sizeName = catalog.sizes.find((size) => size.code === config.size)?.name ?? config.size
@@ -143,7 +147,7 @@ export function describePizza(config: PizzaConfig, catalog: PizzaCatalog): strin
     const included = ingredientNames(portion.ingredientIds, catalog)
     if (included.length > 0) text += ` (${included.join(', ')})`
 
-    const extras = ingredientNames(portion.extraIngredientIds, catalog)
+    const extras = extraIngredientNames(portion.extraIngredientIds, catalog)
     if (extras.length > 0) text += ` + ${extras.join(', ')}`
 
     return count > 1 ? `${PORTION_FRACTIONS[count] ?? ''} ${text}` : text
@@ -156,6 +160,14 @@ export function describePizza(config: PizzaConfig, catalog: PizzaCatalog): strin
 
 function ingredientNames(ids: string[], catalog: PizzaCatalog): string[] {
   return byCatalogOrder(catalog.ingredients, ids)
+}
+
+/** Each extra ingredient once, in catalog order; a doubled one reads `Extra <name>`. */
+function extraIngredientNames(ids: string[], catalog: PizzaCatalog): string[] {
+  return catalog.ingredients
+    .filter((row) => ids.includes(row.id))
+    .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name))
+    .map((row) => (ids.filter((id) => id === row.id).length > 1 ? `Extra ${row.name}` : row.name))
 }
 
 function byCatalogOrder(rows: { id: string; name: string; sortOrder: number }[], ids: string[]): string[] {

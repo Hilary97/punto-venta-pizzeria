@@ -19,8 +19,8 @@ An extra ingredient can be added twice to the same portion; it is charged twice 
 
 ## Tasks
 
-- T1 (S3, S4, S5) — migration + PGlite tests. Route: inline. Commit: pending.
-- T2 (S2, S3, S4, S5) — builder: domain validation/description, `toggleExtra` cycle, chip color + "Extra" hint, tests. Route: inline. Commit: pending.
+- T1 (S3, S4, S5) — migration + PGlite tests. Route: inline. Commit: `03fa091` feat(db) (RED 5/5 -> GREEN; supabase suite 381/381).
+- T2 (S2, S3, S4, S5) — builder: domain validation/description, `toggleExtra` cycle, chip color + "Extra" hint, tests. Route: inline. Commit: see `git log` (feat(pizza) double extra) (RED 5 -> GREEN; full suite 1090/1090, tsc 0, oxlint 0).
 
 ## Log
 

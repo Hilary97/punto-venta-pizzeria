@@ -7,10 +7,12 @@ interface ToggleChipProps {
   disabled?: boolean
   /** Small secondary text under the label, e.g. `Agotado`. */
   hint?: string
+  /** Second pressed state, e.g. a doubled extra ingredient. */
+  emphasized?: boolean
 }
 
 /** Touch-sized toggle button used for sizes, divisions, ingredients and extras. */
-export function ToggleChip({ label, pressed, onToggle, disabled = false, hint }: ToggleChipProps) {
+export function ToggleChip({ label, pressed, onToggle, disabled = false, hint, emphasized = false }: ToggleChipProps) {
   return (
     <button
       type="button"
@@ -19,7 +21,9 @@ export function ToggleChip({ label, pressed, onToggle, disabled = false, hint }:
       onClick={onToggle}
       className={cn(
         'min-h-11 rounded-full px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-40',
-        pressed ? 'bg-red-700 text-white' : 'bg-slate-200 text-slate-700 hover:bg-slate-300',
+        pressed && emphasized && 'bg-amber-700 text-white',
+        pressed && !emphasized && 'bg-red-700 text-white',
+        !pressed && 'bg-slate-200 text-slate-700 hover:bg-slate-300',
       )}
     >
       {label}

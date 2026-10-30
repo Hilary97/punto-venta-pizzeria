@@ -75,10 +75,18 @@ describe('toggleIngredient', () => {
 })
 
 describe('toggleExtra', () => {
-  it('adds and removes extras', () => {
+  it('cycles an extra through added, doubled and removed', () => {
     const added = toggleExtra(empty, 'a')
     expect(added.extraIngredientIds).toEqual(['a'])
-    expect(toggleExtra(added, 'a').extraIngredientIds).toEqual([])
+    const doubled = toggleExtra(added, 'a')
+    expect(doubled.extraIngredientIds).toEqual(['a', 'a'])
+    expect(toggleExtra(doubled, 'a').extraIngredientIds).toEqual([])
+  })
+
+  it('doubles or removes one extra without touching the others', () => {
+    const portion = { ...empty, extraIngredientIds: ['b', 'a', 'c'] }
+    expect(toggleExtra(portion, 'a').extraIngredientIds).toEqual(['b', 'a', 'a', 'c'])
+    expect(toggleExtra({ ...empty, extraIngredientIds: ['b', 'a', 'a', 'c'] }, 'a').extraIngredientIds).toEqual(['b', 'c'])
   })
 
   it('keeps adding extras with no limit', () => {

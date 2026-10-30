@@ -112,6 +112,36 @@ describe('PizzaBuilderModal', () => {
     )
   })
 
+  it('doubles an extra ingredient on the second tap, marking it as Extra, and removes it on the third', async () => {
+    const { onAdd, user } = renderBuilder()
+    const extraIngredients = () => screen.getByRole('group', { name: /^Ingredientes extra/ })
+    const chip = () => within(extraIngredients()).getByRole('button', { name: /Jalapeños/ })
+
+    await user.click(chip())
+    expect(chip()).toHaveAttribute('aria-pressed', 'true')
+    expect(chip()).toHaveClass('bg-red-700')
+    expect(within(chip()).queryByText('Extra')).not.toBeInTheDocument()
+    expect(extraIngredients()).toHaveAccessibleName('Ingredientes extra (1)')
+
+    await user.click(chip())
+    expect(chip()).toHaveAttribute('aria-pressed', 'true')
+    expect(chip()).toHaveClass('bg-amber-700')
+    expect(within(chip()).getByText('Extra')).toBeVisible()
+    expect(extraIngredients()).toHaveAccessibleName('Ingredientes extra (2)')
+    expect(screen.getByText('Pizza Chica: Estilo Varas + Extra Jalapeños')).toBeVisible()
+
+    await user.click(screen.getByRole('button', { name: 'Agregar pizza' }))
+    expect(onAdd.mock.calls[0]?.[0].config.portions).toEqual([
+      { styleId: 'varas', ingredientIds: [], extraIngredientIds: ['jal', 'jal'] },
+    ])
+    expect(onAdd.mock.calls[0]?.[0].name).toBe('Pizza Chica: Estilo Varas + Extra Jalapeños')
+
+    await user.click(chip())
+    expect(chip()).toHaveAttribute('aria-pressed', 'false')
+    expect(within(chip()).queryByText('Extra')).not.toBeInTheDocument()
+    expect(extraIngredients()).toHaveAccessibleName('Ingredientes extra (0)')
+  })
+
   it('keeps the pizza extras when the division changes', async () => {
     const { onAdd, user } = renderBuilder()
     await user.click(within(screen.getByRole('group', { name: 'Extras' })).getByRole('button', { name: 'Extra queso' }))

@@ -1,6 +1,6 @@
 import { useId } from 'react'
 import type { PizzaIngredient, PizzaPortion, PizzaStyle } from '../domain/pizza'
-import { setPortionStyle, toggleExtra, toggleIngredient } from '../domain/pizzaBuilder'
+import { extraCount, setPortionStyle, toggleExtra, toggleIngredient } from '../domain/pizzaBuilder'
 import { ToggleChip } from './ToggleChip'
 
 interface PortionEditorProps {
@@ -70,12 +70,15 @@ export function PortionEditor({ title, portion, styles, ingredients, onChange }:
         </legend>
         <div className="flex flex-wrap gap-2">
           {ingredients.map((ingredient) => {
-            const pressed = portion.extraIngredientIds.includes(ingredient.id)
+            // Tap cycle: extra, doubled extra (charged twice), removed.
+            const count = extraCount(portion, ingredient.id)
             return (
               <ToggleChip
                 key={ingredient.id}
                 label={ingredient.name}
-                pressed={pressed}
+                pressed={count > 0}
+                emphasized={count > 1}
+                hint={count > 1 ? 'Extra' : undefined}
                 onToggle={() => onChange(toggleExtra(portion, ingredient.id))}
               />
             )

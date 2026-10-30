@@ -35,12 +35,23 @@ export function toggleIngredient(portion: PizzaPortion, ingredientId: string, st
   return { ...portion, ingredientIds: [...portion.ingredientIds, ingredientId] }
 }
 
-/** Toggles an extra ingredient; there is no limit, each one is charged. */
+/** Times an extra ingredient is on the portion: 0, 1 or 2 (doubled). */
+export function extraCount(portion: PizzaPortion, ingredientId: string): number {
+  return portion.extraIngredientIds.filter((id) => id === ingredientId).length
+}
+
+/**
+ * Cycles an extra ingredient: added, then doubled (charged twice), then removed.
+ * There is no limit on how many different extras a portion has; each one is charged.
+ */
 export function toggleExtra(portion: PizzaPortion, ingredientId: string): PizzaPortion {
-  if (portion.extraIngredientIds.includes(ingredientId)) {
-    return { ...portion, extraIngredientIds: portion.extraIngredientIds.filter((id) => id !== ingredientId) }
+  const ids = portion.extraIngredientIds
+  const at = ids.indexOf(ingredientId)
+  if (at === -1) return { ...portion, extraIngredientIds: [...ids, ingredientId] }
+  if (extraCount(portion, ingredientId) === 1) {
+    return { ...portion, extraIngredientIds: [...ids.slice(0, at + 1), ingredientId, ...ids.slice(at + 1)] }
   }
-  return { ...portion, extraIngredientIds: [...portion.extraIngredientIds, ingredientId] }
+  return { ...portion, extraIngredientIds: ids.filter((id) => id !== ingredientId) }
 }
 
 /** Toggles a whole-pizza extra such as Extra queso. */

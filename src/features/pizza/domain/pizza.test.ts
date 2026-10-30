@@ -59,6 +59,24 @@ describe('describePizza', () => {
     expect(describePizza(config, catalog)).toBe('Pizza Grande: Estilo Varas + Extra queso')
   })
 
+  it('describes a doubled extra ingredient once as "Extra <ingrediente>"', () => {
+    const whole: PizzaConfig = {
+      size: 'chica',
+      portions: [portion({ styleId: 'varas', extraIngredientIds: ['jal', 'jal'] })],
+      extraIds: [],
+    }
+    expect(describePizza(whole, catalog)).toBe('Pizza Chica: Estilo Varas + Extra Jalapeños')
+
+    const split: PizzaConfig = {
+      size: 'mediana',
+      portions: [portion({ styleId: 'varas', extraIngredientIds: ['pina', 'jal', 'jal'] }), portion({ styleId: 'varas', extraIngredientIds: ['jal'] })],
+      extraIds: [],
+    }
+    expect(describePizza(split, catalog)).toBe(
+      'Pizza Mediana · Mitades: ½ Estilo Varas + Extra Jalapeños, Piña | ½ Estilo Varas + Jalapeños',
+    )
+  })
+
   it('lists chosen ingredients in catalog order and extras after them', () => {
     const config: PizzaConfig = {
       size: 'mediana',
@@ -156,11 +174,22 @@ describe('validatePizzaConfig', () => {
     expect(validatePizzaConfig(all, many)).toEqual([])
   })
 
-  it('rejects duplicated and unknown extra ingredients', () => {
+  it('accepts an extra ingredient twice, rejects it three times and keeps included ingredients unique', () => {
+    const double: PizzaConfig = { size: 'chica', portions: [portion({ styleId: 'varas', extraIngredientIds: ['pep', 'pep'] })], extraIds: [] }
+    expect(validatePizzaConfig(double, catalog)).toEqual([])
 
-    const dup: PizzaConfig = { size: 'chica', portions: [portion({ styleId: 'varas', extraIngredientIds: ['pep', 'pep'] })], extraIds: [] }
-    expect(validatePizzaConfig(dup, catalog)).toEqual(['Los ingredientes de una porción no se pueden repetir.'])
+    const triple: PizzaConfig = {
+      size: 'chica',
+      portions: [portion({ styleId: 'varas', extraIngredientIds: ['pep', 'pep', 'pep'] })],
+      extraIds: [],
+    }
+    expect(validatePizzaConfig(triple, catalog)).toEqual(['Un ingrediente extra se puede pedir hasta 2 veces por porción.'])
 
+    const included: PizzaConfig = { size: 'chica', portions: [portion({ styleId: 'custom', ingredientIds: ['pep', 'pep'] })], extraIds: [] }
+    expect(validatePizzaConfig(included, catalog)).toEqual(['Los ingredientes de una porción no se pueden repetir.'])
+  })
+
+  it('rejects unknown extra ingredients', () => {
     const unknown: PizzaConfig = { size: 'chica', portions: [portion({ styleId: 'varas', extraIngredientIds: ['zzz'] })], extraIds: [] }
     expect(validatePizzaConfig(unknown, catalog)).toEqual(['Uno de los ingredientes no existe o no está activo.'])
   })
