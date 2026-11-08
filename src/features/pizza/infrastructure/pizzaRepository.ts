@@ -64,6 +64,7 @@ export const pizzaConfigSchema = z
         style_id: z.string(),
         ingredient_ids: z.array(z.string()).default([]),
         extra_ingredient_ids: z.array(z.string()).default([]),
+        chile: z.enum(['morron', 'serrano', 'jalapeno']).optional(),
         /** Legacy: extras used to be per portion; they now belong to the whole pizza. */
         extra_ids: z.array(z.string()).default([]),
       }),
@@ -77,6 +78,7 @@ export const pizzaConfigSchema = z
         styleId: portion.style_id,
         ingredientIds: portion.ingredient_ids,
         extraIngredientIds: portion.extra_ingredient_ids,
+        ...(portion.chile ? { chile: portion.chile } : {}),
       })),
       extraIds: [...new Set([...raw.extra_ids, ...raw.portions.flatMap((portion) => portion.extra_ids)])],
     }),
@@ -90,6 +92,7 @@ export function toRpcPizzaConfig(config: PizzaConfig) {
       style_id: portion.styleId,
       ingredient_ids: portion.ingredientIds,
       extra_ingredient_ids: portion.extraIngredientIds,
+      ...(portion.chile ? { chile: portion.chile } : {}),
     })),
     extra_ids: config.extraIds,
   }

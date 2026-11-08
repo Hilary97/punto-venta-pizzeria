@@ -48,10 +48,42 @@ export interface PizzaCatalog {
   extras: PizzaExtra[]
 }
 
+/** Single chile of an Estilo Mexicana portion; none chosen means it keeps its 3 chiles. */
+export type ChileVariant = 'morron' | 'serrano' | 'jalapeno'
+
+/** Chiles in the order the builder offers them, with their button names. */
+export const CHILE_VARIANTS: { code: ChileVariant; name: string }[] = [
+  { code: 'morron', name: 'Morrón' },
+  { code: 'serrano', name: 'Serrano' },
+  { code: 'jalapeno', name: 'Jalapeño' },
+]
+
+const CHILE_LABELS: Record<ChileVariant, string> = {
+  morron: 'Solo morrón',
+  serrano: 'Solo serrano',
+  jalapeno: 'Solo jalapeño',
+}
+
+/** A style name without case, accents or anything but letters and digits: ` Estilo  HAWÁIANA ` -> `estilohawaiana`. */
+export function styleKey(name: string): string {
+  return name
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '')
+}
+
+/** Only Estilo Mexicana lets the customer pick its chile; same rule as the SQL `pizza_style_has_chiles`. */
+export function hasChileVariants(style: Pick<PizzaStyle, 'name'>): boolean {
+  return styleKey(style.name) === 'estilomexicana'
+}
+
 export interface PizzaPortion {
   styleId: string
   ingredientIds: string[]
   extraIngredientIds: string[]
+  /** Estilo Mexicana only; absent means the 3 chiles. */
+  chile?: ChileVariant
 }
 
 export interface PizzaConfig {
@@ -106,6 +138,11 @@ function validatePortion(portion: PizzaPortion, catalog: PizzaCatalog): string |
   const style = catalog.styles.find((candidate) => candidate.id === portion.styleId)
   if (!style) return 'Uno de los estilos no existe o no está activo.'
 
+  if (portion.chile !== undefined) {
+    if (!hasChileVariants(style)) return 'Solo el Estilo Mexicana permite elegir chile.'
+    if (!(portion.chile in CHILE_LABELS)) return 'El chile elegido no es válido.'
+  }
+
   // Included ingredients are optional on a special style; a custom style needs at least one.
   const chosen = portion.ingredientIds.length
   if (style.kind === 'custom' && chosen === 0) return `Elige al menos un ingrediente para ${style.name}.`
@@ -139,19 +176,22 @@ function hasDuplicates(ids: string[]): boolean {
  * Ingredients and extras are listed alphabetically; unknown ids are skipped.
  * A doubled extra ingredient is listed once as `Extra <name>`: `Pizza Chica: Estilo Varas + Extra Jalapeños`.
  * A doubled included ingredient (also one of the extras) reads `Extra <name>` inside the included list.
+ * Estilo Mexicana ends its included list with its chile: `Estilo Mexicana (Solo jalapeño)`, or `(3 chiles)` by default.
  */
 export function describePizza(config: PizzaConfig, catalog: PizzaCatalog): string {
   const sizeName = catalog.sizes.find((size) => size.code === config.size)?.name ?? config.size
   const count = config.portions.length
 
   const parts = config.portions.map((portion) => {
-    let text = catalog.styles.find((style) => style.id === portion.styleId)?.name ?? ''
+    const style = catalog.styles.find((candidate) => candidate.id === portion.styleId)
+    let text = style?.name ?? ''
 
     // An included ingredient that is also an extra is doubled: it takes one of the extras.
     const included = catalog.ingredients
       .filter((row) => portion.ingredientIds.includes(row.id))
       .sort(byName)
       .map((row) => (portion.extraIngredientIds.includes(row.id) ? `Extra ${row.name}` : row.name))
+    if (style && hasChileVariants(style)) included.push(portion.chile ? CHILE_LABELS[portion.chile] : '3 chiles')
     if (included.length > 0) text += ` (${included.join(', ')})`
 
     const remaining = [...portion.extraIngredientIds]
