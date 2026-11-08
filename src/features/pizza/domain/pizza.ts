@@ -48,7 +48,7 @@ export interface PizzaCatalog {
   extras: PizzaExtra[]
 }
 
-/** Single chile of an Estilo Mexicana portion; none chosen means it keeps its 3 chiles. */
+/** A chile of an Estilo Mexicana portion, which takes one or two of them; none chosen means its 3 chiles. */
 export type ChileVariant = 'morron' | 'serrano' | 'jalapeno'
 
 /** Chiles in the order the builder offers them, with their button names. */
@@ -58,10 +58,20 @@ export const CHILE_VARIANTS: { code: ChileVariant; name: string }[] = [
   { code: 'jalapeno', name: 'Jalapeño' },
 ]
 
-const CHILE_LABELS: Record<ChileVariant, string> = {
-  morron: 'Solo morrón',
-  serrano: 'Solo serrano',
-  jalapeno: 'Solo jalapeño',
+const CHILE_ORDER: ChileVariant[] = CHILE_VARIANTS.map((variant) => variant.code)
+
+/** The chiles in Morrón, Serrano, Jalapeño order. */
+export function sortChiles(chiles: ChileVariant[]): ChileVariant[] {
+  return CHILE_ORDER.filter((code) => chiles.includes(code))
+}
+
+/** `3 chiles`, `Solo jalapeño` or `Morrón y jalapeño`; same text as the SQL `describe_pizza`. */
+function chilesLabel(chiles: ChileVariant[] | undefined): string {
+  const names = sortChiles(chiles ?? []).map((code) => CHILE_VARIANTS.find((variant) => variant.code === code)!.name.toLowerCase())
+  if (names.length === 0) return '3 chiles'
+  if (names.length === 1) return `Solo ${names[0]}`
+  const joined = names.join(' y ')
+  return joined.charAt(0).toUpperCase() + joined.slice(1)
 }
 
 /** A style name without case, accents or anything but letters and digits: ` Estilo  HAWÁIANA ` -> `estilohawaiana`. */
@@ -82,8 +92,8 @@ export interface PizzaPortion {
   styleId: string
   ingredientIds: string[]
   extraIngredientIds: string[]
-  /** Estilo Mexicana only; absent means the 3 chiles. */
-  chile?: ChileVariant
+  /** Estilo Mexicana only: one or two different chiles; absent means the 3 chiles. */
+  chiles?: ChileVariant[]
 }
 
 export interface PizzaConfig {
@@ -138,9 +148,13 @@ function validatePortion(portion: PizzaPortion, catalog: PizzaCatalog): string |
   const style = catalog.styles.find((candidate) => candidate.id === portion.styleId)
   if (!style) return 'Uno de los estilos no existe o no está activo.'
 
-  if (portion.chile !== undefined) {
+  const chiles = portion.chiles ?? []
+  if (chiles.length > 0) {
     if (!hasChileVariants(style)) return 'Solo el Estilo Mexicana permite elegir chile.'
-    if (!(portion.chile in CHILE_LABELS)) return 'El chile elegido no es válido.'
+    if (!chiles.every((chile) => CHILE_ORDER.includes(chile)) || hasDuplicates(chiles)) {
+      return 'El chile elegido no es válido.'
+    }
+    if (chiles.length > 2) return 'Elige uno o dos chiles, o los 3 chiles.'
   }
 
   // Included ingredients are optional on a special style; a custom style needs at least one.
@@ -176,7 +190,7 @@ function hasDuplicates(ids: string[]): boolean {
  * Ingredients and extras are listed alphabetically; unknown ids are skipped.
  * A doubled extra ingredient is listed once as `Extra <name>`: `Pizza Chica: Estilo Varas + Extra Jalapeños`.
  * A doubled included ingredient (also one of the extras) reads `Extra <name>` inside the included list.
- * Estilo Mexicana ends its included list with its chile: `Estilo Mexicana (Solo jalapeño)`, or `(3 chiles)` by default.
+ * Estilo Mexicana ends its included list with its chiles: `(Solo jalapeño)`, `(Morrón y jalapeño)`, or `(3 chiles)` by default.
  */
 export function describePizza(config: PizzaConfig, catalog: PizzaCatalog): string {
   const sizeName = catalog.sizes.find((size) => size.code === config.size)?.name ?? config.size
@@ -191,7 +205,7 @@ export function describePizza(config: PizzaConfig, catalog: PizzaCatalog): strin
       .filter((row) => portion.ingredientIds.includes(row.id))
       .sort(byName)
       .map((row) => (portion.extraIngredientIds.includes(row.id) ? `Extra ${row.name}` : row.name))
-    if (style && hasChileVariants(style)) included.push(portion.chile ? CHILE_LABELS[portion.chile] : '3 chiles')
+    if (style && hasChileVariants(style)) included.push(chilesLabel(portion.chiles))
     if (included.length > 0) text += ` (${included.join(', ')})`
 
     const remaining = [...portion.extraIngredientIds]

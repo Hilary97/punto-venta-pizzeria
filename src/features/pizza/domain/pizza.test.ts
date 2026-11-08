@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { describePizza, isSizeSoldOut, pizzaLabelLayout, portionLabel, validatePizzaConfig } from './pizza'
-import type { PizzaCatalog, PizzaConfig, PizzaPortion } from './pizza'
+import type { ChileVariant, PizzaCatalog, PizzaConfig, PizzaPortion } from './pizza'
 
 const catalog: PizzaCatalog = {
   sizes: [
@@ -267,7 +267,7 @@ describe('pizzaLabelLayout', () => {
   })
 })
 
-describe('Estilo Mexicana chile', () => {
+describe('Estilo Mexicana chiles', () => {
   const withMexicana: PizzaCatalog = {
     ...catalog,
     styles: [
@@ -281,33 +281,46 @@ describe('Estilo Mexicana chile', () => {
     expect(describePizza(config([portion({ styleId: 'mex' })]), withMexicana)).toBe('Pizza Grande: Estilo Mexicana (3 chiles)')
   })
 
-  it('names the chosen chile inside the parentheses, per portion', () => {
-    expect(describePizza(config([portion({ styleId: 'mex', chile: 'morron' })]), withMexicana)).toBe(
+  it('names one chosen chile as Solo, per portion', () => {
+    expect(describePizza(config([portion({ styleId: 'mex', chiles: ['morron'] })]), withMexicana)).toBe(
       'Pizza Grande: Estilo Mexicana (Solo morrón)',
     )
     expect(
       describePizza(
-        config([portion({ styleId: 'mex', chile: 'serrano' }), portion({ styleId: 'mex', chile: 'jalapeno', extraIngredientIds: ['pep'] })]),
+        config([
+          portion({ styleId: 'mex', chiles: ['serrano'] }),
+          portion({ styleId: 'mex', chiles: ['jalapeno'], extraIngredientIds: ['pep'] }),
+        ]),
         withMexicana,
       ),
     ).toBe('Pizza Grande · Mitades: ½ Estilo Mexicana (Solo serrano) | ½ Estilo Mexicana (Solo jalapeño) + Pepperoni')
   })
 
-  it('lays the chile out as an item of its portion', () => {
-    expect(pizzaLabelLayout('Pizza Grande: Estilo Mexicana (Solo jalapeño) + Pepperoni')).toEqual({
+  it('names two chosen chiles joined with y, in Morrón, Serrano, Jalapeño order', () => {
+    expect(describePizza(config([portion({ styleId: 'mex', chiles: ['jalapeno', 'morron'] })]), withMexicana)).toBe(
+      'Pizza Grande: Estilo Mexicana (Morrón y jalapeño)',
+    )
+    expect(describePizza(config([portion({ styleId: 'mex', chiles: ['serrano', 'jalapeno'] })]), withMexicana)).toBe(
+      'Pizza Grande: Estilo Mexicana (Serrano y jalapeño)',
+    )
+  })
+
+  it('lays the chiles out as an item of their portion', () => {
+    expect(pizzaLabelLayout('Pizza Grande: Estilo Mexicana (Morrón y jalapeño) + Pepperoni')).toEqual({
       title: 'Pizza Grande',
-      groups: [{ name: 'Estilo Mexicana', items: ['Solo jalapeño', 'Pepperoni'] }],
+      groups: [{ name: 'Estilo Mexicana', items: ['Morrón y jalapeño', 'Pepperoni'] }],
     })
   })
 
-  it('accepts a chile only on Estilo Mexicana and only a known one', () => {
-    expect(validatePizzaConfig(config([portion({ styleId: 'mex', chile: 'serrano' })]), withMexicana)).toEqual([])
-    expect(validatePizzaConfig(config([portion({ styleId: 'varas', chile: 'serrano' })]), withMexicana)).toEqual([
-      'Solo el Estilo Mexicana permite elegir chile.',
-    ])
-    expect(
-      validatePizzaConfig(config([portion({ styleId: 'mex', chile: 'habanero' as PizzaPortion['chile'] })]), withMexicana),
-    ).toEqual(['El chile elegido no es válido.'])
+  it('accepts one or two different known chiles, only on Estilo Mexicana', () => {
+    const errors = (chiles: string[], styleId = 'mex') =>
+      validatePizzaConfig(config([portion({ styleId, chiles: chiles as ChileVariant[] })]), withMexicana)
+    expect(errors(['serrano'])).toEqual([])
+    expect(errors(['morron', 'jalapeno'])).toEqual([])
+    expect(errors(['serrano'], 'varas')).toEqual(['Solo el Estilo Mexicana permite elegir chile.'])
+    expect(errors(['habanero'])).toEqual(['El chile elegido no es válido.'])
+    expect(errors(['serrano', 'serrano'])).toEqual(['El chile elegido no es válido.'])
+    expect(errors(['morron', 'serrano', 'jalapeno'])).toEqual(['Elige uno o dos chiles, o los 3 chiles.'])
   })
 
   it('leaves other styles described as before', () => {

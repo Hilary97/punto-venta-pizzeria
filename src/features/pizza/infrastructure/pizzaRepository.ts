@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { getSupabaseClient } from '../../../shared/supabase/client'
-import type { PizzaCatalog, PizzaConfig } from '../domain/pizza'
+import type { ChileVariant, PizzaCatalog, PizzaConfig } from '../domain/pizza'
 
 const pizzaSizeCodeSchema = z.enum(['chica', 'mediana', 'grande'])
 
@@ -55,6 +55,13 @@ export const pizzaCatalogSchema = z
     }),
   )
 
+const chileSchema = z.enum(['morron', 'serrano', 'jalapeno'])
+
+/** `{ chiles }` when some are chosen; nothing for the 3 chiles. */
+function chilesOf(chiles: ChileVariant[]): { chiles?: ChileVariant[] } {
+  return chiles.length > 0 ? { chiles } : {}
+}
+
 /** Canonical snake_case pizza configuration (as stored in `order_items.pizza`), mapped to the domain type. */
 export const pizzaConfigSchema = z
   .object({
@@ -64,7 +71,9 @@ export const pizzaConfigSchema = z
         style_id: z.string(),
         ingredient_ids: z.array(z.string()).default([]),
         extra_ingredient_ids: z.array(z.string()).default([]),
-        chile: z.enum(['morron', 'serrano', 'jalapeno']).optional(),
+        chiles: z.array(chileSchema).optional(),
+        /** Legacy: a single chile, before a portion could take two. */
+        chile: chileSchema.optional(),
         /** Legacy: extras used to be per portion; they now belong to the whole pizza. */
         extra_ids: z.array(z.string()).default([]),
       }),
@@ -78,7 +87,7 @@ export const pizzaConfigSchema = z
         styleId: portion.style_id,
         ingredientIds: portion.ingredient_ids,
         extraIngredientIds: portion.extra_ingredient_ids,
-        ...(portion.chile ? { chile: portion.chile } : {}),
+        ...chilesOf(portion.chiles ?? (portion.chile ? [portion.chile] : [])),
       })),
       extraIds: [...new Set([...raw.extra_ids, ...raw.portions.flatMap((portion) => portion.extra_ids)])],
     }),
@@ -92,7 +101,7 @@ export function toRpcPizzaConfig(config: PizzaConfig) {
       style_id: portion.styleId,
       ingredient_ids: portion.ingredientIds,
       extra_ingredient_ids: portion.extraIngredientIds,
-      ...(portion.chile ? { chile: portion.chile } : {}),
+      ...(portion.chiles && portion.chiles.length > 0 ? { chiles: portion.chiles } : {}),
     })),
     extra_ids: config.extraIds,
   }

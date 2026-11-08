@@ -33,7 +33,7 @@ describe('PizzaBuilderModal', () => {
     })
   })
 
-  it('lets Estilo Mexicana pick morrón, serrano, jalapeño or the 3 chiles, starting on the 3 chiles', async () => {
+  it('lets Estilo Mexicana pick one or two chiles, starting on the 3 chiles', async () => {
     const catalog: PizzaCatalog = {
       ...pizzaCatalogFixture,
       styles: [
@@ -46,33 +46,43 @@ describe('PizzaBuilderModal', () => {
     expect(screen.queryByRole('group', { name: /chile/i })).not.toBeInTheDocument()
     await user.selectOptions(screen.getByLabelText('Estilo'), 'mex')
     const chiles = screen.getByRole('group', { name: /chile/i })
+    const chip = (name: string) => within(chiles).getByRole('button', { name })
     expect(within(chiles).getAllByRole('button').map((button) => button.textContent)).toEqual([
       'Morrón',
       'Serrano',
       'Jalapeño',
       'Los 3 chiles',
     ])
-    expect(within(chiles).getByRole('button', { name: 'Los 3 chiles' })).toHaveAttribute('aria-pressed', 'true')
+    expect(chip('Los 3 chiles')).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByText('Pizza Chica: Estilo Mexicana (3 chiles)')).toBeVisible()
 
-    await user.click(within(chiles).getByRole('button', { name: 'Serrano' }))
-    await user.click(within(chiles).getByRole('button', { name: 'Jalapeño' }))
-    expect(within(chiles).getByRole('button', { name: 'Jalapeño' })).toHaveAttribute('aria-pressed', 'true')
-    expect(within(chiles).getByRole('button', { name: 'Serrano' })).toHaveAttribute('aria-pressed', 'false')
-    expect(within(chiles).getByRole('button', { name: 'Los 3 chiles' })).toHaveAttribute('aria-pressed', 'false')
+    await user.click(chip('Jalapeño'))
     expect(screen.getByText('Pizza Chica: Estilo Mexicana (Solo jalapeño)')).toBeVisible()
+    expect(chip('Los 3 chiles')).toHaveAttribute('aria-pressed', 'false')
+    await user.click(chip('Morrón'))
+    expect(chip('Morrón')).toHaveAttribute('aria-pressed', 'true')
+    expect(chip('Jalapeño')).toHaveAttribute('aria-pressed', 'true')
+    expect(chip('Serrano')).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByText('Pizza Chica: Estilo Mexicana (Morrón y jalapeño)')).toBeVisible()
     await user.click(screen.getByRole('button', { name: 'Agregar pizza' }))
     expect(onAdd).toHaveBeenCalledWith(
       expect.objectContaining({
-        config: { size: 'chica', portions: [{ styleId: 'mex', ingredientIds: [], extraIngredientIds: [], chile: 'jalapeno' }], extraIds: [] },
-        name: 'Pizza Chica: Estilo Mexicana (Solo jalapeño)',
+        config: {
+          size: 'chica',
+          portions: [{ styleId: 'mex', ingredientIds: [], extraIngredientIds: [], chiles: ['morron', 'jalapeno'] }],
+          extraIds: [],
+        },
+        name: 'Pizza Chica: Estilo Mexicana (Morrón y jalapeño)',
       }),
     )
 
-    await user.click(within(chiles).getByRole('button', { name: 'Jalapeño' }))
-    expect(screen.getByText('Pizza Chica: Estilo Mexicana (Solo jalapeño)')).toBeVisible()
-    await user.click(within(chiles).getByRole('button', { name: 'Los 3 chiles' }))
-    expect(within(chiles).getByRole('button', { name: 'Los 3 chiles' })).toHaveAttribute('aria-pressed', 'true')
+    await user.click(chip('Serrano'))
+    expect(chip('Los 3 chiles')).toHaveAttribute('aria-pressed', 'true')
+    expect(chip('Morrón')).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByText('Pizza Chica: Estilo Mexicana (3 chiles)')).toBeVisible()
+
+    await user.click(chip('Serrano'))
+    await user.click(chip('Los 3 chiles'))
     expect(screen.getByText('Pizza Chica: Estilo Mexicana (3 chiles)')).toBeVisible()
     await user.selectOptions(screen.getByLabelText('Estilo'), 'varas')
     expect(screen.queryByRole('group', { name: /chile/i })).not.toBeInTheDocument()

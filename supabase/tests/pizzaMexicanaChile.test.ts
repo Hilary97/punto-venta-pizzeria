@@ -29,7 +29,7 @@ afterEach(async () => {
   await db.close()
 })
 
-describe('Estilo Mexicana chile', () => {
+describe('Estilo Mexicana chiles', () => {
   beforeEach(async () => {
     nextTable = 1
     db = await createTestDb()
@@ -40,53 +40,68 @@ describe('Estilo Mexicana chile', () => {
     cashier = await createProfile(db, { role: 'cashier', fullName: 'Caja' })
   }, 60_000)
 
+  async function validated(portions: Json[]) {
+    await asSuperuser(db)
+    return rpc('public.validate_pizza($1::jsonb)', [JSON.stringify({ size: 'grande', portions })])
+  }
+
   it('keeps the 3 chiles when no chile is chosen', async () => {
     const q = await quoteOf({ size: 'chica', portions: [portion('Estilo Mexicana')] })
     expect(q.lines[0].name).toBe('Pizza Chica: Estilo Mexicana (3 chiles)')
   })
 
-  it('describes and stores the chosen chile per portion without changing the price', async () => {
+  it('describes and stores one or two chiles per portion without changing the price', async () => {
     const plain = await quoteOf({ size: 'grande', portions: [portion('Estilo Mexicana'), portion('Estilo Mexicana')] })
     const chosen = await quoteOf({
       size: 'grande',
-      portions: [portion('Estilo Mexicana', { chile: 'morron' }), portion('Estilo Mexicana', { chile: 'jalapeno' })],
+      portions: [
+        portion('Estilo Mexicana', { chiles: ['jalapeno', 'morron'] }),
+        portion('Estilo Mexicana', { chiles: ['serrano'] }),
+      ],
     })
-    expect(chosen.lines[0].name).toBe('Pizza Grande · Mitades: ½ Estilo Mexicana (Solo morrón) | ½ Estilo Mexicana (Solo jalapeño)')
+    expect(chosen.lines[0].name).toBe('Pizza Grande · Mitades: ½ Estilo Mexicana (Morrón y jalapeño) | ½ Estilo Mexicana (Solo serrano)')
     expect(chosen.total_cents).toBe(plain.total_cents)
 
     await asSuperuser(db)
     const stored = await db.query<{ pizza: Json }>(`select pizza from public.order_items where product_name = $1`, [chosen.lines[0].name])
-    expect(stored.rows[0].pizza.portions.map((p: Json) => p.chile)).toEqual(['morron', 'jalapeno'])
+    expect(stored.rows[0].pizza.portions.map((p: Json) => p.chiles)).toEqual([['morron', 'jalapeno'], ['serrano']])
   })
 
-  it('names serrano and leaves configs without a chile unchanged', async () => {
-    await asSuperuser(db)
-    const serrano = await rpc('public.validate_pizza($1::jsonb)', [
-      JSON.stringify({ size: 'chica', portions: [portion('Estilo Mexicana', { chile: 'serrano' })] }),
-    ])
-    expect(serrano.portions[0].chile).toBe('serrano')
-    expect(await rpc('public.describe_pizza($1::jsonb)', [JSON.stringify(serrano)])).toBe('Pizza Chica: Estilo Mexicana (Solo serrano)')
-
-    const plain = await rpc('public.validate_pizza($1::jsonb)', [
-      JSON.stringify({ size: 'chica', portions: [portion('Estilo Mexicana')] }),
-    ])
-    expect(Object.keys(plain.portions[0])).not.toContain('chile')
+  it('names serrano and jalapeño together', async () => {
+    const config = await validated([portion('Estilo Mexicana', { chiles: ['serrano', 'jalapeno'] })])
+    expect(await rpc('public.describe_pizza($1::jsonb)', [JSON.stringify(config)])).toBe(
+      'Pizza Grande: Estilo Mexicana (Serrano y jalapeño)',
+    )
   })
 
-  it('rejects a chile on another style or an unknown chile', async () => {
+  it('reads a legacy single chile as one chosen chile', async () => {
+    const config = await validated([portion('Estilo Mexicana', { chile: 'morron' })])
+    expect(config.portions[0].chiles).toEqual(['morron'])
+    expect(Object.keys(config.portions[0])).not.toContain('chile')
+    expect(await rpc('public.describe_pizza($1::jsonb)', [JSON.stringify({ size: 'grande', portions: [portion('Estilo Mexicana', { chile: 'jalapeno' })] })])).toBe(
+      'Pizza Grande: Estilo Mexicana (Solo jalapeño)',
+    )
+  })
+
+  it('stores no chiles for the 3 chiles, chosen or not', async () => {
+    const none = await validated([portion('Estilo Mexicana'), portion('Estilo Mexicana', { chiles: [] })])
+    expect(none.portions.map((p: Json) => Object.keys(p).includes('chiles'))).toEqual([false, false])
+  })
+
+  it('rejects chiles on another style, unknown or repeated chiles and all three', async () => {
     await asSuperuser(db)
     const other = (
       await db.query<{ name: string }>(
         `select name from public.pizza_styles where kind = 'special' and name <> 'Estilo Mexicana' order by name limit 1`,
       )
     ).rows[0].name
-    await expect(
-      rpc('public.validate_pizza($1::jsonb)', [JSON.stringify({ size: 'chica', portions: [portion(other, { chile: 'serrano' })] })]),
-    ).rejects.toThrow('Solo el Estilo Mexicana permite elegir chile.')
-    await expect(
-      rpc('public.validate_pizza($1::jsonb)', [
-        JSON.stringify({ size: 'chica', portions: [portion('Estilo Mexicana', { chile: 'habanero' })] }),
-      ]),
-    ).rejects.toThrow('El chile elegido no es válido.')
+    await expect(validated([portion(other, { chiles: ['serrano'] })])).rejects.toThrow('Solo el Estilo Mexicana permite elegir chile.')
+    await expect(validated([portion('Estilo Mexicana', { chiles: ['habanero'] })])).rejects.toThrow('El chile elegido no es válido.')
+    await expect(validated([portion('Estilo Mexicana', { chiles: ['serrano', 'serrano'] })])).rejects.toThrow(
+      'El chile elegido no es válido.',
+    )
+    await expect(validated([portion('Estilo Mexicana', { chiles: ['morron', 'serrano', 'jalapeno'] })])).rejects.toThrow(
+      'Elige uno o dos chiles, o los 3 chiles.',
+    )
   })
 })

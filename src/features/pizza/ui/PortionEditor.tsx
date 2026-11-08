@@ -3,9 +3,10 @@ import { CHILE_VARIANTS } from '../domain/pizza'
 import type { PizzaIngredient, PizzaPortion, PizzaStyle } from '../domain/pizza'
 import {
   extraCount,
+  clearChiles,
   hasChileVariants,
-  setPortionChile,
   setPortionStyle,
+  toggleChile,
   toggleExtra,
   toggleIngredient,
 } from '../domain/pizzaBuilder'
@@ -52,20 +53,20 @@ export function PortionEditor({ title, portion, styles, ingredients, onChange }:
 
       {style && hasChileVariants(style) && (
         <fieldset className="flex flex-col gap-2">
-          <legend className="text-sm font-medium text-slate-700">Chile</legend>
+          <legend className="text-sm font-medium text-slate-700">Chile (elige uno o dos)</legend>
           <div className="flex flex-wrap gap-2">
             {CHILE_VARIANTS.map((variant) => (
               <ToggleChip
                 key={variant.code}
                 label={variant.name}
-                pressed={portion.chile === variant.code}
-                onToggle={() => onChange(setPortionChile(portion, variant.code))}
+                pressed={portion.chiles?.includes(variant.code) ?? false}
+                onToggle={() => onChange(toggleChile(portion, variant.code))}
               />
             ))}
             <ToggleChip
               label="Los 3 chiles"
-              pressed={portion.chile === undefined}
-              onToggle={() => onChange(setPortionChile(portion, null))}
+              pressed={!portion.chiles?.length}
+              onToggle={() => onChange(clearChiles(portion))}
             />
           </div>
         </fieldset>
