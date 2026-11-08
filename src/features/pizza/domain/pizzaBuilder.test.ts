@@ -2,12 +2,13 @@ import { describe, expect, it } from 'vitest'
 import type { PizzaPortion, PizzaSize, PizzaStyle } from './pizza'
 import {
   buildConfig,
+  clearChiles,
   hasChileVariants,
   initialPortions,
   resizePortions,
-  setPortionChile,
   setPortionStyle,
   sortBuilderStyles,
+  toggleChile,
   toggleExtra,
   toggleIngredient,
   togglePizzaExtra,
@@ -159,6 +160,7 @@ describe('sortBuilderStyles', () => {
 
 describe('chile variants', () => {
   const mexicana: PizzaStyle = { id: 'mex', name: 'Estilo Mexicana', description: '', kind: 'special', includedIngredients: 0, sortOrder: 3 }
+  const mex: PizzaPortion = { ...empty, styleId: 'mex' }
 
   it('offers chiles only for Estilo Mexicana, whatever its case or accents', () => {
     expect(hasChileVariants(mexicana)).toBe(true)
@@ -166,18 +168,24 @@ describe('chile variants', () => {
     expect(hasChileVariants(special)).toBe(false)
   })
 
-  it('picks one chile, or the 3 chiles with null', () => {
-    const mex: PizzaPortion = { ...empty, styleId: 'mex' }
-    const jalapeno = setPortionChile(mex, 'jalapeno')
-    expect(jalapeno).toEqual({ ...mex, chile: 'jalapeno' })
-    expect(setPortionChile(jalapeno, 'morron')).toEqual({ ...mex, chile: 'morron' })
-    expect(setPortionChile(jalapeno, 'jalapeno')).toEqual(jalapeno)
-    expect(setPortionChile(jalapeno, null)).toEqual(mex)
+  it('adds up to two chiles in Morrón, Serrano, Jalapeño order and removes them on a second tap', () => {
+    const jalapeno = toggleChile(mex, 'jalapeno')
+    expect(jalapeno).toEqual({ ...mex, chiles: ['jalapeno'] })
+    const two = toggleChile(jalapeno, 'morron')
+    expect(two).toEqual({ ...mex, chiles: ['morron', 'jalapeno'] })
+    expect(toggleChile(two, 'jalapeno')).toEqual({ ...mex, chiles: ['morron'] })
+    expect(toggleChile(jalapeno, 'jalapeno')).toEqual(mex)
   })
 
-  it('drops the chile when switching to a style without chiles', () => {
-    const withChile: PizzaPortion = { ...empty, styleId: 'mex', chile: 'serrano' }
-    expect(setPortionStyle(withChile, special)).toEqual({ ...empty, styleId: 'varas' })
-    expect(setPortionStyle(withChile, mexicana)).toEqual(withChile)
+  it('goes back to the 3 chiles when the third chile is picked or on clearChiles', () => {
+    const two: PizzaPortion = { ...mex, chiles: ['morron', 'jalapeno'] }
+    expect(toggleChile(two, 'serrano')).toEqual(mex)
+    expect(clearChiles(two)).toEqual(mex)
+  })
+
+  it('drops the chiles when switching to a style without chiles', () => {
+    const withChiles: PizzaPortion = { ...mex, chiles: ['serrano'] }
+    expect(setPortionStyle(withChiles, special)).toEqual({ ...empty, styleId: 'varas' })
+    expect(setPortionStyle(withChiles, mexicana)).toEqual(withChiles)
   })
 })

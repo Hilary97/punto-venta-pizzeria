@@ -1,5 +1,5 @@
 import { byName } from '../../../shared/sortByName'
-import { hasChileVariants, styleKey } from './pizza'
+import { hasChileVariants, sortChiles, styleKey } from './pizza'
 import type { ChileVariant, PizzaConfig, PizzaPortion, PizzaSize, PizzaSizeCode, PizzaStyle } from './pizza'
 
 export { hasChileVariants }
@@ -37,17 +37,28 @@ export function resizePortions(portions: PizzaPortion[], size: PizzaSize, defaul
   return initialPortions(1, portions[0]?.styleId ?? defaultStyleId)
 }
 
-/** Switches the portion style, keeping chosen ingredients up to the new style limit; a style without chiles drops the chile. */
+/** Switches the portion style, keeping chosen ingredients up to the new style limit; a style without chiles drops them. */
 export function setPortionStyle(portion: PizzaPortion, style: PizzaStyle): PizzaPortion {
   const ingredientIds = portion.ingredientIds.slice(0, style.includedIngredients)
-  const { chile, ...rest } = portion
-  return { ...rest, styleId: style.id, ingredientIds, ...(chile && hasChileVariants(style) ? { chile } : {}) }
+  const { chiles, ...rest } = portion
+  return { ...rest, styleId: style.id, ingredientIds, ...(chiles && hasChileVariants(style) ? { chiles } : {}) }
 }
 
-/** Picks the portion chile; `null` is the 3 chiles. */
-export function setPortionChile(portion: PizzaPortion, chile: ChileVariant | null): PizzaPortion {
-  const { chile: _current, ...rest } = portion
-  return chile === null ? rest : { ...rest, chile }
+/** Back to the 3 chiles. */
+export function clearChiles(portion: PizzaPortion): PizzaPortion {
+  const { chiles: _chiles, ...rest } = portion
+  return rest
+}
+
+/**
+ * Adds or removes a chile, kept in Morrón, Serrano, Jalapeño order.
+ * Removing the last one, or picking the third, goes back to the 3 chiles.
+ */
+export function toggleChile(portion: PizzaPortion, chile: ChileVariant): PizzaPortion {
+  const current = portion.chiles ?? []
+  const next = current.includes(chile) ? current.filter((code) => code !== chile) : sortChiles([...current, chile])
+  if (next.length === 0 || next.length >= 3) return clearChiles(portion)
+  return { ...portion, chiles: next }
 }
 
 /**

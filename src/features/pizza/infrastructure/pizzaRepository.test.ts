@@ -77,17 +77,18 @@ describe('pizza extras', () => {
     expect(pizzaConfigSchema.parse({ size: 'chica', portions: [{ style_id: 's1' }] }).extraIds).toEqual([])
   })
 
-  it('maps a portion chile both ways and sends none when it is not chosen', () => {
+  it('maps the portion chiles both ways, reads a legacy single chile and sends none when they are not chosen', () => {
     const parsed = pizzaConfigSchema.parse({
-      size: 'chica',
-      portions: [{ style_id: 'mex', chile: 'jalapeno' }, { style_id: 'mex' }],
+      size: 'grande',
+      portions: [{ style_id: 'mex', chiles: ['morron', 'jalapeno'] }, { style_id: 'mex', chile: 'serrano' }, { style_id: 'mex' }],
     })
-    expect(parsed.portions.map((portion) => portion.chile)).toEqual(['jalapeno', undefined])
+    expect(parsed.portions.map((portion) => portion.chiles)).toEqual([['morron', 'jalapeno'], ['serrano'], undefined])
     expect(toRpcPizzaConfig(parsed).portions).toEqual([
-      { style_id: 'mex', ingredient_ids: [], extra_ingredient_ids: [], chile: 'jalapeno' },
+      { style_id: 'mex', ingredient_ids: [], extra_ingredient_ids: [], chiles: ['morron', 'jalapeno'] },
+      { style_id: 'mex', ingredient_ids: [], extra_ingredient_ids: [], chiles: ['serrano'] },
       { style_id: 'mex', ingredient_ids: [], extra_ingredient_ids: [] },
     ])
-    expect(Object.keys(toRpcPizzaConfig(parsed).portions[1]!)).not.toContain('chile')
+    expect(Object.keys(toRpcPizzaConfig(parsed).portions[2]!)).not.toContain('chiles')
   })
 
   it('moves legacy per-portion extra_ids to the pizza without repeating them', () => {
