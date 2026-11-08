@@ -178,6 +178,29 @@ describe('kitchen and delivery flow', () => {
     await db.query(`update public.categories set kitchen_station = 'grill' where name in ('Hamburguesas','Botanas')`)
   })
 
+  it("sends the default ingredients of each special style of a pizza line, but not of custom styles", async () => {
+    const custom = (await db.query<{ id: string }>(`select id from public.pizza_styles where kind = 'custom' order by sort_order limit 1`)).rows[0].id
+    const ingredient = (await db.query<{ id: string }>(`select id from public.pizza_ingredients where active order by sort_order limit 1`)).rows[0].id
+    await createOrder([
+      {
+        type: 'pizza',
+        quantity: 1,
+        pizza: {
+          size: 'grande',
+          portions: [
+            { style_id: styleId, ingredient_ids: [], extra_ingredient_ids: [] },
+            { style_id: custom, ingredient_ids: [ingredient], extra_ingredient_ids: [] },
+          ],
+        },
+      },
+    ])
+    await asAnon(db)
+    const ticket = (await kitchen(pizzaSecret))[0]
+    expect(ticket.lines[0].style_descriptions).toEqual({
+      'Estilo Varas': 'Pepperoni, jamón, salami, tocino, chorizo, champiñón y morrón',
+    })
+  })
+
   it('splits a mixed order by station and sends each part to delivery as soon as its station is done', async () => {
     const id = await createOrder([pizzaLine(), { product_id: burgerId, quantity: 2 }, { product_id: drinkId, quantity: 1 }])
     await asAnon(db)
@@ -194,8 +217,9 @@ describe('kitchen and delivery flow', () => {
     expect(g[0].lines).toHaveLength(1)
     expect(g[0].lines[0]).toMatchObject({ product_name: 'Hamburguesa Sencilla', quantity: 2, item_type: 'product' })
     expect(Object.keys(g[0].lines[0]).sort()).toEqual(
-      ['added_at', 'id', 'item_type', 'notes', 'pizza', 'product_name', 'quantity', 'station', 'variant'].sort(),
+      ['added_at', 'id', 'item_type', 'notes', 'pizza', 'product_name', 'quantity', 'station', 'style_descriptions', 'variant'].sort(),
     )
+    expect(g[0].lines[0].style_descriptions).toEqual({})
 
     // The drink needs no kitchen: it is ready at once, and the card says what is still cooking.
     let r = await ready()

@@ -53,7 +53,7 @@ function LineList({ lines, size }: { lines: KitchenLine[]; size: TextSize }) {
                 Agregado {formatTime(line.addedAt)}
               </span>
             )}
-            <PizzaLabelGroups groups={groups} />
+            <PizzaLabelGroups groups={groups} styleDescriptions={line.styleDescriptions} />
             {line.notes && (
               <span className={`mt-1 block rounded-lg bg-amber-100 px-2 py-1 font-medium text-amber-900 dark:bg-amber-900 dark:text-amber-100 ${text.note}`}>
                 Nota: {line.notes}

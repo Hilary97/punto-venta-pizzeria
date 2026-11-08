@@ -63,7 +63,7 @@ const mapped = {
   waiting: false,
   pendingStations: [],
   lines: [
-    { id: 'l1', productName: 'Hamburguesa', quantity: 2, type: 'product', pizza: null, notes: null, variant: 'Res', station: 'grill', addedAt: null },
+    { id: 'l1', productName: 'Hamburguesa', quantity: 2, type: 'product', pizza: null, notes: null, variant: 'Res', station: 'grill', addedAt: null, styleDescriptions: {} },
   ],
 }
 
@@ -119,6 +119,13 @@ describe('device kitchen source', () => {
     rpc.mockResolvedValue({ data: [{ ...row, lines: [row.lines[0], added] }], error: null })
     const lines = (await createDeviceKitchenSource('sec').listOrders())[0]!.lines
     expect(lines.map((l) => l.addedAt)).toEqual([null, '2026-10-10T10:07:00Z'])
+  })
+
+  it('maps a line style_descriptions to styleDescriptions, and a missing one to {}', async () => {
+    const pizza = { ...row.lines[0]!, id: 'l2', style_descriptions: { 'Estilo Hawaiana': 'Jamón y piña' } }
+    rpc.mockResolvedValue({ data: [{ ...row, lines: [row.lines[0], pizza] }], error: null })
+    const lines = (await createDeviceKitchenSource('sec').listOrders())[0]!.lines
+    expect(lines.map((l) => l.styleDescriptions)).toEqual([{}, { 'Estilo Hawaiana': 'Jamón y piña' }])
   })
 
   it('marks ready', async () => {

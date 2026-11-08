@@ -77,6 +77,56 @@ describe('KitchenBoard', () => {
     expect(pizza.textContent).not.toMatch(/[|+]/)
   })
 
+  it('hides the default ingredients of each style until its name is tapped, for whole and split pizzas', async () => {
+    const lines: KitchenOrder['lines'] = [
+      {
+        id: 'l1',
+        productName: "Pizza Grande · Mitades: ½ Estilo Varas + Jalapeños | ½ Estilo Chuy's | ½ Arma tu combinación (Piña)",
+        quantity: 1,
+        type: 'pizza',
+        pizza: null,
+        notes: null,
+        variant: null,
+        styleDescriptions: { 'Estilo Varas': 'Pepperoni y jamón', "Estilo Chuy's": 'Cebolla y jalapeño' },
+      },
+      {
+        id: 'l2',
+        productName: 'Pizza Chica: Estilo Varas',
+        quantity: 1,
+        type: 'pizza',
+        pizza: null,
+        notes: null,
+        variant: null,
+        styleDescriptions: { 'Estilo Varas': 'Pepperoni y jamón' },
+      },
+    ]
+    const user = userEvent.setup()
+    render(<KitchenBoard source={makeSource([[order({ lines })]])} stationLabel="Pizzas" />)
+    const split = (await screen.findByText('1 × Pizza Grande · Mitades')).closest('li')!
+    expect(screen.queryByText('Pepperoni y jamón')).not.toBeInTheDocument()
+    expect(screen.queryByText('Cebolla y jalapeño')).not.toBeInTheDocument()
+    expect(within(split).getByText('Jalapeños')).toBeVisible()
+
+    const varas = within(split).getByRole('button', { name: '½ Estilo Varas' })
+    expect(varas).toHaveAttribute('aria-expanded', 'false')
+    await user.click(varas)
+    expect(varas).toHaveAttribute('aria-expanded', 'true')
+    expect(within(varas.closest('li')!).getByText('Pepperoni y jamón')).toBeVisible()
+    expect(screen.queryByText('Cebolla y jalapeño')).not.toBeInTheDocument()
+    await user.click(varas)
+    expect(within(split).queryByText('Pepperoni y jamón')).not.toBeInTheDocument()
+
+    await user.click(within(split).getByRole('button', { name: "½ Estilo Chuy's" }))
+    expect(within(split).getByText('Cebolla y jalapeño')).toBeVisible()
+    expect(within(split).queryByRole('button', { name: '½ Arma tu combinación' })).not.toBeInTheDocument()
+    expect(within(split).getByText('½ Arma tu combinación').closest('li')!.textContent).toBe('½ Arma tu combinaciónPiña')
+
+    const whole = screen.getByText('1 × Pizza Chica').closest('li')!
+    expect(within(whole).queryByText('Pepperoni y jamón')).not.toBeInTheDocument()
+    await user.click(within(whole).getByRole('button', { name: 'Estilo Varas' }))
+    expect(within(whole).getByText('Pepperoni y jamón')).toBeVisible()
+  })
+
   it('shows every ingredient and extra of a whole pizza one per row, without "+" or "()"', async () => {
     const lines: KitchenOrder['lines'] = [
       {

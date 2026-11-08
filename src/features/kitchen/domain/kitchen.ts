@@ -36,6 +36,8 @@ export interface KitchenLine {
   station?: KitchenStation | null
   /** When the line joined a ticket the station was already cooking (ISO); `null` (or omitted) otherwise. */
   addedAt?: string | null
+  /** Default ingredients of each special style of the pizza, by style name (e.g. `Estilo Hawaiana` → `Jamón y piña`). */
+  styleDescriptions?: Record<string, string>
 }
 
 /**
