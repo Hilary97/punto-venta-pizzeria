@@ -182,8 +182,8 @@ function PersonPaymentRow({ person, shareCents, input, payment, charged, disable
 
   return (
     <fieldset aria-label={title}
-      className={`flex flex-col gap-2 rounded-lg border p-3 ${charged ? 'border-emerald-300 bg-emerald-50' : 'border-slate-200'}`}>
-      <div className={`flex items-center justify-between font-semibold ${charged ? 'text-emerald-800' : 'text-slate-700'}`}>
+      className={`flex flex-col gap-2 rounded-lg border p-3 ${charged ? 'border-emerald-300 bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-950/60' : 'border-slate-200'}`}>
+      <div className={`flex items-center justify-between font-semibold ${charged ? 'text-emerald-800 dark:text-emerald-200' : 'text-slate-700'}`}>
         <span className={charged ? 'line-through' : undefined}>Persona {person}</span>
         <span>{formatMoney(shareCents)}</span>
       </div>
@@ -215,7 +215,7 @@ function PersonPaymentRow({ person, shareCents, input, payment, charged, disable
           </button>
         )}
       </div>
-      <p id={`${inputId}-feedback`} aria-live="polite" className={`text-sm font-medium ${charged ? 'text-emerald-800' : 'text-slate-600'}`}>
+      <p id={`${inputId}-feedback`} aria-live="polite" className={`text-sm font-medium ${charged ? 'text-emerald-800 dark:text-emerald-200' : 'text-slate-600'}`}>
         {feedback}
       </p>
     </fieldset>
