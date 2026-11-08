@@ -266,3 +266,51 @@ describe('pizzaLabelLayout', () => {
     }
   })
 })
+
+describe('Estilo Mexicana chile', () => {
+  const withMexicana: PizzaCatalog = {
+    ...catalog,
+    styles: [
+      ...catalog.styles,
+      { id: 'mex', name: 'Estilo Mexicana', description: '', kind: 'special', includedIngredients: 0, sortOrder: 4 },
+    ],
+  }
+  const config = (portions: PizzaPortion[]): PizzaConfig => ({ size: 'grande', portions, extraIds: [] })
+
+  it('keeps the 3 chiles when no chile is chosen', () => {
+    expect(describePizza(config([portion({ styleId: 'mex' })]), withMexicana)).toBe('Pizza Grande: Estilo Mexicana (3 chiles)')
+  })
+
+  it('names the chosen chile inside the parentheses, per portion', () => {
+    expect(describePizza(config([portion({ styleId: 'mex', chile: 'morron' })]), withMexicana)).toBe(
+      'Pizza Grande: Estilo Mexicana (Solo morrón)',
+    )
+    expect(
+      describePizza(
+        config([portion({ styleId: 'mex', chile: 'serrano' }), portion({ styleId: 'mex', chile: 'jalapeno', extraIngredientIds: ['pep'] })]),
+        withMexicana,
+      ),
+    ).toBe('Pizza Grande · Mitades: ½ Estilo Mexicana (Solo serrano) | ½ Estilo Mexicana (Solo jalapeño) + Pepperoni')
+  })
+
+  it('lays the chile out as an item of its portion', () => {
+    expect(pizzaLabelLayout('Pizza Grande: Estilo Mexicana (Solo jalapeño) + Pepperoni')).toEqual({
+      title: 'Pizza Grande',
+      groups: [{ name: 'Estilo Mexicana', items: ['Solo jalapeño', 'Pepperoni'] }],
+    })
+  })
+
+  it('accepts a chile only on Estilo Mexicana and only a known one', () => {
+    expect(validatePizzaConfig(config([portion({ styleId: 'mex', chile: 'serrano' })]), withMexicana)).toEqual([])
+    expect(validatePizzaConfig(config([portion({ styleId: 'varas', chile: 'serrano' })]), withMexicana)).toEqual([
+      'Solo el Estilo Mexicana permite elegir chile.',
+    ])
+    expect(
+      validatePizzaConfig(config([portion({ styleId: 'mex', chile: 'habanero' as PizzaPortion['chile'] })]), withMexicana),
+    ).toEqual(['El chile elegido no es válido.'])
+  })
+
+  it('leaves other styles described as before', () => {
+    expect(describePizza(config([portion({ styleId: 'varas' })]), withMexicana)).toBe('Pizza Grande: Estilo Varas')
+  })
+})

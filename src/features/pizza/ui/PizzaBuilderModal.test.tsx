@@ -33,6 +33,51 @@ describe('PizzaBuilderModal', () => {
     })
   })
 
+  it('lets Estilo Mexicana pick morrón, serrano, jalapeño or the 3 chiles, starting on the 3 chiles', async () => {
+    const catalog: PizzaCatalog = {
+      ...pizzaCatalogFixture,
+      styles: [
+        ...pizzaCatalogFixture.styles,
+        { id: 'mex', name: 'Estilo Mexicana', description: '', kind: 'special', includedIngredients: 0, sortOrder: 3 },
+      ],
+    }
+    const { onAdd, user } = renderBuilder(catalog)
+    await user.selectOptions(screen.getByLabelText('Estilo'), 'varas')
+    expect(screen.queryByRole('group', { name: /chile/i })).not.toBeInTheDocument()
+    await user.selectOptions(screen.getByLabelText('Estilo'), 'mex')
+    const chiles = screen.getByRole('group', { name: /chile/i })
+    expect(within(chiles).getAllByRole('button').map((button) => button.textContent)).toEqual([
+      'Morrón',
+      'Serrano',
+      'Jalapeño',
+      'Los 3 chiles',
+    ])
+    expect(within(chiles).getByRole('button', { name: 'Los 3 chiles' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByText('Pizza Chica: Estilo Mexicana (3 chiles)')).toBeVisible()
+
+    await user.click(within(chiles).getByRole('button', { name: 'Serrano' }))
+    await user.click(within(chiles).getByRole('button', { name: 'Jalapeño' }))
+    expect(within(chiles).getByRole('button', { name: 'Jalapeño' })).toHaveAttribute('aria-pressed', 'true')
+    expect(within(chiles).getByRole('button', { name: 'Serrano' })).toHaveAttribute('aria-pressed', 'false')
+    expect(within(chiles).getByRole('button', { name: 'Los 3 chiles' })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByText('Pizza Chica: Estilo Mexicana (Solo jalapeño)')).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'Agregar pizza' }))
+    expect(onAdd).toHaveBeenCalledWith(
+      expect.objectContaining({
+        config: { size: 'chica', portions: [{ styleId: 'mex', ingredientIds: [], extraIngredientIds: [], chile: 'jalapeno' }], extraIds: [] },
+        name: 'Pizza Chica: Estilo Mexicana (Solo jalapeño)',
+      }),
+    )
+
+    await user.click(within(chiles).getByRole('button', { name: 'Jalapeño' }))
+    expect(screen.getByText('Pizza Chica: Estilo Mexicana (Solo jalapeño)')).toBeVisible()
+    await user.click(within(chiles).getByRole('button', { name: 'Los 3 chiles' }))
+    expect(within(chiles).getByRole('button', { name: 'Los 3 chiles' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByText('Pizza Chica: Estilo Mexicana (3 chiles)')).toBeVisible()
+    await user.selectOptions(screen.getByLabelText('Estilo'), 'varas')
+    expect(screen.queryByRole('group', { name: /chile/i })).not.toBeInTheDocument()
+  })
+
   it('lists styles, ingredients and extras alphabetically, ignoring their sort order', () => {
     renderBuilder()
     const names = (elements: HTMLElement[]) => elements.map((element) => element.textContent)

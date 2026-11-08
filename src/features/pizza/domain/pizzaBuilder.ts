@@ -1,5 +1,8 @@
 import { byName } from '../../../shared/sortByName'
-import type { PizzaConfig, PizzaPortion, PizzaSize, PizzaSizeCode, PizzaStyle } from './pizza'
+import { hasChileVariants, styleKey } from './pizza'
+import type { ChileVariant, PizzaConfig, PizzaPortion, PizzaSize, PizzaSizeCode, PizzaStyle } from './pizza'
+
+export { hasChileVariants }
 
 /*
  * Pure state helpers behind the pizza builder UI. The server stays authoritative:
@@ -8,15 +11,6 @@ import type { PizzaConfig, PizzaPortion, PizzaSize, PizzaSizeCode, PizzaStyle } 
 
 /** Styles the builder always lists first, in this order, matched by `styleKey`. */
 const PINNED_STYLE_KEYS = ['estilopepperoni', 'estilohawaiana']
-
-/** A style name without case, accents or anything but letters and digits: ` Estilo  HAWÁIANA ` -> `estilohawaiana`. */
-function styleKey(name: string): string {
-  return name
-    .normalize('NFD')
-    .replace(/\p{M}/gu, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, '')
-}
 
 function pinRank(style: PizzaStyle): number {
   const rank = PINNED_STYLE_KEYS.indexOf(styleKey(style.name))
@@ -43,10 +37,17 @@ export function resizePortions(portions: PizzaPortion[], size: PizzaSize, defaul
   return initialPortions(1, portions[0]?.styleId ?? defaultStyleId)
 }
 
-/** Switches the portion style, keeping chosen ingredients up to the new style limit. */
+/** Switches the portion style, keeping chosen ingredients up to the new style limit; a style without chiles drops the chile. */
 export function setPortionStyle(portion: PizzaPortion, style: PizzaStyle): PizzaPortion {
   const ingredientIds = portion.ingredientIds.slice(0, style.includedIngredients)
-  return { ...portion, styleId: style.id, ingredientIds }
+  const { chile, ...rest } = portion
+  return { ...rest, styleId: style.id, ingredientIds, ...(chile && hasChileVariants(style) ? { chile } : {}) }
+}
+
+/** Picks the portion chile; `null` is the 3 chiles. */
+export function setPortionChile(portion: PizzaPortion, chile: ChileVariant | null): PizzaPortion {
+  const { chile: _current, ...rest } = portion
+  return chile === null ? rest : { ...rest, chile }
 }
 
 /**

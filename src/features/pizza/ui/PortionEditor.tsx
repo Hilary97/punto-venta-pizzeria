@@ -1,6 +1,14 @@
 import { useId } from 'react'
+import { CHILE_VARIANTS } from '../domain/pizza'
 import type { PizzaIngredient, PizzaPortion, PizzaStyle } from '../domain/pizza'
-import { extraCount, setPortionStyle, toggleExtra, toggleIngredient } from '../domain/pizzaBuilder'
+import {
+  extraCount,
+  hasChileVariants,
+  setPortionChile,
+  setPortionStyle,
+  toggleExtra,
+  toggleIngredient,
+} from '../domain/pizzaBuilder'
 import { ToggleChip } from './ToggleChip'
 
 interface PortionEditorProps {
@@ -41,6 +49,27 @@ export function PortionEditor({ title, portion, styles, ingredients, onChange }:
         </select>
         {style?.description && <p className="break-words text-sm text-slate-500">{style.description}</p>}
       </div>
+
+      {style && hasChileVariants(style) && (
+        <fieldset className="flex flex-col gap-2">
+          <legend className="text-sm font-medium text-slate-700">Chile</legend>
+          <div className="flex flex-wrap gap-2">
+            {CHILE_VARIANTS.map((variant) => (
+              <ToggleChip
+                key={variant.code}
+                label={variant.name}
+                pressed={portion.chile === variant.code}
+                onToggle={() => onChange(setPortionChile(portion, variant.code))}
+              />
+            ))}
+            <ToggleChip
+              label="Los 3 chiles"
+              pressed={portion.chile === undefined}
+              onToggle={() => onChange(setPortionChile(portion, null))}
+            />
+          </div>
+        </fieldset>
+      )}
 
       {style && style.includedIngredients > 0 && (
         <fieldset className="flex flex-col gap-2">
