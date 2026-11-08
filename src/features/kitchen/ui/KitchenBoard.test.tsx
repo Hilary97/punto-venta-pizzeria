@@ -77,6 +77,40 @@ describe('KitchenBoard', () => {
     expect(pizza.textContent).not.toMatch(/[|+]/)
   })
 
+  it('shows the default ingredients of each style under its name, for whole and split pizzas', async () => {
+    const lines: KitchenOrder['lines'] = [
+      {
+        id: 'l1',
+        productName: "Pizza Grande · Mitades: ½ Estilo Varas + Jalapeños | ½ Estilo Chuy's | ½ Arma tu combinación (Piña)",
+        quantity: 1,
+        type: 'pizza',
+        pizza: null,
+        notes: null,
+        variant: null,
+        styleDescriptions: { 'Estilo Varas': 'Pepperoni y jamón', "Estilo Chuy's": 'Cebolla y jalapeño' },
+      },
+      {
+        id: 'l2',
+        productName: 'Pizza Chica: Estilo Varas',
+        quantity: 1,
+        type: 'pizza',
+        pizza: null,
+        notes: null,
+        variant: null,
+        styleDescriptions: { 'Estilo Varas': 'Pepperoni y jamón' },
+      },
+    ]
+    render(<KitchenBoard source={makeSource([[order({ lines })]])} stationLabel="Pizzas" />)
+    const split = (await screen.findByText('1 × Pizza Grande · Mitades')).closest('li')!
+    const varas = within(split).getByText('½ Estilo Varas').closest('li')!
+    expect(within(varas).getByText('Pepperoni y jamón')).toBeVisible()
+    expect(within(varas).getByText('Jalapeños')).toBeVisible()
+    expect(within(within(split).getByText("½ Estilo Chuy's").closest('li')!).getByText('Cebolla y jalapeño')).toBeVisible()
+    expect(within(split).getByText('½ Arma tu combinación').closest('li')!.textContent).toBe('½ Arma tu combinaciónPiña')
+    const whole = screen.getByText('1 × Pizza Chica').closest('li')!
+    expect(within(whole).getByText('Pepperoni y jamón')).toBeVisible()
+  })
+
   it('shows every ingredient and extra of a whole pizza one per row, without "+" or "()"', async () => {
     const lines: KitchenOrder['lines'] = [
       {

@@ -37,6 +37,7 @@ const kitchenOrdersSchema = z.array(
           variant: z.string().nullable().default(null),
           station: z.enum(KITCHEN_STATIONS).nullable().default(null),
           added_at: z.string().nullable().default(null),
+          style_descriptions: z.record(z.string(), z.string()).default({}),
         }),
       )
       .nullable(),
@@ -71,6 +72,7 @@ function mapKitchenOrders(rows: z.infer<typeof kitchenOrdersSchema>): KitchenOrd
       variant: line.variant,
       station: line.station,
       addedAt: line.added_at,
+      styleDescriptions: line.style_descriptions,
     })),
   }))
 }
