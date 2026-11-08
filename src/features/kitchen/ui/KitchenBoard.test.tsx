@@ -77,7 +77,7 @@ describe('KitchenBoard', () => {
     expect(pizza.textContent).not.toMatch(/[|+]/)
   })
 
-  it('shows the default ingredients of each style under its name, for whole and split pizzas', async () => {
+  it('hides the default ingredients of each style until its name is tapped, for whole and split pizzas', async () => {
     const lines: KitchenOrder['lines'] = [
       {
         id: 'l1',
@@ -100,14 +100,30 @@ describe('KitchenBoard', () => {
         styleDescriptions: { 'Estilo Varas': 'Pepperoni y jamón' },
       },
     ]
+    const user = userEvent.setup()
     render(<KitchenBoard source={makeSource([[order({ lines })]])} stationLabel="Pizzas" />)
     const split = (await screen.findByText('1 × Pizza Grande · Mitades')).closest('li')!
-    const varas = within(split).getByText('½ Estilo Varas').closest('li')!
-    expect(within(varas).getByText('Pepperoni y jamón')).toBeVisible()
-    expect(within(varas).getByText('Jalapeños')).toBeVisible()
-    expect(within(within(split).getByText("½ Estilo Chuy's").closest('li')!).getByText('Cebolla y jalapeño')).toBeVisible()
+    expect(screen.queryByText('Pepperoni y jamón')).not.toBeInTheDocument()
+    expect(screen.queryByText('Cebolla y jalapeño')).not.toBeInTheDocument()
+    expect(within(split).getByText('Jalapeños')).toBeVisible()
+
+    const varas = within(split).getByRole('button', { name: '½ Estilo Varas' })
+    expect(varas).toHaveAttribute('aria-expanded', 'false')
+    await user.click(varas)
+    expect(varas).toHaveAttribute('aria-expanded', 'true')
+    expect(within(varas.closest('li')!).getByText('Pepperoni y jamón')).toBeVisible()
+    expect(screen.queryByText('Cebolla y jalapeño')).not.toBeInTheDocument()
+    await user.click(varas)
+    expect(within(split).queryByText('Pepperoni y jamón')).not.toBeInTheDocument()
+
+    await user.click(within(split).getByRole('button', { name: "½ Estilo Chuy's" }))
+    expect(within(split).getByText('Cebolla y jalapeño')).toBeVisible()
+    expect(within(split).queryByRole('button', { name: '½ Arma tu combinación' })).not.toBeInTheDocument()
     expect(within(split).getByText('½ Arma tu combinación').closest('li')!.textContent).toBe('½ Arma tu combinaciónPiña')
+
     const whole = screen.getByText('1 × Pizza Chica').closest('li')!
+    expect(within(whole).queryByText('Pepperoni y jamón')).not.toBeInTheDocument()
+    await user.click(within(whole).getByRole('button', { name: 'Estilo Varas' }))
     expect(within(whole).getByText('Pepperoni y jamón')).toBeVisible()
   })
 
