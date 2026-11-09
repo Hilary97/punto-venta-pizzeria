@@ -109,8 +109,11 @@ describe('KitchenBoard', () => {
 
     const varas = within(split).getByRole('button', { name: '½ Estilo Varas' })
     expect(varas).toHaveAttribute('aria-expanded', 'false')
+    expect(varas.textContent).toBe('½ Estilo Varas▾')
+    expect(varas.className).not.toMatch(/underline/)
     await user.click(varas)
     expect(varas).toHaveAttribute('aria-expanded', 'true')
+    expect(varas.textContent).toBe('½ Estilo Varas▴')
     expect(within(varas.closest('li')!).getByText('Pepperoni y jamón')).toBeVisible()
     expect(screen.queryByText('Cebolla y jalapeño')).not.toBeInTheDocument()
     await user.click(varas)
