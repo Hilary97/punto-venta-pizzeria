@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { countStock, createProduct, listProducts, receiveStock, updateProduct } from './productsRepository'
+import { countStock, createProduct, listCategories, listProducts, receiveStock, updateProduct } from './productsRepository'
 
 const { from, rpc, insert, update, select } = vi.hoisted(() => {
   const select = vi.fn()
@@ -35,6 +35,25 @@ beforeEach(() => {
     }),
   })
   from.mockReturnValue({ insert, update, select })
+})
+
+describe('categories repository legacy pizza flag', () => {
+  it('reads the legacy pizza flag', async () => {
+    select.mockReturnValue({
+      order: vi.fn().mockResolvedValue({
+        data: [
+          { id: 'c1', name: 'Pizzas', sort_order: 6, legacy_pizza: true },
+          { id: 'c2', name: 'Bebidas', sort_order: 3, legacy_pizza: false },
+        ],
+        error: null,
+      }),
+    })
+    expect(await listCategories()).toEqual([
+      { id: 'c1', name: 'Pizzas', sortOrder: 6, legacyPizza: true },
+      { id: 'c2', name: 'Bebidas', sortOrder: 3, legacyPizza: false },
+    ])
+    expect(select).toHaveBeenCalledWith('id, name, sort_order, legacy_pizza')
+  })
 })
 
 describe('products repository stock fields', () => {

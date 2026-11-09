@@ -11,6 +11,10 @@ insert into public.categories (name, sort_order) values
 on conflict (name) do update
 set sort_order = excluded.sort_order;
 
+-- Las pizzas fijas son el menu viejo: se venden con el armador de pizzas.
+-- La bandera las oculta en Productos y en la pantalla del mesero.
+update public.categories set legacy_pizza = true where name = 'Pizzas';
+
 -- Productos con precio visible en el menu.
 -- WHERE NOT EXISTS evita duplicados si vuelves a ejecutar el seed,
 -- aun si products no tiene una restriccion UNIQUE.

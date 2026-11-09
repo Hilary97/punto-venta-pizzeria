@@ -48,16 +48,19 @@ export interface Database {
           id: string
           name: string
           sort_order: number
+          legacy_pizza: boolean
           created_at: string
         }
         Insert: {
           id?: string
           name: string
           sort_order?: number
+          legacy_pizza?: boolean
         }
         Update: {
           name?: string
           sort_order?: number
+          legacy_pizza?: boolean
         }
       }
       products: EmptyRelationships & {

@@ -665,7 +665,7 @@ describe('OrdersPage', () => {
 describe('OrdersPage pizza builder and notes', () => {
   it('hides products of the legacy Pizzas category and its chip', async () => {
     vi.mocked(listCategories).mockResolvedValue([
-      { id: 'pizza', name: ' pizzas ', sortOrder: 0 },
+      { id: 'pizza', name: ' pizzas ', sortOrder: 0, legacyPizza: true },
       { id: 'snacks', name: 'Botanas', sortOrder: 1 },
     ])
     vi.mocked(listProducts).mockResolvedValue([

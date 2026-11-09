@@ -36,7 +36,14 @@ export const authenticatedOrdersSource: OrdersSource = {
 }
 
 const catalogSchema = z.object({
-  categories: z.array(z.object({ id: z.string(), name: z.string(), sort_order: z.number() })),
+  categories: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      sort_order: z.number(),
+      legacy_pizza: z.boolean().default(false),
+    }),
+  ),
   products: z.array(
     z.object({
       id: z.string(),
@@ -76,6 +83,7 @@ export function createDeviceOrdersSource(
           id: category.id,
           name: category.name,
           sortOrder: category.sort_order,
+          legacyPizza: category.legacy_pizza,
         })),
         products: result.products.map((product) => ({
           id: product.id,

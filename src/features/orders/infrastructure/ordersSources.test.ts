@@ -29,6 +29,25 @@ describe('device catalog', () => {
     expect(catalog.products[0]).toMatchObject({ id: 'soda', trackStock: true, stock: 3 })
     expect(catalog.products[1]).toMatchObject({ id: 'old', trackStock: false, stock: 0 })
   })
+
+  it('maps the legacy pizza flag per category, unflagged when the rpc omits it', async () => {
+    rpc.mockResolvedValue({
+      data: {
+        categories: [
+          { id: 'c1', name: 'Pizzas viejas', sort_order: 0, legacy_pizza: true },
+          { id: 'c2', name: 'Botanas', sort_order: 1 },
+        ],
+        products: [],
+        pizza: { sizes: [], styles: [], ingredients: [] },
+      },
+      error: null,
+    })
+    const catalog = await createDeviceOrdersSource('s', () => 't').loadCatalog()
+    expect(catalog.categories).toEqual([
+      { id: 'c1', name: 'Pizzas viejas', sortOrder: 0, legacyPizza: true },
+      { id: 'c2', name: 'Botanas', sortOrder: 1, legacyPizza: false },
+    ])
+  })
 })
 
 describe('creating orders', () => {

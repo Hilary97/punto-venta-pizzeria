@@ -6,12 +6,17 @@ import type { Category, CategoryFormValues, Product, ProductFormValues } from '.
 export async function listCategories(): Promise<Category[]> {
   const { data, error } = await getSupabaseClient()
     .from('categories')
-    .select('id, name, sort_order')
+    .select('id, name, sort_order, legacy_pizza')
     .order('sort_order', { ascending: true })
 
   if (error) throw new Error('No se pudieron cargar las categorías.')
 
-  return data.map((row) => ({ id: row.id, name: row.name, sortOrder: row.sort_order }))
+  return data.map((row) => ({
+    id: row.id,
+    name: row.name,
+    sortOrder: row.sort_order,
+    legacyPizza: row.legacy_pizza,
+  }))
 }
 
 /** Lists products. When `onlyActive` is true, returns only active products (POS grid). */

@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router'
 import { Button } from '../../../shared/ui/Button'
 import { ErrorBanner } from '../../../shared/ui/ErrorBanner'
 import { Spinner } from '../../../shared/ui/Spinner'
 import { toUserMessage } from '../../../shared/errors'
 import type { Category, CategoryFormValues, Product, ProductFormValues } from '../domain/product'
+import { hideLegacyPizza } from '../../orders/domain/legacyPizza'
 import {
   createCategory,
   createProduct,
@@ -34,8 +36,10 @@ export function AdminProductsPage() {
     setErrorMessage(null)
     try {
       const [loadedCategories, loadedProducts] = await Promise.all([listCategories(), listProducts()])
-      setCategories(loadedCategories)
-      setProducts(loadedProducts)
+      // Pizzas are edited in the pizza admin; the legacy fixed pizza products no longer price any sale.
+      const visible = hideLegacyPizza(loadedCategories, loadedProducts)
+      setCategories(visible.categories)
+      setProducts(visible.products)
     } catch (error) {
       setErrorMessage(toUserMessage(error))
     } finally {
@@ -92,6 +96,14 @@ export function AdminProductsPage() {
       </div>
 
       {errorMessage && <ErrorBanner message={errorMessage} />}
+
+      <p className="rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        Las pizzas se administran en{' '}
+        <Link to="/admin/pizzas" className="font-semibold underline">
+          Pizzas
+        </Link>
+        : estilos, tamaños, precios e ingredientes.
+      </p>
 
       {categories.length === 0 && (
         <p className="text-slate-500">Crea al menos una categoría antes de agregar productos.</p>

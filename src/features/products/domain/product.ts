@@ -4,6 +4,8 @@ export interface Category {
   id: string
   name: string
   sortOrder: number
+  /** Holds the legacy fixed pizza products, now replaced by the pizza builder; omitted means false. */
+  legacyPizza?: boolean
 }
 
 export interface Product {
