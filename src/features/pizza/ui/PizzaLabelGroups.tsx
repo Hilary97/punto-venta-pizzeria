@@ -4,7 +4,7 @@ import type { PizzaLabelLayout } from '../domain/pizza'
 interface PizzaLabelGroupsProps extends Pick<PizzaLabelLayout, 'groups'> {
   /**
    * Default ingredients by style name (a portion's `½ ` prefix is ignored). Hidden at first: tapping the
-   * style name shows them subtly under it, tapping again hides them.
+   * style name (marked with a faint ▾, ▴ while open) shows them subtly under it, tapping again hides them.
    */
   styleDescriptions?: Record<string, string>
 }
@@ -34,9 +34,12 @@ export function PizzaLabelGroups({ groups, styleDescriptions = {} }: PizzaLabelG
                 type="button"
                 aria-expanded={open}
                 onClick={() => toggle(index)}
-                className="cursor-pointer text-left font-semibold underline decoration-slate-300 decoration-dotted underline-offset-4"
+                className="inline-flex cursor-pointer items-center gap-2 text-left font-semibold"
               >
                 {group.name}
+                <span aria-hidden="true" className="text-[0.6em] font-normal text-slate-400 dark:text-slate-500">
+                  {open ? '▴' : '▾'}
+                </span>
               </button>
             ) : (
               <span className="font-semibold">{group.name}</span>
