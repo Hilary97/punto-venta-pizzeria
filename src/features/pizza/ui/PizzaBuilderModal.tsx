@@ -7,7 +7,7 @@ import { Textarea } from '../../../shared/ui/Textarea'
 import { MAX_ITEM_NOTES_LENGTH } from '../../orders/domain/order'
 import { describePizza, isSizeSoldOut, portionLabel, validatePizzaConfig, validatePortion } from '../domain/pizza'
 import type { PizzaCatalog, PizzaConfig, PizzaPortion, PizzaSize, PizzaSizeCode, PizzaStyle } from '../domain/pizza'
-import { buildConfig, initialPortions, resizePortions, sortBuilderStyles, togglePizzaExtra } from '../domain/pizzaBuilder'
+import { buildConfig, hasStyle, initialPortions, resizePortions, sortBuilderStyles, togglePizzaExtra } from '../domain/pizzaBuilder'
 import { PizzaDiagram } from './PizzaDiagram'
 import { PortionEditor } from './PortionEditor'
 import { StyleCards } from './StyleCards'
@@ -40,6 +40,11 @@ function portionStepName(count: number, index: number): string {
   return count === 1 ? 'Pizza' : portionTitle(count, index)
 }
 
+/** `la pizza`, `la mitad 1`, `la porción 3` for the missing-style hint. */
+function missingStyleTarget(count: number, index: number): string {
+  return count === 1 ? 'la pizza' : `la ${portionTitle(count, index).toLowerCase()}`
+}
+
 /** `Mitad`, `Tercio`, `Cuarto` for the live summary. */
 function portionWord(count: number): string {
   return count === 2 ? 'Mitad' : count === 3 ? 'Tercio' : 'Cuarto'
@@ -64,10 +69,9 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose }: PizzaBuilderModal
   const styles = useMemo(() => sortBuilderStyles(catalog.styles), [catalog.styles])
   const ingredients = useMemo(() => [...catalog.ingredients].sort(byName), [catalog.ingredients])
   const extras = useMemo(() => [...catalog.extras].sort(byName), [catalog.extras])
-  const defaultStyleId = (styles.find((style) => style.kind === 'special') ?? styles[0])?.id ?? ''
 
   const [sizeCode, setSizeCode] = useState<PizzaSizeCode>(sizes[0]?.code ?? 'chica')
-  const [portions, setPortions] = useState<PizzaPortion[]>(() => initialPortions(1, defaultStyleId))
+  const [portions, setPortions] = useState<PizzaPortion[]>(() => initialPortions(1))
   const [extraIds, setExtraIds] = useState<string[]>([])
   const [notes, setNotes] = useState('')
   const [quantity, setQuantity] = useState(1)
@@ -111,14 +115,14 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose }: PizzaBuilderModal
     if (!next) return
     setSizeCode(code)
     setCollapsed([])
-    setPortions((existing) => resizePortions(existing, next, defaultStyleId))
+    setPortions((existing) => resizePortions(existing, next))
   }
 
   function selectDivision(next: number) {
     setCollapsed([])
-    // Keeps what was already chosen; new portions start with the first portion's style.
+    // Keeps what was already chosen; new portions start without a style.
     setPortions((existing) => {
-      const fresh = initialPortions(next, existing[0]?.styleId ?? defaultStyleId)
+      const fresh = initialPortions(next)
       return fresh.map((portion, index) => existing[index] ?? portion)
     })
   }
@@ -140,7 +144,13 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose }: PizzaBuilderModal
   }
 
   const styleOf = (portion: PizzaPortion | undefined) => styles.find((candidate) => candidate.id === portion?.styleId)
-  const summaryParts = portions.map((portion) => `${count > 1 ? `${portionWord(count)} ` : ''}${shortStyle(styleOf(portion))}`)
+  const summaryParts = portions
+    .map((portion, index) => {
+      const word = count > 1 ? `${portionWord(count)} ` : ''
+      if (styleOf(portion)) return `${word}${shortStyle(styleOf(portion))}`
+      return count > 1 ? `${word}${index + 1} sin estilo` : ''
+    })
+    .filter((part) => part !== '')
   const extraNames = extras.filter((extra) => extraIds.includes(extra.id)).map((extra) => extra.name)
   const summary = [summaryParts.join(' / '), ...(extraNames.length > 0 ? [extraNames.join(', ')] : [])].join(' · ')
 
@@ -161,8 +171,11 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose }: PizzaBuilderModal
   const portionIndex = current.kind === 'portion' ? current.index : 0
   const activePortion = portions[portionIndex] as PizzaPortion
   const activeStyle = styleOf(activePortion)
-  const portionError = current.kind === 'portion' ? validatePortion(activePortion, catalog) : null
-  const stepErrors = isLast ? errors : portionError ? [portionError] : []
+  // On the last step the first portion still missing its style is the one to point at.
+  const missingIndex = isLast ? portions.findIndex((portion) => !hasStyle(portion)) : hasStyle(activePortion) ? -1 : portionIndex
+  const missingStyleHint = missingIndex === -1 ? null : `Elige el estilo de ${missingStyleTarget(count, missingIndex)}`
+  const portionError = current.kind === 'portion' ? (missingStyleHint ?? validatePortion(activePortion, catalog)) : null
+  const stepErrors = missingStyleHint ? [missingStyleHint] : isLast ? errors : portionError ? [portionError] : []
   const diagramLabel =
     count === 1 ? 'Pizza entera' : `Pizza dividida en ${portionLabel(count)}; ${portionTitle(count, portionIndex)} seleccionada`
 
@@ -334,7 +347,7 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose }: PizzaBuilderModal
                   +
                 </button>
               </div>
-              <Button size="lg" className="flex-1" disabled={noDough || errors.length > 0} onClick={addPizzas}>
+              <Button size="lg" className="flex-1" disabled={noDough || errors.length > 0 || missingStyleHint !== null} onClick={addPizzas}>
                 Agregar pizza
               </Button>
             </div>

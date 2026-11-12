@@ -324,9 +324,16 @@ describe('open orders', () => {
 
 async function finishPizza(user: ReturnType<typeof userEvent.setup>) {
   const dialog = screen.getByRole('dialog', { name: /armar pizza/i })
+  // No style is preselected: every portion needs one (Estilo Varas) before the footer button enables.
+  const pickStyle = async () => {
+    const card = within(dialog).queryByRole('button', { name: /Estilo Varas/ })
+    if (card && card.getAttribute('aria-pressed') !== 'true') await user.click(card)
+  }
   for (let i = 0; i < 6 && !within(dialog).queryByRole('button', { name: 'Agregar pizza' }); i++) {
+    await pickStyle()
     await user.click(within(dialog).getByRole('button', { name: /^Siguiente/ }))
   }
+  await pickStyle()
   await user.click(within(dialog).getByRole('button', { name: 'Agregar pizza' }))
 }
 

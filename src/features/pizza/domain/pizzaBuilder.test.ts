@@ -6,6 +6,7 @@ import {
   hasChileVariants,
   ingredientLevel,
   initialPortions,
+  NO_STYLE,
   resizePortions,
   setIngredientLevel,
   setPortionStyle,
@@ -21,12 +22,14 @@ const custom: PizzaStyle = { id: 'custom', name: 'Arma', description: '', kind: 
 const chica: PizzaSize = { code: 'chica', name: 'Chica', allowedPortions: [1, 2], sortOrder: 1, doughLeft: null }
 
 const empty: PizzaPortion = { styleId: 'varas', ingredientIds: [], extraIngredientIds: [] }
+const unset: PizzaPortion = { styleId: NO_STYLE, ingredientIds: [], extraIngredientIds: [] }
 
 describe('initialPortions', () => {
   it('creates the requested number of unset portions', () => {
-    const portions = initialPortions(2, 'varas')
+    const portions = initialPortions(2)
     expect(portions).toHaveLength(2)
-    expect(portions[0]).toEqual(empty)
+    expect(portions[0]).toEqual(unset)
+    expect(portions[0]?.styleId).toBe('')
     expect(portions[0]).not.toBe(portions[1])
   })
 })
@@ -34,12 +37,16 @@ describe('initialPortions', () => {
 describe('resizePortions', () => {
   it('keeps the current division when the new size allows it', () => {
     const portions = [empty, { ...empty, styleId: 'x' }]
-    expect(resizePortions(portions, chica, 'varas')).toBe(portions)
+    expect(resizePortions(portions, chica)).toBe(portions)
   })
 
   it('resets to a single portion when the division is not allowed', () => {
     const portions = [empty, empty, empty]
-    expect(resizePortions(portions, chica, 'varas')).toEqual([empty])
+    expect(resizePortions(portions, chica)).toEqual([empty])
+  })
+
+  it('falls back to a whole pizza without a style when none was chosen', () => {
+    expect(resizePortions([unset, unset, unset], chica)).toEqual([unset])
   })
 })
 

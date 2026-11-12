@@ -25,11 +25,23 @@ function renderBuilder(catalog: PizzaCatalog = pizzaCatalogFixture) {
   const back = () => user.click(screen.getByRole('button', { name: /^←/ }))
   const add = () => user.click(screen.getByRole('button', { name: 'Agregar pizza' }))
   const card = (name: RegExp | string) => screen.getByRole('button', { name })
-  /** Walks size → (division) → style until the ingredients step. */
-  async function toIngredients() {
-    while (!screen.queryByRole('button', { name: 'Agregar pizza' })) await next()
+  /** Picks Estilo Varas (or the first listed style) when the open portion has none chosen yet. */
+  async function pickStyle() {
+    const group = screen.queryByRole('group', { name: /^Estilo de la / })
+    if (!group) return
+    const cards = within(group).getAllByRole('button')
+    if (cards.some((c) => c.getAttribute('aria-pressed') === 'true')) return
+    await user.click(cards.find((c) => /Estilo Varas/.test(c.textContent ?? '')) ?? (cards[0] as HTMLElement))
   }
-  return { onAdd, onClose, user, next, back, add, card, toIngredients }
+  /** Walks size → (division) → style (choosing one per portion) until the last portion. */
+  async function toIngredients() {
+    while (!screen.queryByRole('button', { name: 'Agregar pizza' })) {
+      await pickStyle()
+      await next()
+    }
+    await pickStyle()
+  }
+  return { onAdd, onClose, user, next, back, add, card, toIngredients, pickStyle }
 }
 
 const MEXICANA = { id: 'mex', name: 'Estilo Mexicana', description: '', kind: 'special', includedIngredients: 0, sortOrder: 3 } as const
@@ -37,7 +49,7 @@ const CUSTOM_ONLY: PizzaCatalog = { ...pizzaCatalogFixture, styles: pizzaCatalog
 
 describe('PizzaBuilderModal steps', () => {
   it('goes Tamaño → División → one step per portion with a header of completed choices', async () => {
-    const { user, next, card } = renderBuilder()
+    const { user, next, card, pickStyle } = renderBuilder()
     const steps = screen.getByRole('list', { name: 'Pasos de la pizza' })
     expect(screen.getByRole('group', { name: 'Tamaño' })).toBeVisible()
     expect(screen.queryByRole('button', { name: 'Agregar pizza' })).not.toBeInTheDocument()
@@ -51,10 +63,12 @@ describe('PizzaBuilderModal steps', () => {
     await next()
     expect(screen.getByRole('group', { name: 'Estilo de la Mitad 1' })).toBeVisible()
     expect(steps).toHaveTextContent(/División ✓\s*Mitades/)
+    await pickStyle()
     expect(screen.getByRole('group', { name: 'Ingredientes disponibles' })).toBeVisible()
     await next()
     expect(screen.getByRole('group', { name: 'Estilo de la Mitad 2' })).toBeVisible()
     expect(steps).toHaveTextContent(/Mitad 1 ✓\s*Varas/)
+    await pickStyle()
     expect(screen.getByRole('group', { name: 'Ingredientes disponibles' })).toBeVisible()
     expect(screen.getByRole('button', { name: 'Agregar pizza' })).toBeVisible()
   })
@@ -66,6 +80,7 @@ describe('PizzaBuilderModal steps', () => {
     await next()
     await next()
     expect(screen.getByRole('group', { name: 'Estilo de la Pizza entera' })).toBeVisible()
+    await user.click(card(/Arma tu combinación/))
     expect(screen.getByRole('group', { name: 'Ingredientes disponibles' })).toBeVisible()
     await user.click(within(screen.getByRole('group', { name: 'Ingredientes disponibles' })).getByRole('button', { name: 'Piña' }))
     expect(screen.getByRole('group', { name: 'Cantidad de Piña' })).toBeVisible()
@@ -73,19 +88,13 @@ describe('PizzaBuilderModal steps', () => {
     expect(screen.queryByRole('button', { name: /Siguiente: Ingredientes/ })).not.toBeInTheDocument()
   })
 
-  it('preselects the default style, so its ingredient controls show right away', async () => {
-    const { next } = renderBuilder(CUSTOM_ONLY)
-    await next()
-    await next()
-    expect(screen.getByRole('button', { name: /Arma tu combinación/ })).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByText('Incluye 2 ingredientes a elección · Doble cuenta como extra')).toBeVisible()
-  })
-
   it('shows the ingredients of the newly chosen style and resets them to its defaults', async () => {
     const { user, next, card } = renderBuilder()
     await next()
     await next()
+    await user.click(card(/Estilo Varas/))
     expect(screen.getByText(/no incluye ingredientes/i)).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'Cambiar estilo' }))
     await user.click(card(/Arma tu combinación/))
     expect(screen.getByText('Incluye 2 ingredientes a elección · Doble cuenta como extra')).toBeVisible()
     await user.click(within(screen.getByRole('group', { name: 'Ingredientes disponibles' })).getByRole('button', { name: 'Piña' }))
@@ -96,8 +105,9 @@ describe('PizzaBuilderModal steps', () => {
   })
 
   it('goes Tamaño → Pizza for a whole pizza, adding from that step', async () => {
-    const { onAdd, user, next, add } = renderBuilder(chicaWhole())
+    const { onAdd, user, next, add, card } = renderBuilder(chicaWhole())
     await next()
+    await user.click(card(/Estilo Varas/))
     expect(screen.getByRole('list', { name: 'Pasos de la pizza' })).toHaveTextContent(/Pizza\s*Varas/)
     expect(screen.getByRole('group', { name: 'Estilo de la Pizza entera' })).toBeVisible()
     expect(screen.getByRole('group', { name: 'Extras para toda la pizza' })).toBeVisible()
@@ -110,17 +120,19 @@ describe('PizzaBuilderModal steps', () => {
   })
 
   it('shows extras, note and quantity only on the last portion', async () => {
-    const { user, next, card } = renderBuilder()
+    const { user, next, card, pickStyle } = renderBuilder()
     await user.click(card('Grande'))
     await next()
     await user.click(card('Mitades'))
     await next()
-    expect(screen.getByRole('button', { name: 'Siguiente: Mitad 2 →' })).toBeVisible()
+    await pickStyle()
+    expect(screen.getByRole('button', { name: 'Siguiente: Mitad 2 →' })).toBeEnabled()
     expect(screen.queryByRole('group', { name: 'Extras para toda la pizza' })).not.toBeInTheDocument()
     expect(screen.queryByLabelText(/nota de la pizza/i)).not.toBeInTheDocument()
     expect(screen.queryByRole('group', { name: 'Cantidad de pizzas' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Agregar pizza' })).not.toBeInTheDocument()
     await next()
+    await pickStyle()
     expect(screen.getByRole('group', { name: 'Extras para toda la pizza' })).toBeVisible()
     expect(screen.getByLabelText(/nota de la pizza/i)).toBeVisible()
     expect(screen.getByRole('group', { name: 'Cantidad de pizzas' })).toBeVisible()
@@ -134,11 +146,13 @@ describe('PizzaBuilderModal steps', () => {
     await next()
     await user.click(card('Mitades'))
     await next()
+    await user.click(card(/Arma tu combinación/))
     expect(screen.getByRole('button', { name: /^Siguiente/ })).toBeDisabled()
     expect(screen.getByText(/elige al menos un ingrediente/i)).toBeVisible()
     await user.click(within(screen.getByRole('group', { name: 'Ingredientes disponibles' })).getByRole('button', { name: 'Pepperoni' }))
     expect(screen.getByRole('button', { name: /^Siguiente/ })).toBeEnabled()
     await next()
+    await user.click(card(/Arma tu combinación/))
     expect(screen.getByRole('button', { name: 'Agregar pizza' })).toBeDisabled()
     expect(screen.getByText(/elige al menos un ingrediente/i)).toBeVisible()
   })
@@ -161,12 +175,13 @@ describe('PizzaBuilderModal steps', () => {
   })
 
   it('shows a diagram that names the portion being edited', async () => {
-    const { user, next, card } = renderBuilder()
+    const { user, next, card, pickStyle } = renderBuilder()
     await user.click(card('Grande'))
     await next()
     await user.click(card('Tercios'))
     await next()
     expect(screen.getByRole('img', { name: /Tercios.*Porción 1/ })).toBeVisible()
+    await pickStyle()
     await next()
     expect(screen.getByRole('img', { name: /Tercios.*Porción 2/ })).toBeVisible()
   })
@@ -179,8 +194,9 @@ describe('PizzaBuilderModal steps', () => {
     await next()
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
     expect(card(/Estilo Varas/)).toHaveTextContent('Pepperoni y queso')
-    expect(card(/Estilo Varas/)).toHaveAttribute('aria-pressed', 'true')
+    expect(card(/Estilo Varas/)).toHaveAttribute('aria-pressed', 'false')
     expect(card(/Arma tu combinación/)).toHaveAttribute('aria-pressed', 'false')
+    await user.click(card(/Estilo Varas/))
     await next()
     await user.click(card(/Arma tu combinación/))
     expect(card(/Arma tu combinación/)).toHaveAttribute('aria-pressed', 'true')
@@ -377,7 +393,7 @@ describe('PizzaBuilderModal styles', () => {
     )
   })
 
-  it('lists Pepperoni and Hawaiana first, then the rest A-Z, and starts on Pepperoni', async () => {
+  it('lists Pepperoni and Hawaiana first, then the rest A-Z, and preselects none', async () => {
     const catalog: PizzaCatalog = {
       ...pizzaCatalogFixture,
       styles: [
@@ -396,7 +412,7 @@ describe('PizzaBuilderModal styles', () => {
       expect.stringContaining('Arma tu combinación'),
       expect.stringContaining('Estilo Varas'),
     ])
-    expect(cards[0]).toHaveAttribute('aria-pressed', 'true')
+    for (const c of cards) expect(c).toHaveAttribute('aria-pressed', 'false')
   })
 
   it('shows only the divisions allowed by the size and resets an invalid one when resizing', async () => {
@@ -497,12 +513,14 @@ describe('PizzaBuilderModal ingredients', () => {
   })
 
   it('configures each portion on its own step', async () => {
-    const { onAdd, user, next, back, add, card } = renderBuilder()
+    const { onAdd, user, next, back, add, card, pickStyle } = renderBuilder()
     await user.click(card('Grande'))
     await next()
     await user.click(card('Mitades'))
     await next()
+    await pickStyle()
     await next()
+    await pickStyle()
     await user.click(within(chips()).getByRole('button', { name: 'Jalapeños' }))
     await back()
     expect(within(chips()).getByRole('button', { name: 'Jalapeños' })).toHaveAttribute('aria-pressed', 'false')
@@ -586,5 +604,59 @@ describe('PizzaBuilderModal pizza dough', () => {
     expect(screen.getByText('No hay masas de pizza disponibles.')).toBeVisible()
     expect(screen.getByRole('button', { name: /^Siguiente/ })).toBeDisabled()
     expect(screen.getAllByText('Agotado')).toHaveLength(2)
+  })
+})
+
+describe('PizzaBuilderModal no default style', () => {
+  it('starts a portion with no style selected and no ingredient controls', async () => {
+    const { next } = renderBuilder()
+    await next()
+    await next()
+    const cards = within(screen.getByRole('group', { name: 'Estilo de la Pizza entera' })).getAllByRole('button')
+    expect(cards).toHaveLength(2)
+    for (const card of cards) expect(card).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.queryByRole('group', { name: 'Ingredientes disponibles' })).not.toBeInTheDocument()
+    expect(screen.queryByText(/Incluye \d+ ingredientes|no incluye ingredientes/i)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Cambiar estilo' })).not.toBeInTheDocument()
+  })
+
+  it('blocks the footer button with a hint until a style is chosen', async () => {
+    const { user, next, card, onAdd } = renderBuilder(chicaWhole())
+    await next()
+    expect(screen.getByRole('button', { name: 'Agregar pizza' })).toBeDisabled()
+    expect(screen.getByText('Elige el estilo de la pizza')).toBeVisible()
+    expect(screen.getByRole('status', { name: 'Resumen de la pizza' })).not.toHaveTextContent('Varas')
+    await user.click(card(/Estilo Varas/))
+    expect(screen.getByRole('button', { name: 'Agregar pizza' })).toBeEnabled()
+    expect(screen.queryByText('Elige el estilo de la pizza')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Agregar pizza' }))
+    expect(onAdd.mock.calls[0]?.[0].config.portions).toEqual([{ styleId: 'varas', ingredientIds: [], extraIngredientIds: [] }])
+  })
+
+  it('shows the ingredients and collapses the list once a style is chosen', async () => {
+    const { user, next, card } = renderBuilder(CUSTOM_ONLY)
+    await next()
+    await next()
+    await user.click(card(/Arma tu combinación/))
+    expect(screen.getByRole('group', { name: 'Ingredientes disponibles' })).toBeVisible()
+    expect(screen.getByText('Incluye 2 ingredientes a elección · Doble cuenta como extra')).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Cambiar estilo' })).toBeVisible()
+  })
+
+  it('every half starts without a style and blocks Siguiente until chosen', async () => {
+    const { user, next, card } = renderBuilder()
+    await user.click(card('Grande'))
+    await next()
+    await user.click(card('Mitades'))
+    await next()
+    expect(screen.getByRole('button', { name: 'Siguiente: Mitad 2 →' })).toBeDisabled()
+    expect(screen.getByText('Elige el estilo de la mitad 1')).toBeVisible()
+    await user.click(card(/Estilo Varas/))
+    await next()
+    expect(within(screen.getByRole('group', { name: 'Estilo de la Mitad 2' })).getAllByRole('button')).toHaveLength(2)
+    expect(screen.queryByRole('group', { name: 'Ingredientes disponibles' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Agregar pizza' })).toBeDisabled()
+    expect(screen.getByText('Elige el estilo de la mitad 2')).toBeVisible()
+    expect(screen.getByRole('status', { name: 'Resumen de la pizza' })).toHaveTextContent('Mitad 2 sin estilo')
   })
 })

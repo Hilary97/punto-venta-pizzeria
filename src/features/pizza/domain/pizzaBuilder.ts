@@ -22,19 +22,27 @@ export function sortBuilderStyles(styles: PizzaStyle[]): PizzaStyle[] {
   return [...styles].sort((a, b) => pinRank(a) - pinRank(b) || byName(a, b))
 }
 
+/** Builder-only marker for a portion whose style was not chosen yet; never reaches an added pizza. */
+export const NO_STYLE = ''
+
 function emptyPortion(styleId: string): PizzaPortion {
   return { styleId, ingredientIds: [], extraIngredientIds: [] }
 }
 
-/** `count` portions that all start with the given style. */
-export function initialPortions(count: number, styleId: string): PizzaPortion[] {
-  return Array.from({ length: count }, () => emptyPortion(styleId))
+/** `count` portions with no style chosen yet. */
+export function initialPortions(count: number): PizzaPortion[] {
+  return Array.from({ length: count }, () => emptyPortion(NO_STYLE))
 }
 
-/** Keeps the division when the size allows it; otherwise falls back to a whole pizza. */
-export function resizePortions(portions: PizzaPortion[], size: PizzaSize, defaultStyleId: string): PizzaPortion[] {
+/** True once the portion has a style picked. */
+export function hasStyle(portion: PizzaPortion): boolean {
+  return portion.styleId !== NO_STYLE
+}
+
+/** Keeps the division when the size allows it; otherwise falls back to a whole pizza (keeping the first portion's style, if any). */
+export function resizePortions(portions: PizzaPortion[], size: PizzaSize): PizzaPortion[] {
   if (size.allowedPortions.includes(portions.length)) return portions
-  return initialPortions(1, portions[0]?.styleId ?? defaultStyleId)
+  return [portions[0] ? { ...emptyPortion(portions[0].styleId) } : emptyPortion(NO_STYLE)]
 }
 
 /** Switches the portion style, keeping chosen ingredients up to the new style limit; a style without chiles drops them. */
