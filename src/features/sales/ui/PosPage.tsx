@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
+import { ChargedScreen, type ChargedSale } from './ChargedScreen'
 import { Link, useSearchParams } from 'react-router'
 import { ErrorBanner } from '../../../shared/ui/ErrorBanner'
+import { MoneyText } from '../../../shared/ui/MoneyText'
 import { Spinner } from '../../../shared/ui/Spinner'
 import { toUserMessage } from '../../../shared/errors'
-import { formatMoney } from '../../../shared/money'
 import { orderLabel, type Order } from '../../orders/domain/order'
 import type { OrderQuote } from '../../orders/domain/orderQuote'
 import { getOrder, payOrder, quoteOrder } from '../../orders/infrastructure/ordersRepository'
@@ -25,7 +26,7 @@ export function PosPage() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const pending = useRef(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [lastSaleMessage, setLastSaleMessage] = useState<string | null>(null)
+  const [lastSale, setLastSale] = useState<ChargedSale | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -79,7 +80,7 @@ export function PosPage() {
   }
 
   function chargeOrder(id: string) {
-    setLastSaleMessage(null)
+    setLastSale(null)
     setSearchParams((current) => {
       const next = new URLSearchParams(current)
       next.set(ORDER_PARAM, id)
@@ -93,7 +94,7 @@ export function PosPage() {
     setIsSubmitting(true)
     try {
       const result = await payOrder(order.id, receivedCents)
-      setLastSaleMessage(`Pedido ${orderLabel(order)} cobrado. Total cobrado: ${formatMoney(result.totalCents)}. Cambio: ${formatMoney(result.changeCents)}.`)
+      setLastSale({ label: orderLabel(order), totalCents: result.totalCents, changeCents: result.changeCents })
       clearOrderParam()
     } finally {
       pending.current = false
@@ -124,40 +125,47 @@ export function PosPage() {
     )
   }
 
-  const successMessage = lastSaleMessage && (
-    <div
-      role="status"
-      className="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800"
-    >
-      {lastSaleMessage}
-    </div>
-  )
+  const chargedScreen = lastSale && <ChargedScreen sale={lastSale} onDone={() => setLastSale(null)} />
 
   if (!order || !quote) {
     return (
       <div className="flex min-w-0 flex-col gap-4 p-4">
-        {successMessage}
+        {chargedScreen}
         <PendingOrdersPanel onCharge={chargeOrder} />
       </div>
     )
   }
 
   return (
-    <div className="mx-auto flex w-full min-w-0 max-w-xl flex-col gap-4 p-4">
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-        <p className="font-semibold">{`Cobrando pedido ${orderLabel(order)}${order.waiterName ? ` · Atendió ${order.waiterName}` : ''}`}</p>
-        <div className="flex items-center gap-4">
-          <Link to="/pedidos" className={backToOrdersLinkClass}>
-            Volver a pedidos
-          </Link>
-          <button type="button" disabled={isSubmitting} onClick={clearOrderParam} className={backToOrdersLinkClass}>
-            Descartar
-          </button>
+    <div className="flex min-w-0 flex-col gap-4 p-4">
+      {/* Narrow screens: title on its own row, actions below it on one row. */}
+      <header className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border border-slate-200 bg-white px-4 py-3">
+        <div className="order-first min-w-0 basis-full sm:order-none sm:flex-1 sm:basis-auto">
+          <h1 className="break-words text-lg font-bold text-slate-900">{`Cobrar ${orderLabel(order)}`}</h1>
+          {order.waiterName && <p className="text-sm text-slate-600">{`Atendió ${order.waiterName}`}</p>}
         </div>
-      </div>
-      <div className="flex min-w-0 flex-col gap-4 rounded-xl border border-slate-200 bg-white p-4">
-        <QuoteLinesPanel quote={quote} orderNotes={order.notes} />
-        <CheckoutForm totalCents={quote.totalCents} isEmpty={quote.lines.length === 0} isSubmitting={isSubmitting} onConfirm={handleConfirmSale} />
+        <Link to="/pedidos" aria-label="Volver a pedidos" className="inline-flex min-h-12 items-center rounded-lg bg-slate-100 px-4 font-bold text-slate-900 hover:bg-slate-200 sm:order-first">
+          <span aria-hidden="true" className="mr-1">←</span>
+          <span className="sm:hidden">Pedidos</span>
+          <span className="hidden sm:inline">Volver a pedidos</span>
+        </Link>
+        <button type="button" disabled={isSubmitting} onClick={clearOrderParam}
+          className="ml-auto min-h-12 rounded-lg border border-red-300 bg-white px-4 font-bold text-red-700 hover:bg-red-50 disabled:opacity-50 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-950/60">
+          Descartar
+        </button>
+      </header>
+      {/* Payment comes first in the DOM so phones reach the keypad and Cobrar without scrolling past the order; md+ shows it on the right. */}
+      <div className="grid min-w-0 items-start gap-4 md:grid-cols-2">
+        <section aria-label="Cobro" className="flex min-w-0 flex-col gap-3 md:col-start-2 md:row-start-1">
+          <p className="flex items-baseline justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 md:hidden">
+            <span className="font-bold text-slate-600">Total a cobrar</span>
+            <MoneyText cents={quote.totalCents} className="text-2xl font-extrabold text-slate-900" />
+          </p>
+          <CheckoutForm totalCents={quote.totalCents} isEmpty={quote.lines.length === 0} isSubmitting={isSubmitting} onConfirm={handleConfirmSale} />
+        </section>
+        <section aria-label="Productos del pedido" className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 md:col-start-1 md:row-start-1">
+          <QuoteLinesPanel quote={quote} orderNotes={order.notes} />
+        </section>
       </div>
     </div>
   )
