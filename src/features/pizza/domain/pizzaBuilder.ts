@@ -22,19 +22,27 @@ export function sortBuilderStyles(styles: PizzaStyle[]): PizzaStyle[] {
   return [...styles].sort((a, b) => pinRank(a) - pinRank(b) || byName(a, b))
 }
 
+/** Builder-only marker for a portion whose style was not chosen yet; never reaches an added pizza. */
+export const NO_STYLE = ''
+
 function emptyPortion(styleId: string): PizzaPortion {
   return { styleId, ingredientIds: [], extraIngredientIds: [] }
 }
 
-/** `count` portions that all start with the given style. */
-export function initialPortions(count: number, styleId: string): PizzaPortion[] {
-  return Array.from({ length: count }, () => emptyPortion(styleId))
+/** `count` portions with no style chosen yet. */
+export function initialPortions(count: number): PizzaPortion[] {
+  return Array.from({ length: count }, () => emptyPortion(NO_STYLE))
 }
 
-/** Keeps the division when the size allows it; otherwise falls back to a whole pizza. */
-export function resizePortions(portions: PizzaPortion[], size: PizzaSize, defaultStyleId: string): PizzaPortion[] {
+/** True once the portion has a style picked. */
+export function hasStyle(portion: PizzaPortion): boolean {
+  return portion.styleId !== NO_STYLE
+}
+
+/** Keeps the division when the size allows it; otherwise falls back to a whole pizza (keeping the first portion's style, if any). */
+export function resizePortions(portions: PizzaPortion[], size: PizzaSize): PizzaPortion[] {
   if (size.allowedPortions.includes(portions.length)) return portions
-  return initialPortions(1, portions[0]?.styleId ?? defaultStyleId)
+  return [portions[0] ? { ...emptyPortion(portions[0].styleId) } : emptyPortion(NO_STYLE)]
 }
 
 /** Switches the portion style, keeping chosen ingredients up to the new style limit; a style without chiles drops them. */
@@ -107,4 +115,52 @@ export function togglePizzaExtra(extraIds: string[], extraId: string): string[] 
 
 export function buildConfig(size: PizzaSizeCode, portions: PizzaPortion[], extraIds: string[]): PizzaConfig {
   return { size, portions, extraIds }
+}
+
+/** How a chosen ingredient is made: once, twice (the double is a charged extra) or not at all. */
+export type IngredientLevel = 'none' | 'normal' | 'doble'
+
+export function ingredientLevel(portion: PizzaPortion, ingredientId: string): IngredientLevel {
+  const extras = extraCount(portion, ingredientId)
+  if (portion.ingredientIds.includes(ingredientId)) return extras > 0 ? 'doble' : 'normal'
+  if (extras === 0) return 'none'
+  return extras > 1 ? 'doble' : 'normal'
+}
+
+/** True when the ingredient is charged as an extra: either a double or one beyond the style's included ones. */
+export function isChargedIngredient(portion: PizzaPortion, ingredientId: string): boolean {
+  return extraCount(portion, ingredientId) > 0
+}
+
+/**
+ * Sets how an ingredient is made on a portion. A new ingredient takes an included slot while the style
+ * has one free; otherwise it is a charged extra. `doble` of an included one adds one charged extra,
+ * `doble` of an extra is charged twice, and `none` removes it entirely.
+ */
+export function setIngredientLevel(
+  portion: PizzaPortion,
+  ingredientId: string,
+  level: IngredientLevel,
+  style: PizzaStyle,
+): PizzaPortion {
+  const included = portion.ingredientIds.includes(ingredientId)
+  const others = portion.extraIngredientIds.filter((id) => id !== ingredientId)
+  const times = (count: number) => Array.from({ length: count }, () => ingredientId)
+
+  if (level === 'none') {
+    return {
+      ...portion,
+      ingredientIds: portion.ingredientIds.filter((id) => id !== ingredientId),
+      extraIngredientIds: others,
+    }
+  }
+  const asIncluded = included || (portion.ingredientIds.length < style.includedIngredients && extraCount(portion, ingredientId) === 0)
+  if (asIncluded) {
+    return {
+      ...portion,
+      ingredientIds: included ? portion.ingredientIds : [...portion.ingredientIds, ingredientId],
+      extraIngredientIds: [...others, ...times(level === 'doble' ? 1 : 0)],
+    }
+  }
+  return { ...portion, extraIngredientIds: [...others, ...times(level === 'doble' ? 2 : 1)] }
 }

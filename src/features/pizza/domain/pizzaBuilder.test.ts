@@ -4,8 +4,11 @@ import {
   buildConfig,
   clearChiles,
   hasChileVariants,
+  ingredientLevel,
   initialPortions,
+  NO_STYLE,
   resizePortions,
+  setIngredientLevel,
   setPortionStyle,
   sortBuilderStyles,
   toggleChile,
@@ -19,12 +22,14 @@ const custom: PizzaStyle = { id: 'custom', name: 'Arma', description: '', kind: 
 const chica: PizzaSize = { code: 'chica', name: 'Chica', allowedPortions: [1, 2], sortOrder: 1, doughLeft: null }
 
 const empty: PizzaPortion = { styleId: 'varas', ingredientIds: [], extraIngredientIds: [] }
+const unset: PizzaPortion = { styleId: NO_STYLE, ingredientIds: [], extraIngredientIds: [] }
 
 describe('initialPortions', () => {
   it('creates the requested number of unset portions', () => {
-    const portions = initialPortions(2, 'varas')
+    const portions = initialPortions(2)
     expect(portions).toHaveLength(2)
-    expect(portions[0]).toEqual(empty)
+    expect(portions[0]).toEqual(unset)
+    expect(portions[0]?.styleId).toBe('')
     expect(portions[0]).not.toBe(portions[1])
   })
 })
@@ -32,12 +37,16 @@ describe('initialPortions', () => {
 describe('resizePortions', () => {
   it('keeps the current division when the new size allows it', () => {
     const portions = [empty, { ...empty, styleId: 'x' }]
-    expect(resizePortions(portions, chica, 'varas')).toBe(portions)
+    expect(resizePortions(portions, chica)).toBe(portions)
   })
 
   it('resets to a single portion when the division is not allowed', () => {
     const portions = [empty, empty, empty]
-    expect(resizePortions(portions, chica, 'varas')).toEqual([empty])
+    expect(resizePortions(portions, chica)).toEqual([empty])
+  })
+
+  it('falls back to a whole pizza without a style when none was chosen', () => {
+    expect(resizePortions([unset, unset, unset], chica)).toEqual([unset])
   })
 })
 
@@ -187,5 +196,31 @@ describe('chile variants', () => {
     const withChiles: PizzaPortion = { ...mex, chiles: ['serrano'] }
     expect(setPortionStyle(withChiles, special)).toEqual({ ...empty, styleId: 'varas' })
     expect(setPortionStyle(withChiles, mexicana)).toEqual(withChiles)
+  })
+})
+
+describe('setIngredientLevel', () => {
+  const empty: PizzaPortion = { styleId: 'custom', ingredientIds: [], extraIngredientIds: [] }
+
+  it('matches the old tap cycle for an included ingredient: normal, doble, quitar', () => {
+    const normal = setIngredientLevel(empty, 'jal', 'normal', custom)
+    expect(normal).toEqual(toggleIngredient(empty, 'jal', custom))
+    const doble = setIngredientLevel(normal, 'jal', 'doble', custom)
+    expect(doble).toEqual(toggleIngredient(normal, 'jal', custom))
+    expect(ingredientLevel(doble, 'jal')).toBe('doble')
+    expect(setIngredientLevel(doble, 'jal', 'none', custom)).toEqual(empty)
+  })
+
+  it('matches the old extra cycle on a style without included ingredients', () => {
+    const one = setIngredientLevel(empty, 'jal', 'normal', special)
+    expect(one).toEqual(toggleExtra(empty, 'jal'))
+    const two = setIngredientLevel(one, 'jal', 'doble', special)
+    expect(two).toEqual(toggleExtra(one, 'jal'))
+    expect(setIngredientLevel(two, 'jal', 'none', special)).toEqual(empty)
+  })
+
+  it('adds a charged extra once the included slots are full', () => {
+    const full: PizzaPortion = { ...empty, ingredientIds: ['a', 'b'] }
+    expect(setIngredientLevel(full, 'c', 'normal', custom)).toEqual({ ...full, extraIngredientIds: ['c'] })
   })
 })
