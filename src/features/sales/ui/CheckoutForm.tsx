@@ -1,11 +1,21 @@
 import { useId, useRef, useState } from 'react'
 import { ErrorBanner } from '../../../shared/ui/ErrorBanner'
 import { Input } from '../../../shared/ui/Input'
+import { cn } from '../../../shared/ui/cn'
 import { formatMoney, parseMoneyInput } from '../../../shared/money'
 import { calculateChangeCents } from '../domain/change'
 import { splitCents } from '../domain/split'
 
 const MAX_PEOPLE = 50
+/** Keypad entry stops growing past this many whole-peso digits. */
+const MAX_KEYPAD_DIGITS = 7
+const QUICK_BILLS_PESOS = [50, 100, 200, 500] as const
+const KEYPAD_DIGITS = ['7', '8', '9', '4', '5', '6', '1', '2', '3'] as const
+
+/** Writes cents back as the plain string the cashier would type, e.g. `650` or `650.50`. */
+function centsToInput(cents: number): string {
+  return cents % 100 === 0 ? String(cents / 100) : (cents / 100).toFixed(2)
+}
 
 interface CheckoutFormProps {
   totalCents: number
@@ -47,10 +57,27 @@ export function CheckoutForm({ totalCents, isEmpty, isSubmitting, onConfirm }: C
   const { receivedCents, valid, change } = readPayment(receivedInput, totalCents)
   const confirmedReceivedCents = splitEnabled ? (splitSettled ? splitReceivedCents : null) : (change !== null ? receivedCents : null)
   const canConfirm = !isEmpty && confirmedReceivedCents !== null && !isSubmitting
-  const feedback = receivedInput.trim() === '' ? 'Ingresa el monto recibido.'
-    : !valid ? 'Ingresa un monto válido, sin valores negativos.'
-    : change === null ? `El monto recibido es insuficiente. Faltan ${formatMoney(totalCents - (receivedCents ?? 0))}.`
-    : `Cambio: ${formatMoney(change)}`
+  const isBlank = receivedInput.trim() === ''
+  const changeTone = isBlank ? 'idle' : !valid || change === null ? 'short' : 'ok'
+  const changeLabel = isBlank || change !== null ? 'Cambio' : !valid ? 'Monto no válido' : 'Faltan'
+  const changeValue = change !== null ? formatMoney(change)
+    : valid && !isBlank ? formatMoney(totalCents - (receivedCents ?? 0))
+    : '—'
+
+  function setReceived(next: string) {
+    if (!pending.current) setReceivedInput(next)
+  }
+
+  function pressDigit(digit: string) {
+    const plain = receivedInput.replace(/,/g, '')
+    if (!plain.includes('.') && plain.length >= MAX_KEYPAD_DIGITS) return
+    setReceived(plain === '0' ? digit : plain + digit)
+  }
+
+  function addBill(pesos: number) {
+    const current = valid && receivedCents !== null ? receivedCents : 0
+    setReceived(centsToInput(current + pesos * 100))
+  }
 
   function resetSplit() {
     setPersonInputs([])
@@ -93,20 +120,63 @@ export function CheckoutForm({ totalCents, isEmpty, isSubmitting, onConfirm }: C
       </label>
       {!splitEnabled && (
         <>
-          <Input
-            id={inputId}
-            label="Monto recibido"
-            inputMode="decimal"
-            placeholder="0.00"
-            value={receivedInput}
-            disabled={isSubmitting}
-            aria-describedby={`${inputId}-feedback`}
-            aria-invalid={receivedInput.trim() !== '' && !valid}
-            onChange={(event) => { if (!pending.current) setReceivedInput(event.target.value) }}
-          />
-          <p id={`${inputId}-feedback`} aria-live="polite" className="rounded-xl bg-slate-100 p-4 font-semibold text-slate-700">
-            {feedback}
-          </p>
+          {/* Narrow screens: one row per readout (label left, amount right) so long amounts never clip. */}
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3">
+            <div className="flex min-w-0 items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-2 focus-within:border-sky-700 focus-within:ring-2 focus-within:ring-sky-200 sm:flex-col sm:items-stretch sm:py-3">
+              <label htmlFor={inputId} className="shrink-0 text-xs font-bold tracking-wide text-slate-600 uppercase">Monto recibido</label>
+              <div className="flex min-w-0 items-baseline justify-end gap-1 sm:justify-start">
+                <span aria-hidden="true" className="text-2xl font-bold text-slate-500">$</span>
+                <input
+                  id={inputId}
+                  inputMode="decimal"
+                  autoComplete="off"
+                  placeholder="0.00"
+                  value={receivedInput}
+                  disabled={isSubmitting}
+                  aria-describedby={`${inputId}-feedback`}
+                  aria-invalid={!isBlank && !valid}
+                  onChange={(event) => setReceived(event.target.value)}
+                  className="w-full min-w-0 bg-transparent text-right text-2xl font-extrabold text-slate-900 tabular-nums outline-none placeholder:text-slate-400 sm:text-left sm:text-3xl lg:text-4xl"
+                />
+              </div>
+            </div>
+            <div
+              id={`${inputId}-feedback`}
+              aria-live="polite"
+              className={cn(
+                'flex min-w-0 items-center justify-between gap-3 rounded-2xl border px-4 py-2 sm:flex-col sm:items-start sm:justify-start sm:py-3',
+                changeTone === 'idle' && 'border-slate-200 bg-white text-slate-600',
+                changeTone === 'ok' && 'border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-200',
+                changeTone === 'short' && 'border-red-300 bg-red-50 text-red-800 dark:border-red-800 dark:bg-red-950/60 dark:text-red-200',
+              )}
+            >
+              <span className="shrink-0 text-xs font-bold tracking-wide uppercase">{changeLabel}</span>
+              <span className="min-w-0 text-right text-2xl font-extrabold break-all tabular-nums sm:text-left sm:text-3xl lg:text-4xl">{changeValue}</span>
+            </div>
+          </div>
+          <div role="group" aria-label="Billetes rápidos" className="grid grid-cols-4 gap-2 sm:grid-cols-5">
+            <button type="button" disabled={isSubmitting} onClick={() => setReceived(centsToInput(totalCents))}
+              className="col-span-4 min-h-12 rounded-xl sm:col-span-1 sm:min-h-14 bg-slate-900 font-extrabold text-white hover:bg-slate-800 disabled:opacity-50 dark:bg-slate-900 dark:text-slate-50">
+              Exacto
+            </button>
+            {QUICK_BILLS_PESOS.map((pesos) => (
+              <button key={pesos} type="button" disabled={isSubmitting} onClick={() => addBill(pesos)}
+                className="min-h-12 rounded-xl border border-slate-300 bg-white px-1 font-extrabold sm:min-h-14 text-slate-900 tabular-nums hover:bg-slate-100 disabled:opacity-50">
+                {`+$${pesos}`}
+              </button>
+            ))}
+          </div>
+          <div role="group" aria-label="Teclado numérico" className="grid grid-cols-3 gap-2">
+            {KEYPAD_DIGITS.map((digit) => (
+              <KeypadButton key={digit} disabled={isSubmitting} onClick={() => pressDigit(digit)}>{digit}</KeypadButton>
+            ))}
+            <KeypadButton variant="fn" disabled={isSubmitting} onClick={() => setReceived('')}>Borrar todo</KeypadButton>
+            <KeypadButton disabled={isSubmitting} onClick={() => pressDigit('0')}>0</KeypadButton>
+            <KeypadButton variant="fn" disabled={isSubmitting} aria-label="Borrar último dígito"
+              onClick={() => setReceived(receivedInput.slice(0, -1))}>
+              ⌫
+            </KeypadButton>
+          </div>
         </>
       )}
       {splitEnabled && (
@@ -153,10 +223,26 @@ export function CheckoutForm({ totalCents, isEmpty, isSubmitting, onConfirm }: C
         </div>
       )}
       <button type="submit" disabled={!canConfirm}
-        className="w-full rounded-xl bg-emerald-700 px-6 py-4 text-lg font-semibold text-white hover:bg-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
-        {isSubmitting ? 'Procesando…' : 'Registrar venta'}
+        className="min-h-16 w-full rounded-2xl bg-red-700 px-6 text-xl font-extrabold text-white hover:bg-red-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-700 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600">
+        {isSubmitting ? 'Procesando…' : `Cobrar ${formatMoney(totalCents)}`}
       </button>
     </form>
+  )
+}
+
+interface KeypadButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: 'digit' | 'fn'
+}
+
+function KeypadButton({ variant = 'digit', className, ...props }: KeypadButtonProps) {
+  return (
+    <button type="button" {...props}
+      className={cn(
+        'min-h-12 rounded-xl border border-slate-200 font-bold transition-colors disabled:opacity-50 sm:min-h-16',
+        variant === 'digit' ? 'bg-white text-2xl text-slate-900 hover:bg-slate-100 active:bg-slate-200' : 'bg-slate-100 text-base text-slate-600 hover:bg-slate-200',
+        className,
+      )}
+    />
   )
 }
 
