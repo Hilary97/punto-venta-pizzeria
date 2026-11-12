@@ -104,14 +104,19 @@ export function isFuturePickupTime(hhmm: string, now: Date): boolean {
   return iso !== null && Date.parse(iso) > now.getTime()
 }
 
-/** Label for a pickup time in 12-hour device time, e.g. `Para las 2:30 p.m.`. */
-export function pickupTimeLabel(iso: string): string {
+/** Clock time in 12-hour device time, e.g. `2:30 p.m.`. */
+export function pickupClockLabel(iso: string): string {
   const date = new Date(iso)
   const hours = date.getHours()
   const hour12 = hours % 12 === 0 ? 12 : hours % 12
   const minutes = String(date.getMinutes()).padStart(2, '0')
   const period = hours < 12 ? 'a.m.' : 'p.m.'
-  return `Para las ${hour12}:${minutes} ${period}`
+  return `${hour12}:${minutes} ${period}`
+}
+
+/** Label for a pickup time in 12-hour device time, e.g. `Para las 2:30 p.m.`. */
+export function pickupTimeLabel(iso: string): string {
+  return `Para las ${pickupClockLabel(iso)}`
 }
 
 export const PICKUP_TIME_ERROR = 'La hora del pedido debe ser más tarde hoy.'
@@ -153,4 +158,34 @@ export function productLineLabel(name: string, variant: string | null): string {
 export function normalizeNotes(raw: string | null | undefined): string | null {
   const trimmed = raw?.trim() ?? ''
   return trimmed === '' ? null : trimmed
+}
+
+/** A piece an order still lacks before it can be sent. */
+export type MissingPiece = 'service' | 'table-or-name' | 'name' | 'products'
+
+export const MISSING_LABEL: Record<MissingPiece, string> = {
+  service: 'elegir Aquí o Para llevar',
+  'table-or-name': 'mesa o nombre del cliente',
+  name: 'nombre del cliente',
+  products: 'agregar productos',
+}
+
+interface MissingInput {
+  itemCount: number
+  /** Adding to an open order: service, table and name are already fixed. */
+  adding: boolean
+  service: OrderService | null
+  tableNumber: number | null
+  customerName: string
+}
+
+/** What still stops a draft from being sent, in the order the waiter should fix it; empty when it can be sent. */
+export function missingForOrder({ itemCount, adding, service, tableNumber, customerName }: MissingInput): MissingPiece[] {
+  const missing: MissingPiece[] = []
+  if (!adding) {
+    if (service === null) missing.push('service')
+    if (!canRegisterOrder(tableNumber, customerName)) missing.push(service === 'takeaway' ? 'name' : 'table-or-name')
+  }
+  if (itemCount === 0) missing.push('products')
+  return missing
 }
