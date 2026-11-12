@@ -1,28 +1,30 @@
-import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { toUserMessage } from '../../../shared/errors'
 import { useChangeSignal } from '../../../shared/realtime/useChangeSignal'
 import { Button } from '../../../shared/ui/Button'
 import { ErrorBanner } from '../../../shared/ui/ErrorBanner'
-import { Input } from '../../../shared/ui/Input'
+import { Sheet } from '../../../shared/ui/Sheet'
 import { Modal } from '../../../shared/ui/Modal'
 import { Textarea } from '../../../shared/ui/Textarea'
 import { Spinner } from '../../../shared/ui/Spinner'
+import { cn } from '../../../shared/ui/cn'
 import type { PizzaCatalog } from '../../pizza/domain/pizza'
 import { PizzaBuilderModal, type BuiltPizza } from '../../pizza/ui/PizzaBuilderModal'
 import type { Category, Product } from '../../products/domain/product'
-import { ProductGrid } from '../../sales/ui/ProductGrid'
 import type { WaiterShift } from '../../waiters/domain/waiter'
 import {
-  MAX_CUSTOMER_NAME_LENGTH,
+  MISSING_LABEL,
   MAX_ORDER_NOTES_LENGTH,
   PICKUP_TIME_ERROR,
   TABLE_NUMBERS,
   canRegisterOrder,
+  missingForOrder,
   isFuturePickupTime,
   normalizeCustomerName,
   normalizeNotes,
   orderLabel,
   pickupTimeToIso,
+  serviceLabel,
   tableLabel,
   type Order,
   type OrderService,
@@ -33,21 +35,25 @@ import {
   decrementDraftLine,
   draftItemCount,
   draftToPayload,
+  pizzaQuantity,
+  productQuantity,
   incrementDraftLine,
   removeDraftLine,
+  restoreDraftLine,
   setDraftLineNotes,
   type DraftLine,
 } from '../domain/orderDraft'
 import { hideLegacyPizza } from '../domain/legacyPizza'
 import { filterOrders, sortOrdersByName } from '../domain/orderFilter'
 import type { OrdersSource } from '../domain/ordersSource'
+import { tableOccupancy } from '../domain/tableOccupancy'
 import { AddingToOrderBar } from './AddingToOrderBar'
 import { OpenOrdersList } from './OpenOrdersList'
-import { OrderFab } from './OrderFab'
-import { OrderDraftPanel } from './OrderDraftPanel'
-import { ServiceSelector } from './ServiceSelector'
-import { TableSelector } from './TableSelector'
-import { VariantPickerModal } from './VariantPickerModal'
+import { MesaStep } from './MesaStep'
+import { OrderContextBar } from './OrderContextBar'
+import { ProductsStep } from './ProductsStep'
+import { ReviewStep } from './ReviewStep'
+import { StepIndicator, type OrderStep } from './StepIndicator'
 
 interface OrdersWorkspaceProps {
   source: OrdersSource
@@ -56,6 +62,8 @@ interface OrdersWorkspaceProps {
   canCharge: boolean
   onChangeWaiter?: () => void
   onShiftExpired?: () => void
+  /** Phones in the app layout have a bottom nav; fixed bars sit above it. Device apps have none. */
+  aboveBottomNav?: boolean
 }
 
 /** Matches the server messages for a missing or expired waiter shift. */
@@ -64,10 +72,8 @@ function isShiftError(error: unknown): boolean {
   return message.includes('turno') || message.includes('PIN')
 }
 
-export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onShiftExpired }: OrdersWorkspaceProps) {
-  const nameId = useId()
+export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onShiftExpired, aboveBottomNav = false }: OrdersWorkspaceProps) {
   const filterId = useId()
-  const pickupId = useId()
   const [categories, setCategories] = useState<Category[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [pizzaCatalog, setPizzaCatalog] = useState<PizzaCatalog | null>(null)
@@ -93,16 +99,26 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
   const [nameQuery, setNameQuery] = useState('')
   const pending = useRef(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [isDraftOpen, setIsDraftOpen] = useState(false)
-  const [variantProduct, setVariantProduct] = useState<Product | null>(null)
-  const builderRef = useRef<HTMLDivElement>(null)
-  const addingToOrderId = addingToOrder?.id ?? null
+  const [step, setStep] = useState<OrderStep>('mesa')
+  const [isOrdersOpen, setIsOrdersOpen] = useState(false)
+  const [now, setNow] = useState(() => new Date())
+  const stepsRef = useRef<HTMLDivElement>(null)
+  const occupancy = useMemo(() => tableOccupancy(orders, now), [orders, now])
 
-  // Bring the builder into view so the waiter sees they are adding to an open order.
+  // Minutes on the table map: refresh every 30 s.
   useEffect(() => {
-    if (addingToOrderId === null) return
-    builderRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }, [addingToOrderId])
+    const id = setInterval(() => setNow(new Date()), 30_000)
+    return () => clearInterval(id)
+  }, [])
+
+  // A new step starts at the top with focus on its heading (not on first load).
+  const previousStep = useRef(step)
+  useEffect(() => {
+    if (previousStep.current === step) return
+    previousStep.current = step
+    document.documentElement.scrollTop = 0
+    stepsRef.current?.querySelector<HTMLElement>('[data-step-heading]')?.focus()
+  }, [step])
 
   const reloadOrders = useCallback(async () => {
     try {
@@ -178,14 +194,6 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
     return `line-${lineSeq.current}`
   }
 
-  function handleSelectProduct(product: Product) {
-    if (product.variants.length > 0) {
-      setVariantProduct(product)
-      return
-    }
-    addProduct(product, null)
-  }
-
   function addProduct(product: Product, variant: string | null) {
     const lineId = nextLineId()
     updateDraft((current) => addToDraft(current, { lineId, productId: product.id, name: product.name, variant }))
@@ -244,8 +252,8 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
     if (!succeeded) return
     setMessage(addingToOrder ? 'Productos agregados al pedido.' : 'Pedido registrado correctamente.')
     setDraft([])
-    setIsDraftOpen(false)
     setAddingToOrder(null)
+    setStep('mesa')
     if (!addingToOrder) {
       setCustomerName('')
       setOrderNotes('')
@@ -277,13 +285,21 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
     setMessage(null)
     setDraft([])
     setAddingToOrder(order)
+    setIsOrdersOpen(false)
+    setStep('productos')
   }
 
   function handleExitAdding() {
     if (pending.current) return
-    setIsDraftOpen(false)
     setAddingToOrder(null)
     setDraft([])
+    setStep('mesa')
+  }
+
+  function handleService(next: OrderService | null) {
+    setService(next)
+    // Takeaway orders carry no table: they are identified by the customer name.
+    if (next === 'takeaway') setTableNumber(null)
   }
 
   if (isLoading) {
@@ -298,100 +314,46 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
     )
   }
 
-  const draftForm = (
-    <form onSubmit={handleSubmit} className="flex min-w-0 flex-col gap-4 rounded-xl border border-slate-200 bg-white p-4">
-      <h2 className="text-lg font-bold text-slate-900">
-        {addingToOrder
-          ? `Agregar al pedido ${orderLabel(addingToOrder)}`
-          : 'Nuevo pedido'}
-      </h2>
-      <OrderDraftPanel
-        draft={draft}
-        disabled={isSubmitting}
-        onIncrement={(id) => updateDraft((c) => incrementDraftLine(c, id))}
-        onDecrement={(id) => updateDraft((c) => decrementDraftLine(c, id))}
-        onRemove={(id) => updateDraft((c) => removeDraftLine(c, id))}
-        onNotesChange={(id, notes) => updateDraft((c) => setDraftLineNotes(c, id, notes))}
-      />
-      {!addingToOrder && (
-        <label className="flex flex-col gap-1 text-sm font-medium text-slate-700">
-          Nota del pedido (opcional)
-          <Textarea
-            value={orderNotes}
-            maxLength={MAX_ORDER_NOTES_LENGTH}
-            disabled={isSubmitting}
-            onChange={(event) => setOrderNotes(event.target.value)}
-          />
-        </label>
-      )}
-      {!addingToOrder && (
-        <Input
-          id={pickupId}
-          type="time"
-          label="Hora para recoger (opcional)"
-          value={pickupTime}
-          disabled={isSubmitting}
-          onChange={(event) => setPickupTime(event.target.value)}
-        />
-      )}
-      {!addingToOrder && service === null && draft.length > 0 && (
-        <p className="text-sm font-medium text-amber-800">Elige si es para aquí o para llevar.</p>
-      )}
-      {actionError && <ErrorBanner message={actionError} />}
-      <Button type="submit" size="lg" disabled={!canSubmit || isSubmitting}>
-        {isSubmitting ? 'Procesando…' : addingToOrder ? 'Agregar al pedido' : 'Registrar pedido'}
-      </Button>
-      {addingToOrder && (
-        <Button type="button" variant="secondary" disabled={isSubmitting} onClick={handleExitAdding}>
-          Cancelar edición
-        </Button>
-      )}
-    </form>
-  )
-
   const legacyHidden = hideLegacyPizza(categories, products)
   const hasPizzaBuilder = pizzaCatalog !== null && pizzaCatalog.sizes.length > 0
   const visibleOrders = sortOrdersByName(filterOrders(orders, { tableNumber: filterTable, nameQuery }))
   const isFiltering = filterTable !== null || nameQuery.trim() !== ''
 
   const openOrdersSection = (
-    <section className="flex min-w-0 flex-col gap-4" aria-labelledby={`${filterId}-title`}>
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <h2 id={`${filterId}-title`} className="text-xl font-bold text-slate-900">
-          Pedidos abiertos
-        </h2>
-        <div className="flex flex-wrap items-end gap-3">
-          <label className="flex flex-col gap-1 text-sm font-medium text-slate-700">
-            Buscar por nombre
-            <input
-              type="search"
-              value={nameQuery}
-              placeholder="Nombre del cliente"
-              onChange={(event) => setNameQuery(event.target.value)}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-base font-normal text-slate-900"
-            />
+    <section className="flex min-w-0 flex-col gap-4" aria-label="Pedidos abiertos">
+      <div className="flex flex-col gap-3">
+        <label className="flex w-full min-w-0 flex-col gap-1 text-sm font-medium text-slate-700">
+          Buscar por nombre
+          <input
+            type="search"
+            value={nameQuery}
+            placeholder="Nombre del cliente"
+            onChange={(event) => setNameQuery(event.target.value)}
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-base font-normal text-slate-900"
+          />
+        </label>
+        <div className="flex items-end gap-3">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <label htmlFor={filterId} className="text-sm font-medium text-slate-700">
+            Filtrar por mesa
           </label>
-          <div className="flex flex-col gap-1">
-            <label htmlFor={filterId} className="text-sm font-medium text-slate-700">
-              Filtrar por mesa
-            </label>
-            <select
-              id={filterId}
-              value={filterTable ?? ''}
-              onChange={(event) => setFilterTable(event.target.value === '' ? null : Number(event.target.value))}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-base text-slate-900"
-            >
-              <option value="">Todas</option>
-              {TABLE_NUMBERS.map((n) => (
-                <option key={n} value={n}>
-                  {tableLabel(n)}
-                </option>
-              ))}
-            </select>
-          </div>
-          <Button variant="secondary" disabled={isSubmitting} onClick={() => void reloadOrders()}>
-            Actualizar
-          </Button>
+          <select
+            id={filterId}
+            value={filterTable ?? ''}
+            onChange={(event) => setFilterTable(event.target.value === '' ? null : Number(event.target.value))}
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-base text-slate-900"
+          >
+            <option value="">Todas</option>
+            {TABLE_NUMBERS.map((n) => (
+              <option key={n} value={n}>
+                {tableLabel(n)}
+              </option>
+            ))}
+          </select>
+        </div>
+        <Button variant="secondary" disabled={isSubmitting} onClick={() => void reloadOrders()}>
+          Actualizar
+        </Button>
         </div>
       </div>
       <OpenOrdersList
@@ -406,88 +368,132 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
     </section>
   )
 
+  const contextLabel = [
+    tableNumber !== null ? tableLabel(tableNumber) : null,
+    service !== null ? serviceLabel(service) : null,
+    normalizeCustomerName(customerName) || null,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+  const missingForReview = missingForOrder({
+    itemCount: draftItemCount(draft),
+    adding: addingToOrder !== null,
+    service,
+    tableNumber,
+    customerName,
+  })
+  const missingForTable = missingForOrder({ itemCount: 1, adding: false, service, tableNumber, customerName })[0]
+
   return (
-    <div className="flex min-w-0 flex-col gap-8 p-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] lg:pb-28">
+    <div
+      className={cn(
+        'mx-auto flex w-full max-w-2xl min-w-0 flex-col',
+        aboveBottomNav
+          ? 'pb-[calc(10rem+68px+env(safe-area-inset-bottom))] sm:pb-[calc(10rem+env(safe-area-inset-bottom))]'
+          : 'pb-[calc(10rem+env(safe-area-inset-bottom))]',
+      )}
+    >
       {shift && onChangeWaiter && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3">
+        <div className="m-4 mb-0 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3">
           <p className="break-words font-semibold text-slate-900">Mesero: {shift.fullName}</p>
           <Button variant="secondary" disabled={isSubmitting} onClick={onChangeWaiter}>
             Cambiar mesero
           </Button>
         </div>
       )}
-      <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start">
-        <div className="flex min-w-0 flex-col gap-4">
-          {message && (
-            <div
-              role="status"
-              className="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800"
-            >
-              {message}
-            </div>
-          )}
-          {addingToOrder === null && (
-            <>
-              <ServiceSelector selected={service} onSelect={setService} disabled={isSubmitting} />
-              <TableSelector selected={tableNumber} onSelect={setTableNumber} disabled={isSubmitting} />
-              <Input
-                id={nameId}
-                label="Nombre del cliente"
-                value={customerName}
-                maxLength={MAX_CUSTOMER_NAME_LENGTH}
-                disabled={isSubmitting}
-                onChange={(event) => setCustomerName(event.target.value)}
-              />
-            </>
-          )}
-          <div ref={builderRef} className="flex min-w-0 scroll-mt-4 flex-col gap-4">
-            {hasPizzaBuilder && (
-              <Button size="lg" disabled={isSubmitting} onClick={() => setIsBuilderOpen(true)}>
-                Armar pizza
-              </Button>
-            )}
-            <ProductGrid
-              categories={legacyHidden.categories}
-              products={legacyHidden.products}
-              cartProductIds={new Set(draft.flatMap((line) => (line.kind === 'product' ? [line.productId] : [])))}
-              onSelectProduct={handleSelectProduct}
-              disabled={isSubmitting}
-              showPrices={false}
-              allContent={openOrdersSection}
-              allContentLabel="Pedidos abiertos"
-              stickyHeader={addingToOrder && (
-                <AddingToOrderBar order={addingToOrder} disabled={isSubmitting} onCancel={handleExitAdding} />
-              )}
-            />
+      <div className="sticky top-0 z-20 bg-white">
+        <StepIndicator
+          current={step}
+          onGo={setStep}
+          mesaLocked={addingToOrder !== null}
+          disabled={isSubmitting}
+        />
+        {step === 'productos' &&
+          (addingToOrder ? (
+            <AddingToOrderBar order={addingToOrder} disabled={isSubmitting} onCancel={handleExitAdding} />
+          ) : (
+            <OrderContextBar label={contextLabel} onChange={() => setStep('mesa')} disabled={isSubmitting} />
+          ))}
+      </div>
+      <div ref={stepsRef} className="flex w-full min-w-0 flex-col gap-4 p-4">
+        {message && (
+          <div
+            role="status"
+            className="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800"
+          >
+            {message}
           </div>
-        </div>
-
-        <div className="hidden min-w-0 lg:block">{draftForm}</div>
+        )}
+        {step === 'mesa' && (
+          <MesaStep
+            service={service}
+            onService={handleService}
+            tableNumber={tableNumber}
+            onTable={setTableNumber}
+            customerName={customerName}
+            onCustomerName={setCustomerName}
+            occupancy={occupancy}
+            openOrdersCount={orders.length}
+            onOpenOrders={() => setIsOrdersOpen(true)}
+            onAddToOrder={handleStartAdding}
+            missing={missingForTable ? MISSING_LABEL[missingForTable] : null}
+            onNext={() => setStep('productos')}
+            aboveBottomNav={aboveBottomNav}
+            disabled={isSubmitting}
+          />
+        )}
+        {step === 'productos' && (
+          <ProductsStep
+            categories={legacyHidden.categories}
+            products={legacyHidden.products}
+            productQuantity={(productId) => productQuantity(draft, productId)}
+            variantQuantity={(productId, variant) => productQuantity(draft, productId, variant)}
+            onAddProduct={addProduct}
+            canBuildPizza={hasPizzaBuilder}
+            pizzaCount={pizzaQuantity(draft)}
+            onBuildPizza={() => setIsBuilderOpen(true)}
+            itemCount={draftItemCount(draft)}
+            onReview={() => setStep('revisar')}
+            aboveBottomNav={aboveBottomNav}
+            disabled={isSubmitting}
+          />
+        )}
+        {step === 'revisar' && (
+          <ReviewStep
+            contextLabel={contextLabel}
+            addingTo={addingToOrder}
+            onChangeContext={() => setStep('mesa')}
+            onCancelEdit={handleExitAdding}
+            draft={draft}
+            onIncrement={(id) => updateDraft((c) => incrementDraftLine(c, id))}
+            onDecrement={(id) => updateDraft((c) => decrementDraftLine(c, id))}
+            onRemove={(id) => updateDraft((c) => removeDraftLine(c, id))}
+            onRestore={(line, index) => updateDraft((c) => restoreDraftLine(c, line, index))}
+            onLineNotes={(id, notes) => updateDraft((c) => setDraftLineNotes(c, id, notes))}
+            orderNotes={orderNotes}
+            onOrderNotes={setOrderNotes}
+            pickupTime={pickupTime}
+            onPickupTime={setPickupTime}
+            missing={missingForReview}
+            error={actionError}
+            isSubmitting={isSubmitting}
+            onSubmit={handleSubmit}
+            aboveBottomNav={aboveBottomNav}
+          />
+        )}
       </div>
 
-      {(draft.length > 0 || addingToOrder !== null) && (
-        <OrderFab
-          itemCount={draftItemCount(draft)}
-          targetLabel={addingToOrder ? orderLabel(addingToOrder) : null}
-          onOpen={() => setIsDraftOpen(true)}
-        />
-      )}
-      {isDraftOpen && (
-        <Modal title="Pedido" onClose={() => setIsDraftOpen(false)}>
-          {draftForm}
-        </Modal>
-      )}
-
-      {variantProduct && (
-        <VariantPickerModal
-          productName={variantProduct.name}
-          variants={variantProduct.variants}
-          onPick={(variant) => {
-            addProduct(variantProduct, variant)
-            setVariantProduct(null)
+      {isOrdersOpen && (
+        <Sheet
+          title="Pedidos abiertos"
+          onClose={() => {
+            // The note and cancel dialogs sit on top of this sheet: Escape belongs to them.
+            if (notesOrder || orderToCancel) return
+            setIsOrdersOpen(false)
           }}
-          onClose={() => setVariantProduct(null)}
-        />
+        >
+          {openOrdersSection}
+        </Sheet>
       )}
 
       {isBuilderOpen && pizzaCatalog && (

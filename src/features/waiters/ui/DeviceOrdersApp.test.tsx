@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -49,6 +49,14 @@ function renderApp() {
 async function loginWithPin(user: ReturnType<typeof userEvent.setup>) {
   await user.click(await screen.findByRole('button', { name: 'Carlos' }))
   for (const digit of '1234') await user.click(screen.getByRole('button', { name: digit }))
+}
+
+/** Steps 1 and 2: Aquí at the table, one Pizza queso. */
+async function startOrder(user: ReturnType<typeof userEvent.setup>, table: number) {
+  await user.click(await screen.findByRole('button', { name: 'Aquí' }))
+  await user.click(screen.getByRole('button', { name: new RegExp(`^M-${table}\\b`) }))
+  await user.click(screen.getByRole('button', { name: /siguiente: productos/i }))
+  await user.click(await screen.findByRole('button', { name: 'Pizza queso' }))
 }
 
 beforeEach(() => {
@@ -110,11 +118,9 @@ describe('DeviceOrdersApp', () => {
     const getToken = vi.mocked(createDeviceOrdersSource).mock.calls[0]![1]
     expect(getToken()).toBe('tok-1')
 
-    await user.click(await screen.findByRole('button', { name: 'M-4' }))
-    await user.click(screen.getByRole('button', { name: 'Botanas' }))
-    await user.click(screen.getByRole('button', { name: /pizza queso/i }))
-    await user.click(within(screen.getByRole('group', { name: 'Tipo de pedido' })).getByRole('button', { name: 'Aquí' }))
-    await user.click(screen.getByRole('button', { name: /registrar pedido/i }))
+    await startOrder(user, 4)
+    await user.click(screen.getByRole('button', { name: /revisar pedido/i }))
+    await user.click(screen.getByRole('button', { name: /enviar a cocina/i }))
     expect(source.createOrder).toHaveBeenCalledWith({
       tableNumber: 4,
       customerName: null,
@@ -124,6 +130,16 @@ describe('DeviceOrdersApp', () => {
       service: 'dine_in',
     })
     expect(screen.queryByRole('link', { name: /cobrar/i })).not.toBeInTheDocument()
+  })
+
+  it('puts the step bar at the bottom of the screen, there is no app nav to clear', async () => {
+    const user = userEvent.setup()
+    renderApp()
+    await loginWithPin(user)
+    const next = await screen.findByRole('button', { name: /siguiente: productos/i })
+    const bar = next.closest('[data-step-bar]')
+    expect(bar).toHaveClass('bottom-0')
+    expect(bar).not.toHaveClass('bottom-[calc(68px+env(safe-area-inset-bottom))]')
   })
 
   it('clears the device and shows the revoked message when the server rejects it', async () => {
@@ -149,11 +165,9 @@ describe('DeviceOrdersApp', () => {
     const user = userEvent.setup()
     renderApp()
     await loginWithPin(user)
-    await user.click(await screen.findByRole('button', { name: 'M-1' }))
-    await user.click(screen.getByRole('button', { name: 'Botanas' }))
-    await user.click(screen.getByRole('button', { name: /pizza queso/i }))
-    await user.click(within(screen.getByRole('group', { name: 'Tipo de pedido' })).getByRole('button', { name: 'Aquí' }))
-    await user.click(screen.getByRole('button', { name: /registrar pedido/i }))
+    await startOrder(user, 1)
+    await user.click(screen.getByRole('button', { name: /revisar pedido/i }))
+    await user.click(screen.getByRole('button', { name: /enviar a cocina/i }))
     expect(await screen.findByText('¿Quién está tomando pedidos?')).toBeVisible()
     expect(localStorage.getItem(SHIFT_STORAGE_KEY)).toBeNull()
   })
@@ -179,7 +193,7 @@ describe('DeviceOrdersApp', () => {
     const getToken = vi.mocked(createDeviceDeliverySource).mock.calls[0]![1]
     expect(getToken()).toBe('tok-1')
     await user.click(screen.getByRole('tab', { name: 'Pedidos' }))
-    expect(await screen.findByRole('button', { name: 'M-4' })).toBeVisible()
+    expect(await screen.findByRole('button', { name: /^M-4\b/ })).toBeVisible()
   })
 
   it('passes the realtime subscription to the orders workspace', async () => {

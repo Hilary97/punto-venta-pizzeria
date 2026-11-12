@@ -85,7 +85,7 @@ describe('OrdersEntry', () => {
   it('shows the authenticated orders page with navigation for a cashier without a device', async () => {
     mockAuth('cashier')
     renderAt('/pedidos')
-    expect(await screen.findByRole('heading', { name: /pedidos abiertos/i })).toBeVisible()
+    expect(await screen.findByRole('heading', { name: '¿Dónde es el pedido?' })).toBeVisible()
     expect(screen.getByRole('link', { name: /^venta$/i })).toBeVisible()
     expect(deviceListWaiters).not.toHaveBeenCalled()
   })

@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Input } from "../../../shared/ui/Input";
 import { cn } from "../../../shared/ui/cn";
 import { MoneyText } from "../../../shared/ui/MoneyText";
@@ -7,172 +7,204 @@ import { isSoldOut, type Category, type Product } from "../../products/domain/pr
 interface ProductGridProps {
   categories: Category[];
   products: Product[];
-  cartProductIds: Set<string>;
-  onSelectProduct: (product: Product) => void;
+  /** Units of the product in the order, across all its variants. */
+  productQuantity: (productId: string) => number;
+  /** Units of one variant of the product in the order. */
+  variantQuantity: (productId: string, variant: string) => number;
+  /** Adds one unit; `variant` is `null` for products without variants. */
+  onAddProduct: (product: Product, variant: string | null) => void;
   disabled?: boolean;
   showPrices?: boolean;
-  /** Rendered instead of every product while "all" is selected and the search is empty. */
-  allContent?: ReactNode;
-  /** When set with allContent, "all" moves out of the category pills into a fixed bottom button. */
-  allContentLabel?: string;
-  /** Rendered at the top of the sticky search/category header. */
-  stickyHeader?: ReactNode;
 }
 
 export function ProductGrid({
   categories,
   products,
-  cartProductIds,
-  onSelectProduct,
+  productQuantity,
+  variantQuantity,
+  onAddProduct,
   disabled = false,
   showPrices = true,
-  allContent,
-  allContentLabel,
-  stickyHeader,
 }: ProductGridProps) {
-  const hasBottomAllButton =
-    allContent !== undefined && allContentLabel !== undefined;
-  const allContentRef = useRef<HTMLDivElement>(null);
-  // Bumped on every bottom-button press; the effect scrolls once the content is rendered.
-  const [allScrollRequest, setAllScrollRequest] = useState(0);
-
-  useEffect(() => {
-    if (allScrollRequest === 0) return;
-    allContentRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [allScrollRequest]);
   const searchId = useId();
   const [query, setQuery] = useState("");
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string | "all">(
-    "all",
-  );
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | "all">("all");
+
+  const pillsRef = useRef<HTMLDivElement>(null);
+  const [fade, setFade] = useState(false);
+  function updateFade() {
+    const el = pillsRef.current;
+    if (el) setFade(el.scrollLeft + el.clientWidth < el.scrollWidth - 2);
+  }
+  useEffect(() => {
+    updateFade();
+    window.addEventListener("resize", updateFade);
+    return () => window.removeEventListener("resize", updateFade);
+  }, [categories]);
 
   const visibleProducts = products.filter(
     (product) =>
-      (selectedCategoryId === "all" ||
-        product.categoryId === selectedCategoryId) &&
-      product.name
-        .toLocaleLowerCase()
-        .includes(query.trim().toLocaleLowerCase()),
+      (selectedCategoryId === "all" || product.categoryId === selectedCategoryId) &&
+      product.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()),
   );
 
   return (
-    <div className="flex min-w-0 flex-col gap-4">
-      <div className="sticky top-0 z-10 flex flex-col gap-4 bg-slate-50 pb-2">
-        {stickyHeader}
-        <Input
-          id={searchId}
-          type="search"
-          label="Buscar producto por nombre"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-        />
+    <div className="flex min-w-0 flex-col gap-3">
+      <Input
+        id={searchId}
+        type="search"
+        label="Buscar producto por nombre"
+        placeholder="Buscar producto…"
+        value={query}
+        onChange={(event) => setQuery(event.target.value)}
+      />
+      <div className="relative">
+      <div
+        ref={pillsRef}
+        role="group"
+        aria-label="Categorías"
+        onScroll={updateFade}
+        className="flex gap-2 overflow-x-auto pb-1"
+      >
+        <CategoryPill selected={selectedCategoryId === "all"} onClick={() => setSelectedCategoryId("all")}>
+          Todos
+        </CategoryPill>
+        {categories.map((category) => (
+          <CategoryPill
+            key={category.id}
+            selected={selectedCategoryId === category.id}
+            onClick={() => setSelectedCategoryId(category.id)}
+          >
+            {category.name}
+          </CategoryPill>
+        ))}
+      </div>
+      {fade && (
         <div
-          role="group"
-          aria-label="Categorías"
-          className="flex gap-2 overflow-x-auto pb-1"
-        >
-          {!hasBottomAllButton && (
-            <button
-              type="button"
-              onClick={() => setSelectedCategoryId("all")}
-              className={cn(
-                "shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition-colors",
-                selectedCategoryId === "all"
-                  ? "bg-red-700 text-white"
-                  : "bg-slate-200 text-slate-700",
-              )}
-            >
-              Todos
-            </button>
-          )}
-          {categories.map((category) => (
-            <button
-              key={category.id}
-              type="button"
-              onClick={() => setSelectedCategoryId(category.id)}
-              className={cn(
-                "shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition-colors",
-                selectedCategoryId === category.id
-                  ? "bg-red-700 text-white"
-                  : "bg-slate-200 text-slate-700",
-              )}
-            >
-              {category.name}
-            </button>
-          ))}
-        </div>
+          data-testid="categories-fade"
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-slate-50 to-transparent"
+        />
+      )}
       </div>
 
-      {hasBottomAllButton && (
-        <button
-          type="button"
-          aria-pressed={selectedCategoryId === "all"}
-          onClick={() => {
-            setSelectedCategoryId("all");
-            setQuery("");
-            setAllScrollRequest((count) => count + 1);
-          }}
-          className={cn(
-            // Phones: a compact button bottom-left, sharing the line with the order button.
-            "fixed bottom-[calc(0.75rem+env(safe-area-inset-bottom))] left-3 z-30 max-w-[calc(50%-1rem)] truncate rounded-xl px-5 py-3.5 text-base font-semibold text-white shadow-md transition-colors lg:bottom-[calc(1rem+env(safe-area-inset-bottom))] lg:left-auto lg:right-4 lg:w-80 lg:max-w-none lg:rounded-2xl lg:px-5 lg:py-4 lg:text-base lg:shadow-lg",
-            selectedCategoryId === "all" && query.trim() === ""
-              ? "bg-emerald-800"
-              : "bg-emerald-600 hover:bg-emerald-700",
-          )}
-        >
-          {allContentLabel}
-        </button>
-      )}
-
-      {allContent !== undefined &&
-      selectedCategoryId === "all" &&
-      query.trim() === "" ? (
-        <div ref={allContentRef} className="min-w-0 scroll-mt-40">
-          {allContent}
-        </div>
-      ) : visibleProducts.length === 0 ? (
+      {visibleProducts.length === 0 ? (
         <p className="p-4 text-center text-slate-500">
           {products.length === 0
             ? "No hay productos disponibles."
             : "No hay productos que coincidan con la búsqueda y categoría."}
         </p>
       ) : (
-        <div className="grid grid-cols-1 gap-3 min-[360px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3">
+        <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {visibleProducts.map((product) => {
-            const isInCart = cartProductIds.has(product.id);
             const soldOut = isSoldOut(product);
+            const hasVariants = product.variants.length > 0;
+            const total = productQuantity(product.id);
             return (
-              <button
+              <li
                 key={product.id}
-                type="button"
-                disabled={disabled || soldOut}
-                onClick={() => onSelectProduct(product)}
                 className={cn(
-                  "flex min-w-0 min-h-28 break-words disabled:opacity-50 flex-col justify-between rounded-2xl border-2 p-4 text-left shadow-sm transition-colors transition-transform hover:shadow-md active:scale-95",
-                  isInCart
-                    ? "border-emerald-600 bg-emerald-50 hover:border-emerald-600 dark:bg-emerald-950/60"
-                    : "border-slate-200 bg-white hover:border-red-400",
+                  "relative flex min-w-0 flex-col rounded-xl border-2 transition-colors",
+                  hasVariants && "col-span-full",
+                  total > 0
+                    ? "border-red-700 bg-red-50 dark:bg-red-950/60"
+                    : "border-slate-300 bg-white",
+                  soldOut && "border-dashed bg-slate-100",
                 )}
               >
-                <span className="font-semibold text-slate-900">
-                  {product.name}
-                </span>
-                {soldOut && (
-                  <span className="self-start rounded-full bg-slate-200 px-2 py-0.5 text-xs font-bold uppercase text-slate-700">
-                    Agotado
-                  </span>
+                {hasVariants ? (
+                  <div className="flex flex-col gap-1.5 p-2.5">
+                    <span className="break-words text-sm font-bold text-slate-900">{product.name}</span>
+                    {soldOut ? (
+                      <SoldOutBadge />
+                    ) : (
+                      <div
+                        role="group"
+                        aria-label={`Elige: ${product.name}`}
+                        className="flex flex-wrap items-center gap-1.5"
+                      >
+                        <span className="text-[13px] font-semibold text-slate-600">Elige:</span>
+                        {product.variants.map((variant) => {
+                          const count = variantQuantity(product.id, variant);
+                          return (
+                            <button
+                              key={variant}
+                              type="button"
+                              disabled={disabled}
+                              onClick={() => onAddProduct(product, variant)}
+                              className={cn(
+                                "min-h-11 rounded-full border-2 px-3.5 text-sm font-semibold disabled:opacity-50",
+                                count > 0
+                                  ? "border-red-700 bg-red-700 text-white"
+                                  : "border-slate-300 bg-white text-slate-900",
+                              )}
+                            >
+                              {variant}
+                              {count > 0 && <> <span>×{count}</span></>}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={disabled || soldOut}
+                    onClick={() => onAddProduct(product, null)}
+                    className="flex min-h-16 w-full min-w-0 flex-col items-start justify-center gap-1 break-words rounded-xl px-2.5 py-2 text-left text-sm font-bold leading-tight text-slate-900 transition-transform active:scale-95 disabled:text-slate-600"
+                  >
+                    <span>{product.name}</span>
+                    {soldOut && <SoldOutBadge />}
+                    {showPrices && (
+                      <MoneyText cents={product.priceCents} className="text-lg font-bold text-red-700" />
+                    )}
+                  </button>
                 )}
-                {showPrices && (
-                  <MoneyText
-                    cents={product.priceCents}
-                    className="text-lg font-bold text-red-700"
-                  />
-                )}
-              </button>
+                {total > 0 && <QuantityBadge quantity={total} />}
+              </li>
             );
           })}
-        </div>
+        </ul>
       )}
     </div>
+  );
+}
+
+function CategoryPill({ selected, onClick, children }: { selected: boolean; onClick: () => void; children: string }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={selected}
+      onClick={onClick}
+      className={cn(
+        "min-h-11 shrink-0 whitespace-nowrap rounded-full border-2 px-3.5 text-sm font-semibold transition-colors",
+        selected ? "border-red-700 bg-red-700 text-white" : "border-slate-300 bg-white text-slate-800",
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+/** `×2` on the corner of a tile; the hidden prefix tells screen readers what the number is. */
+export function QuantityBadge({ quantity, className }: { quantity: number; className?: string }) {
+  return (
+    <span
+      className={cn(
+        "pointer-events-none absolute -right-1 -top-2 grid h-[26px] min-w-[34px] place-items-center rounded-full border-2 border-white bg-red-700 px-1 text-sm font-extrabold text-white",
+        className,
+      )}
+    >
+      <span className="sr-only">En el pedido: </span>×{quantity}
+    </span>
+  );
+}
+
+function SoldOutBadge() {
+  return (
+    <span className="self-start rounded-full bg-slate-200 px-2 py-0.5 text-xs font-bold uppercase text-slate-700">
+      Agotado
+    </span>
   );
 }
