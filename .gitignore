@@ -34,3 +34,8 @@ dist-ssr
 
 # Supabase CLI local state (linked project, CLI cache)
 supabase/.temp/
+
+# Gentle Design canvas local state
+design/**/handoffs.json
+design/**/comments.json
+design/**/.screenshots/
