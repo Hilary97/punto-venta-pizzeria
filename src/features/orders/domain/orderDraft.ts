@@ -92,3 +92,26 @@ export function draftToPayload(draft: DraftLine[]): OrderItemPayload[] {
     return { type: 'product', productId: line.productId, quantity: line.quantity, ...withNotes, ...withVariant }
   })
 }
+
+/** Units of a product in the draft across all its lines; with `variant`, only that variant. */
+export function productQuantity(draft: DraftLine[], productId: string, variant?: string | null): number {
+  return draft.reduce(
+    (total, line) =>
+      line.kind === 'product' && line.productId === productId && (variant === undefined || line.variant === variant)
+        ? total + line.quantity
+        : total,
+    0,
+  )
+}
+
+/** Units of built pizzas in the draft. */
+export function pizzaQuantity(draft: DraftLine[]): number {
+  return draft.reduce((total, line) => (line.kind === 'pizza' ? total + line.quantity : total), 0)
+}
+
+/** Puts a removed line back at `index` (clamped to the end); does nothing when it is already in the draft. */
+export function restoreDraftLine(draft: DraftLine[], line: DraftLine, index: number): DraftLine[] {
+  if (draft.some((current) => current.lineId === line.lineId)) return draft
+  const at = Math.min(Math.max(index, 0), draft.length)
+  return [...draft.slice(0, at), line, ...draft.slice(at)]
+}

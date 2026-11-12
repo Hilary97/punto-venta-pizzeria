@@ -1,4 +1,4 @@
-import { act, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -54,15 +54,6 @@ function renderPage() {
   )
 }
 
-/** Picks the service type of a new order. */
-async function chooseService(user: ReturnType<typeof userEvent.setup>, label = 'Aquí') {
-  await user.click(within(screen.getByRole('group', { name: 'Tipo de pedido' })).getByRole('button', { name: label }))
-}
-
-async function showCategory(user: ReturnType<typeof userEvent.setup>, name = 'Botanas') {
-  await user.click(await screen.findByRole('button', { name }))
-}
-
 beforeEach(() => {
   vi.resetAllMocks()
   vi.mocked(listPizzaCatalog).mockResolvedValue({ sizes: [], styles: [], ingredients: [], extras: [] })
@@ -87,131 +78,24 @@ async function signalOrdersChanged() {
   })
 }
 
-describe('OrdersPage', () => {
+async function openOrdersSheet(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(await screen.findByRole('button', { name: /^pedidos abiertos/i }))
+  return screen.getByRole('dialog', { name: 'Pedidos abiertos' })
+}
+
+describe('open orders', () => {
   it('reloads the open orders, not the catalog, when the realtime signal arrives', async () => {
     const other: Order = { ...openOrder, id: 'order-2', tableNumber: 5, customerName: 'Beto', token: 13 }
     vi.mocked(listOpenOrders).mockResolvedValueOnce([openOrder]).mockResolvedValue([openOrder, other])
+    const user = userEvent.setup()
     renderPage()
-    const region = await screen.findByRole('region', { name: /pedidos abiertos/i })
+    const dialog = await openOrdersSheet(user)
+    const region = within(dialog).getByRole('region', { name: /pedidos abiertos/i })
     expect(within(region).queryByText(/Beto/)).not.toBeInTheDocument()
     await signalOrdersChanged()
     expect(await within(region).findByText(/Beto/)).toBeVisible()
     expect(listOpenOrders).toHaveBeenCalledTimes(2)
     expect(listProducts).toHaveBeenCalledTimes(1)
-  })
-
-  it('renders the nine table buttons and hides product prices', async () => {
-    const user = userEvent.setup()
-    renderPage()
-    await showCategory(user)
-    const productButton = await screen.findByRole('button', { name: /pizza queso/i })
-    const tables = screen.getByRole('group', { name: /mesa/i })
-    for (let n = 1; n <= 9; n++) {
-      expect(within(tables).getByRole('button', { name: `M-${n}` })).toHaveAttribute('aria-pressed', 'false')
-    }
-    expect(productButton).not.toHaveTextContent(/\$|150/)
-    expect(screen.queryByText(/150\.00/)).not.toBeInTheDocument()
-  })
-
-  it('renders open orders under the all tab and products under a category', async () => {
-    const user = userEvent.setup()
-    renderPage()
-    expect(await screen.findByRole('region', { name: /pedidos abiertos/i })).toBeVisible()
-    expect(screen.queryByRole('button', { name: /pizza queso/i })).not.toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: 'Botanas' }))
-    expect(screen.getByRole('button', { name: /pizza queso/i })).toBeVisible()
-    expect(screen.queryByRole('region', { name: /pedidos abiertos/i })).not.toBeInTheDocument()
-
-    expect(screen.queryByRole('button', { name: 'Todos' })).not.toBeInTheDocument()
-    const openOrdersButton = screen.getByRole('button', { name: 'Pedidos abiertos' })
-    expect(screen.getByRole('group', { name: /categor/i })).not.toContainElement(openOrdersButton)
-    await user.click(openOrdersButton)
-    expect(screen.getByRole('region', { name: /pedidos abiertos/i })).toBeVisible()
-  })
-
-  it('scrolls to the open orders section when the bottom button is pressed', async () => {
-    const scrollIntoView = vi.spyOn(Element.prototype, 'scrollIntoView')
-    const user = userEvent.setup()
-    renderPage()
-    await showCategory(user)
-
-    await user.click(screen.getByRole('button', { name: 'Pedidos abiertos' }))
-
-    const section = screen.getByRole('region', { name: /pedidos abiertos/i })
-    expect(scrollIntoView).toHaveBeenCalledTimes(1)
-    expect(scrollIntoView.mock.contexts[0]).toContainElement(section)
-    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' })
-    scrollIntoView.mockRestore()
-  })
-
-  it('keeps register disabled until a product and table or name are present, then sends the payload', async () => {
-    const user = userEvent.setup()
-    renderPage()
-    const submit = await screen.findByRole('button', { name: /registrar pedido/i })
-    expect(submit).toBeDisabled()
-
-    await user.click(screen.getByRole('button', { name: 'M-5' }))
-    expect(screen.getByRole('button', { name: 'M-5' })).toHaveAttribute('aria-pressed', 'true')
-    expect(submit).toBeDisabled()
-    await user.type(screen.getByLabelText(/nombre del cliente/i), '  Luis   Perez  ')
-    expect(submit).toBeDisabled()
-    await showCategory(user)
-    await user.click(screen.getByRole('button', { name: /pizza queso/i }))
-    await user.click(screen.getByRole('button', { name: /agregar una unidad de pizza queso/i }))
-    expect(submit).toBeDisabled()
-    await chooseService(user)
-    expect(submit).toBeEnabled()
-
-    await user.click(submit)
-    expect(createOrder).toHaveBeenCalledWith({
-      tableNumber: 5,
-      customerName: 'Luis Perez',
-      items: [{ type: 'product', productId: 'p', quantity: 2 }],
-      notes: null,
-      scheduledFor: null,
-      service: 'dine_in',
-    })
-    expect(await screen.findByRole('status')).toHaveTextContent(/pedido registrado/i)
-    expect(screen.getByLabelText(/nombre del cliente/i)).toHaveValue('')
-    expect(submit).toBeDisabled()
-    expect(listOpenOrders).toHaveBeenCalledTimes(2)
-  })
-
-  it('requires choosing Aquí or Para llevar, sends it and resets it after registering', async () => {
-    const user = userEvent.setup()
-    renderPage()
-    await user.click(await screen.findByRole('button', { name: 'M-4' }))
-    await showCategory(user)
-    await user.click(screen.getByRole('button', { name: /pizza queso/i }))
-    const submit = screen.getByRole('button', { name: /registrar pedido/i })
-    const service = screen.getByRole('group', { name: 'Tipo de pedido' })
-    expect(within(service).getByRole('button', { name: 'Aquí' })).toHaveAttribute('aria-pressed', 'false')
-    expect(within(service).getByRole('button', { name: 'Para llevar' })).toHaveAttribute('aria-pressed', 'false')
-    expect(submit).toBeDisabled()
-
-    await user.click(within(service).getByRole('button', { name: 'Para llevar' }))
-    expect(within(service).getByRole('button', { name: 'Para llevar' })).toHaveAttribute('aria-pressed', 'true')
-    expect(submit).toBeEnabled()
-    await user.click(submit)
-
-    expect(createOrder).toHaveBeenCalledWith({
-      tableNumber: 4,
-      customerName: null,
-      items: [{ type: 'product', productId: 'p', quantity: 1 }],
-      notes: null,
-      scheduledFor: null,
-      service: 'takeaway',
-    })
-    expect(await screen.findByRole('status')).toHaveTextContent(/pedido registrado/i)
-    expect(within(service).getByRole('button', { name: 'Para llevar' })).toHaveAttribute('aria-pressed', 'false')
-  })
-
-  it('does not offer the service type when adding products to an existing order', async () => {
-    const user = userEvent.setup()
-    renderPage()
-    await user.click(await screen.findByRole('button', { name: /agregar productos/i }))
-    expect(screen.queryByRole('group', { name: 'Tipo de pedido' })).not.toBeInTheDocument()
   })
 
   it('shows the service type of open orders, and none for orders without one', async () => {
@@ -220,76 +104,14 @@ describe('OrdersPage', () => {
       { ...openOrder, id: 'order-2', customerName: 'Beto', service: 'dine_in' },
       { ...openOrder, id: 'order-3', customerName: 'Ceci', service: null },
     ])
+    const user = userEvent.setup()
     renderPage()
-    expect(within((await screen.findByText('Ana')).closest('li')!).getByText('Para llevar')).toBeVisible()
+    await openOrdersSheet(user)
+    expect(within(screen.getByText('Ana').closest('li')!).getByText('Para llevar')).toBeVisible()
     expect(within(screen.getByText('Beto').closest('li')!).getByText('Aquí')).toBeVisible()
     const legacy = screen.getByText('Ceci').closest('li')!
     expect(within(legacy).queryByText('Aquí')).not.toBeInTheDocument()
     expect(within(legacy).queryByText('Para llevar')).not.toBeInTheDocument()
-  })
-
-  it('enables register with only a table', async () => {
-    const user = userEvent.setup()
-    renderPage()
-    await showCategory(user)
-    await user.click(await screen.findByRole('button', { name: /pizza queso/i }))
-    const submit = screen.getByRole('button', { name: /registrar pedido/i })
-    await chooseService(user)
-    expect(submit).toBeDisabled()
-    await user.click(screen.getByRole('button', { name: 'M-4' }))
-    expect(submit).toBeEnabled()
-    await user.click(submit)
-    expect(createOrder).toHaveBeenCalledWith({
-      tableNumber: 4,
-      customerName: null,
-      items: [{ type: 'product', productId: 'p', quantity: 1 }],
-      notes: null,
-      scheduledFor: null,
-      service: 'dine_in',
-    })
-  })
-
-  it('enables register with only a name', async () => {
-    const user = userEvent.setup()
-    renderPage()
-    await showCategory(user)
-    await user.click(await screen.findByRole('button', { name: /pizza queso/i }))
-    const submit = screen.getByRole('button', { name: /registrar pedido/i })
-    await chooseService(user)
-    await user.type(screen.getByLabelText(/nombre del cliente/i), ' Juan ')
-    expect(submit).toBeEnabled()
-    await user.click(submit)
-    expect(createOrder).toHaveBeenCalledWith({
-      tableNumber: null,
-      customerName: 'Juan',
-      items: [{ type: 'product', productId: 'p', quantity: 1 }],
-      notes: null,
-      scheduledFor: null,
-      service: 'dine_in',
-    })
-  })
-
-  it('keeps register disabled with neither table nor a non-blank name', async () => {
-    const user = userEvent.setup()
-    renderPage()
-    await showCategory(user)
-    await user.click(await screen.findByRole('button', { name: /pizza queso/i }))
-    await chooseService(user)
-    await user.type(screen.getByLabelText(/nombre del cliente/i), '   ')
-    expect(screen.getByRole('button', { name: /registrar pedido/i })).toBeDisabled()
-  })
-
-  it('deselects the table when tapping it again', async () => {
-    const user = userEvent.setup()
-    renderPage()
-    await showCategory(user)
-    await user.click(await screen.findByRole('button', { name: /pizza queso/i }))
-    await chooseService(user)
-    await user.click(screen.getByRole('button', { name: 'M-5' }))
-    expect(screen.getByRole('button', { name: /registrar pedido/i })).toBeEnabled()
-    await user.click(screen.getByRole('button', { name: 'M-5' }))
-    expect(screen.getByRole('button', { name: 'M-5' })).toHaveAttribute('aria-pressed', 'false')
-    expect(screen.getByRole('button', { name: /registrar pedido/i })).toBeDisabled()
   })
 
   it('shows orders without a table only under Todas', async () => {
@@ -300,7 +122,7 @@ describe('OrdersPage', () => {
     ])
     const user = userEvent.setup()
     renderPage()
-    expect(await screen.findByText('Beto')).toBeVisible()
+    await openOrdersSheet(user)
     const cardCount = () => screen.getAllByText(/pizza queso × 2/i).length
     expect(cardCount()).toBe(3)
     await user.selectOptions(screen.getByLabelText(/filtrar por mesa/i), '3')
@@ -318,7 +140,7 @@ describe('OrdersPage', () => {
     ])
     const user = userEvent.setup()
     renderPage()
-    expect(await screen.findByText('Beto')).toBeVisible()
+    await openOrdersSheet(user)
     const cardCount = () => screen.queryAllByText(/pizza queso × 2/i).length
     const search = screen.getByRole('searchbox', { name: /buscar por nombre/i })
 
@@ -341,26 +163,20 @@ describe('OrdersPage', () => {
     expect(cardCount()).toBe(2)
   })
 
-  it('shows an error banner and keeps the draft when creation fails', async () => {
-    vi.mocked(createOrder).mockRejectedValueOnce(new Error('No se pudo crear el pedido.'))
+  it('lists open orders with their items, who served them and their notes', async () => {
+    vi.mocked(listOpenOrders).mockResolvedValue([
+      { ...openOrder, waiterName: 'Carlos', notes: 'Mesa con niños', items: [{ ...openOrder.items[0]!, notes: 'bien cocida' }] },
+    ])
     const user = userEvent.setup()
     renderPage()
-    await user.click(await screen.findByRole('button', { name: 'M-1' }))
-    await user.type(screen.getByLabelText(/nombre del cliente/i), 'Eva')
-    await showCategory(user)
-    await user.click(screen.getByRole('button', { name: /pizza queso/i }))
-    await chooseService(user)
-    await user.click(screen.getByRole('button', { name: /registrar pedido/i }))
-    expect(await screen.findByRole('alert')).toHaveTextContent('No se pudo crear el pedido.')
-    expect(screen.getByRole('button', { name: /registrar pedido/i })).toBeEnabled()
-  })
-
-  it('lists open orders with their items', async () => {
-    renderPage()
-    const card = (await screen.findByText('Ana')).closest('li')!
+    await openOrdersSheet(user)
+    const card = screen.getByText('Ana').closest('li')!
     expect(within(card).getByText('M-3')).toBeVisible()
     expect(within(card).getByText('Ficha 12')).toBeVisible()
     expect(within(card).getByText(/pizza queso × 2/i)).toBeVisible()
+    expect(within(card).getByText('Atendió: Carlos')).toBeVisible()
+    expect(within(card).getByText('Nota: bien cocida')).toBeVisible()
+    expect(within(card).getByText('Nota del pedido: Mesa con niños')).toBeVisible()
   })
 
   it('shows each portion of a built pizza and its ingredients on their own rows, without "|", "+" or "()"', async () => {
@@ -373,8 +189,10 @@ describe('OrdersPage', () => {
       type: 'pizza' as const,
     }
     vi.mocked(listOpenOrders).mockResolvedValue([{ ...openOrder, items: [pizzaLine] }])
+    const user = userEvent.setup()
     renderPage()
-    const line = (await screen.findByText(/Pizza Grande · Mitades × 1/)).closest('li')!
+    await openOrdersSheet(user)
+    const line = screen.getByText(/Pizza Grande · Mitades × 1/).closest('li')!
     for (const row of ['½ Estilo Varas', 'Jamón', 'Piña', 'Jalapeños', "½ Estilo Chuy's", 'Extras', 'Extra queso']) {
       expect(within(line).getByText(row)).toBeVisible()
     }
@@ -387,172 +205,64 @@ describe('OrdersPage', () => {
       { ...openOrder, token: null, items: [{ ...line, deliveredAt: '2026-01-01T10:30:00Z' }] },
       { ...openOrder, id: 'order-2', customerName: 'Beto', token: null, items: [{ ...line, deliveredAt: null }] },
     ])
+    const user = userEvent.setup()
     renderPage()
-    const delivered = (await screen.findByText('Ana')).closest('li')!
+    await openOrdersSheet(user)
+    const delivered = screen.getByText('Ana').closest('li')!
     expect(within(delivered).getByText('Entregado')).toBeVisible()
     expect(within(delivered).queryByText('Sin ficha')).not.toBeInTheDocument()
-
     const pending = screen.getByText('Beto').closest('li')!
     expect(within(pending).getByText('Sin ficha')).toBeVisible()
     expect(within(pending).queryByText('Entregado')).not.toBeInTheDocument()
   })
 
-
-  describe('pickup time', () => {
+  it('shows scheduled orders with their time, waiting ones as Programado', async () => {
     const at = (h: number, m: number) => new Date(2026, 9, 21, h, m)
+    vi.mocked(listOpenOrders).mockResolvedValue([
+      { ...openOrder, token: null, scheduledFor: at(14, 30).toISOString(), queuedAt: null },
+      { ...openOrder, id: 'order-2', customerName: 'Beto', token: 3, scheduledFor: at(13, 0).toISOString(), queuedAt: at(12, 40).toISOString() },
+    ])
+    const user = userEvent.setup()
+    renderPage()
+    await openOrdersSheet(user)
+    const waiting = screen.getByText('Ana').closest('li')!
+    expect(within(waiting).getByText('Programado')).toBeVisible()
+    expect(within(waiting).getByText('Para las 2:30 p.m.')).toBeVisible()
+    expect(within(waiting).queryByText('Sin ficha')).not.toBeInTheDocument()
+    const queued = screen.getByText('Beto').closest('li')!
+    expect(within(queued).getByText('Ficha 3')).toBeVisible()
+    expect(within(queued).getByText('Para las 1:00 p.m.')).toBeVisible()
+  })
 
-    beforeEach(() => {
-      vi.useFakeTimers({ toFake: ['Date'] })
-      vi.setSystemTime(at(12, 0))
-    })
-    afterEach(() => {
-      vi.useRealTimers()
-    })
-
-    async function fillOrder(user: ReturnType<typeof userEvent.setup>) {
-      await user.click(await screen.findByRole('button', { name: 'M-4' }))
-      await showCategory(user)
-      await user.click(screen.getByRole('button', { name: /pizza queso/i }))
-      await chooseService(user)
-    }
-
-    it('sends the pickup time for today and clears it after registering', async () => {
-      const user = userEvent.setup()
-      renderPage()
-      await fillOrder(user)
-      const time = screen.getByLabelText('Hora para recoger (opcional)')
-      await user.type(time, '14:30')
-      await user.click(screen.getByRole('button', { name: /registrar pedido/i }))
-
-      expect(createOrder).toHaveBeenCalledWith({
-        tableNumber: 4,
-        customerName: null,
-        items: [{ type: 'product', productId: 'p', quantity: 1 }],
-        notes: null,
-        scheduledFor: at(14, 30).toISOString(),
-        service: 'dine_in',
-      })
-      expect(await screen.findByRole('status')).toHaveTextContent(/pedido registrado/i)
-      expect(screen.getByLabelText('Hora para recoger (opcional)')).toHaveValue('')
-    })
-
-    it('rejects a time that is not later today and keeps the draft', async () => {
-      const user = userEvent.setup()
-      renderPage()
-      await fillOrder(user)
-      await user.type(screen.getByLabelText('Hora para recoger (opcional)'), '11:00')
-      await user.click(screen.getByRole('button', { name: /registrar pedido/i }))
-
-      expect(await screen.findByRole('alert')).toHaveTextContent('La hora del pedido debe ser más tarde hoy.')
-      expect(createOrder).not.toHaveBeenCalled()
-      expect(screen.getByLabelText('Hora para recoger (opcional)')).toHaveValue('11:00')
-    })
-
-    it('is not offered when adding products to an existing order', async () => {
-      const user = userEvent.setup()
-      renderPage()
-      await user.click(await screen.findByRole('button', { name: /agregar productos/i }))
-      expect(screen.queryByLabelText('Hora para recoger (opcional)')).not.toBeInTheDocument()
-    })
-
-    it('shows scheduled orders with their time, waiting ones as Programado', async () => {
-      vi.mocked(listOpenOrders).mockResolvedValue([
-        { ...openOrder, token: null, scheduledFor: at(14, 30).toISOString(), queuedAt: null },
-        { ...openOrder, id: 'order-2', customerName: 'Beto', token: 3, scheduledFor: at(13, 0).toISOString(), queuedAt: at(12, 40).toISOString() },
-      ])
-      renderPage()
-      const waiting = (await screen.findByText('Ana')).closest('li')!
-      expect(within(waiting).getByText('Programado')).toBeVisible()
-      expect(within(waiting).getByText('Para las 2:30 p.m.')).toBeVisible()
-      expect(within(waiting).queryByText('Sin ficha')).not.toBeInTheDocument()
-
-      const queued = screen.getByText('Beto').closest('li')!
-      expect(within(queued).getByText('Ficha 3')).toBeVisible()
-      expect(within(queued).getByText('Para las 1:00 p.m.')).toBeVisible()
-    })
+  it('shows the variant on open orders', async () => {
+    vi.mocked(listOpenOrders).mockResolvedValue([
+      {
+        ...openOrder,
+        items: [{ id: 'i2', productId: 'b', productName: 'Hamburguesa', quantity: 2, type: 'product', pizza: null, notes: null, variant: 'Pollo' }],
+      },
+    ])
+    const user = userEvent.setup()
+    renderPage()
+    await openOrdersSheet(user)
+    expect(screen.getByText(/Hamburguesa \(Pollo\) × 2/)).toBeInTheDocument()
   })
 
   it('shows Cobrar linking to the POS with the order id', async () => {
     const user = userEvent.setup()
     renderPage()
-    const link = await screen.findByRole('link', { name: /cobrar/i })
+    await openOrdersSheet(user)
+    const link = screen.getByRole('link', { name: /cobrar/i })
     expect(link).toHaveAttribute('href', '/?pedido=order-1')
     await user.click(link)
     expect(screen.getByTestId('location')).toHaveTextContent('/?pedido=order-1')
   })
 
-  it('adds items to an existing order and can leave that mode', async () => {
+  it('cancels an order only after confirming in the dialog and refreshes the list', async () => {
     const user = userEvent.setup()
     renderPage()
-    await user.click(await screen.findByRole('button', { name: /agregar productos/i }))
-    expect(screen.queryByLabelText(/nombre del cliente/i)).not.toBeInTheDocument()
-    expect(screen.queryByRole('group', { name: /mesa/i })).not.toBeInTheDocument()
-    await showCategory(user)
-    await user.click(screen.getByRole('button', { name: /pizza queso/i }))
-    await user.click(screen.getByRole('button', { name: /agregar al pedido/i }))
-    expect(addOrderItems).toHaveBeenCalledWith('order-1', [{ type: 'product', productId: 'p', quantity: 1 }])
-    expect(createOrder).not.toHaveBeenCalled()
-    expect(await screen.findByRole('status')).toHaveTextContent(/productos agregados/i)
-    expect(screen.getByLabelText(/nombre del cliente/i)).toBeVisible()
-  })
-
-  it('scrolls to the pizza builder when starting to add items to an open order', async () => {
-    vi.mocked(listPizzaCatalog).mockResolvedValue(pizzaCatalogFixture)
-    const scrollIntoView = vi.spyOn(Element.prototype, 'scrollIntoView')
-    const user = userEvent.setup()
-    renderPage()
-    await user.click(await screen.findByRole('button', { name: /agregar productos/i }))
-
-    expect(scrollIntoView).toHaveBeenCalledTimes(1)
-    expect(scrollIntoView.mock.contexts[0]).toContainElement(screen.getByRole('button', { name: /armar pizza/i }))
-    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' })
-    scrollIntoView.mockRestore()
-  })
-
-  it('shows a sticky add-mode bar naming the open order, with a cancel shortcut', async () => {
-    const user = userEvent.setup()
-    renderPage()
-    await screen.findByText('Ana')
-    expect(screen.queryByRole('region', { name: /pedido en edición/i })).not.toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: /agregar productos/i }))
-    const bar = screen.getByRole('region', { name: /pedido en edición/i })
-    expect(bar).toHaveTextContent('Agregando al pedido M-3 · Ana')
-    expect(bar).toHaveTextContent('ya tiene 2 productos')
-    expect(bar).toContainElement(screen.getByRole('button', { name: 'Cancelar' }))
-
-    await user.click(within(bar).getByRole('button', { name: 'Cancelar' }))
-    expect(screen.queryByRole('region', { name: /pedido en edición/i })).not.toBeInTheDocument()
-    expect(screen.getByLabelText(/nombre del cliente/i)).toBeVisible()
-    expect(addOrderItems).not.toHaveBeenCalled()
-  })
-
-  it('labels the floating order button with the open order while adding', async () => {
-    const user = userEvent.setup()
-    renderPage()
-    await user.click(await screen.findByRole('button', { name: /agregar productos/i }))
-    expect(screen.getByRole('button', { name: 'Agregar a M-3 · Ana (0)' })).toBeInTheDocument()
-
-    await showCategory(user)
-    await user.click(screen.getByRole('button', { name: /pizza queso/i }))
-    expect(screen.getByRole('button', { name: 'Agregar a M-3 · Ana (1)' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /ver pedido/i })).not.toBeInTheDocument()
-  })
-
-  it('cancels edit mode without calling the server', async () => {
-    const user = userEvent.setup()
-    renderPage()
-    await user.click(await screen.findByRole('button', { name: /agregar productos/i }))
-    await user.click(screen.getByRole('button', { name: /cancelar edición/i }))
-    expect(screen.getByLabelText(/nombre del cliente/i)).toBeVisible()
-    expect(addOrderItems).not.toHaveBeenCalled()
-  })
-
-  it('cancels an order only after confirming in the dialog', async () => {
-    const user = userEvent.setup()
-    renderPage()
-    await user.click(await screen.findByRole('button', { name: /cancelar pedido/i }))
-    const dialog = screen.getByRole('dialog')
+    await openOrdersSheet(user)
+    await user.click(screen.getByRole('button', { name: /cancelar pedido/i }))
+    const dialog = screen.getByRole('dialog', { name: 'Cancelar pedido' })
     expect(cancelOrder).not.toHaveBeenCalled()
     await user.click(within(dialog).getByRole('button', { name: /sí, cancelar pedido/i }))
     expect(cancelOrder).toHaveBeenCalledWith('order-1')
@@ -563,127 +273,66 @@ describe('OrdersPage', () => {
   it('reloads open orders with Actualizar', async () => {
     const user = userEvent.setup()
     renderPage()
-    await screen.findByText('Ana')
+    await openOrdersSheet(user)
     await user.click(screen.getByRole('button', { name: /actualizar/i }))
     expect(listOpenOrders).toHaveBeenCalledTimes(2)
   })
 
-  it('filters open orders by table', async () => {
-    vi.mocked(listOpenOrders).mockResolvedValue([openOrder, { ...openOrder, id: 'order-2', tableNumber: 4, customerName: 'Beto' }])
+  it('edits the note of an open order and refreshes the list', async () => {
+    vi.mocked(listOpenOrders).mockResolvedValue([{ ...openOrder, notes: 'vieja' }])
     const user = userEvent.setup()
     renderPage()
-    await screen.findByText('Beto')
-    await user.selectOptions(screen.getByLabelText(/filtrar por mesa/i), '4')
-    expect(screen.getByText('Beto')).toBeVisible()
-    expect(screen.queryByText('Ana')).not.toBeInTheDocument()
+    await openOrdersSheet(user)
+    await user.click(screen.getByRole('button', { name: /editar nota/i }))
+    const dialog = screen.getByRole('dialog', { name: /nota del pedido/i })
+    const field = within(dialog).getByLabelText('Nota del pedido')
+    expect(field).toHaveValue('vieja')
+    await user.clear(field)
+    await user.type(field, ' nueva ')
+    await user.click(within(dialog).getByRole('button', { name: /guardar nota/i }))
+    expect(setOrderNotes).toHaveBeenCalledWith('order-1', 'nueva')
+    expect(await screen.findByRole('status')).toHaveTextContent(/nota actualizada/i)
+    expect(screen.queryByRole('dialog', { name: /nota del pedido/i })).not.toBeInTheDocument()
+    expect(listOpenOrders).toHaveBeenCalledTimes(2)
   })
 
-  it('tells in the order dialog to choose Aquí or Para llevar until one is chosen', async () => {
+  it('clears the note when saved blank and shows an error when saving fails', async () => {
+    vi.mocked(listOpenOrders).mockResolvedValue([{ ...openOrder, notes: 'vieja' }])
+    vi.mocked(setOrderNotes).mockRejectedValueOnce(new Error('No se pudo guardar la nota.'))
     const user = userEvent.setup()
     renderPage()
-    await user.click(await screen.findByRole('button', { name: 'M-2' }))
-    await showCategory(user)
-    await user.click(screen.getByRole('button', { name: /pizza queso/i }))
-    await user.click(screen.getByRole('button', { name: /ver pedido \(1\)/i }))
-    const dialog = screen.getByRole('dialog')
-    expect(within(dialog).getByText('Elige si es para aquí o para llevar.')).toBeVisible()
-    expect(within(dialog).getByRole('button', { name: /registrar pedido/i })).toBeDisabled()
-    await user.click(within(dialog).getByRole('button', { name: /cerrar/i }))
-
-    await chooseService(user)
-    await user.click(screen.getByRole('button', { name: /ver pedido \(1\)/i }))
-    expect(within(screen.getByRole('dialog')).queryByText('Elige si es para aquí o para llevar.')).not.toBeInTheDocument()
+    await openOrdersSheet(user)
+    await user.click(screen.getByRole('button', { name: /editar nota/i }))
+    const dialog = screen.getByRole('dialog', { name: /nota del pedido/i })
+    await user.clear(within(dialog).getByLabelText('Nota del pedido'))
+    await user.click(within(dialog).getByRole('button', { name: /guardar nota/i }))
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('No se pudo guardar la nota.')
+    await user.click(within(dialog).getByRole('button', { name: /guardar nota/i }))
+    expect(setOrderNotes).toHaveBeenLastCalledWith('order-1', null)
+    expect(setOrderNotes).toHaveBeenCalledTimes(2)
   })
-
-  it('shows the order FAB with the item count and submits from the dialog', async () => {
-    const user = userEvent.setup()
-    renderPage()
-    await screen.findByText('Ana')
-    expect(screen.queryByRole('button', { name: /ver pedido/i })).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'M-2' }))
-    await user.type(screen.getByLabelText(/nombre del cliente/i), 'Mara')
-    await showCategory(user)
-    await user.click(screen.getByRole('button', { name: /pizza queso/i }))
-    await user.click(screen.getByRole('button', { name: /agregar una unidad de pizza queso/i }))
-    await chooseService(user)
-    await user.click(screen.getByRole('button', { name: /ver pedido \(2\)/i }))
-    const dialog = screen.getByRole('dialog')
-    expect(within(dialog).getByText('Pizza queso')).toBeVisible()
-    await user.click(within(dialog).getByRole('button', { name: /registrar pedido/i }))
-    expect(createOrder).toHaveBeenCalledWith({
-      tableNumber: 2,
-      customerName: 'Mara',
-      items: [{ type: 'product', productId: 'p', quantity: 2 }],
-      notes: null,
-      scheduledFor: null,
-      service: 'dine_in',
-    })
-    expect(await screen.findByRole('status')).toHaveTextContent(/pedido registrado/i)
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /ver pedido/i })).not.toBeInTheDocument()
-  })
-
-  it('keeps the FAB in add-items mode so the edit can be cancelled from the dialog', async () => {
-    const user = userEvent.setup()
-    renderPage()
-    await user.click(await screen.findByRole('button', { name: /agregar productos/i }))
-    await user.click(screen.getByRole('button', { name: /agregar a m-3 · ana \(0\)/i }))
-    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: /cancelar edición/i }))
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    expect(screen.getByLabelText(/nombre del cliente/i)).toBeVisible()
-  })
-
 
   it('creates orders without any waiter gate', async () => {
     const user = userEvent.setup()
     renderPage()
-    await user.click(await screen.findByRole('button', { name: 'M-4' }))
-    await showCategory(user)
-    await user.click(screen.getByRole('button', { name: /pizza queso/i }))
-    await chooseService(user)
-    await user.click(screen.getByRole('button', { name: /registrar pedido/i }))
-    expect(createOrder).toHaveBeenCalledWith({
-      tableNumber: 4,
-      customerName: null,
-      items: [{ type: 'product', productId: 'p', quantity: 1 }],
-      notes: null,
-      scheduledFor: null,
-      service: 'dine_in',
-    })
+    await reachReview(user)
+    await user.click(screen.getByRole('button', { name: /enviar a cocina/i }))
+    expect(createOrder).toHaveBeenCalledTimes(1)
     expect(screen.queryByText(/^Mesero:/)).not.toBeInTheDocument()
-  })
-
-
-  it('shows who served each open order', async () => {
-    vi.mocked(listOpenOrders).mockResolvedValue([{ ...openOrder, waiterName: 'Carlos' }])
-    renderPage()
-    const card = (await screen.findByText('Ana')).closest('li')!
-    expect(within(card).getByText('Atendió: Carlos')).toBeVisible()
   })
 })
 
-describe('OrdersPage pizza builder and notes', () => {
-  it('hides products of the legacy Pizzas category and its chip', async () => {
-    vi.mocked(listCategories).mockResolvedValue([
-      { id: 'pizza', name: ' pizzas ', sortOrder: 0, legacyPizza: true },
-      { id: 'snacks', name: 'Botanas', sortOrder: 1 },
-    ])
-    vi.mocked(listProducts).mockResolvedValue([
-      { id: 'p', categoryId: 'pizza', name: 'Pizza queso', priceCents: 0, active: true, variants: [] },
-      { id: 'a', categoryId: 'snacks', name: 'Alitas', priceCents: 0, active: true, variants: [] },
-    ])
-    const user = userEvent.setup()
-    renderPage()
-    expect(await screen.findByRole('button', { name: 'Botanas' })).toBeVisible()
-    expect(screen.queryByRole('button', { name: /^pizzas$/i })).not.toBeInTheDocument()
-    await showCategory(user)
-    expect(await screen.findByRole('button', { name: /alitas/i })).toBeVisible()
-    expect(screen.queryByRole('button', { name: /pizza queso/i })).not.toBeInTheDocument()
-  })
+describe('built pizzas, notes and variants in the order', () => {
+  async function buildPizza(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(await screen.findByRole('button', { name: /armar pizza/i }))
+    await user.click(within(screen.getByRole('dialog', { name: /armar pizza/i })).getByRole('button', { name: 'Agregar pizza' }))
+  }
 
   it('does not offer the builder when the pizza catalog has no sizes', async () => {
+    const user = userEvent.setup()
     renderPage()
-    await screen.findByText('Ana')
+    await startOrder(user, { table: 4 })
+    await screen.findByRole('button', { name: 'Pizza queso' })
     expect(screen.queryByRole('button', { name: /armar pizza/i })).not.toBeInTheDocument()
   })
 
@@ -691,18 +340,16 @@ describe('OrdersPage pizza builder and notes', () => {
     vi.mocked(listPizzaCatalog).mockResolvedValue(pizzaCatalogFixture)
     const user = userEvent.setup()
     renderPage()
-    await user.click(await screen.findByRole('button', { name: /armar pizza/i }))
-    const builder = screen.getByRole('dialog', { name: /armar pizza/i })
-    await user.click(within(builder).getByRole('button', { name: 'Agregar pizza' }))
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-
-    const draftLine = screen.getByText('Pizza Chica').closest('li')!
-    expect(within(draftLine).getByText('Estilo Varas')).toBeVisible()
-    expect(within(draftLine).queryByText('Pizza Chica: Estilo Varas')).not.toBeInTheDocument()
-    await user.type(screen.getByLabelText('Nota para Pizza Chica: Estilo Varas'), '  sin orilla ')
-    await user.click(screen.getByRole('button', { name: 'M-6' }))
-    await chooseService(user)
-    await user.click(screen.getByRole('button', { name: /registrar pedido/i }))
+    await startOrder(user, { table: 6 })
+    await buildPizza(user)
+    await user.click(screen.getByRole('button', { name: /revisar pedido/i }))
+    const line = screen.getByRole('group', { name: 'Cantidad de Pizza Chica: Estilo Varas' }).closest('li')!
+    expect(within(line).getByText('Pizza Chica')).toBeVisible()
+    expect(within(line).getByText('Estilo Varas')).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'Agregar nota a Pizza Chica: Estilo Varas' }))
+    await user.type(screen.getByRole('textbox', { name: 'Nota para Pizza Chica: Estilo Varas' }), '  sin orilla ')
+    await user.click(screen.getByRole('button', { name: 'Listo' }))
+    await user.click(screen.getByRole('button', { name: /enviar a cocina/i }))
     expect(createOrder).toHaveBeenCalledWith({
       tableNumber: 6,
       customerName: null,
@@ -724,10 +371,11 @@ describe('OrdersPage pizza builder and notes', () => {
     vi.mocked(listPizzaCatalog).mockResolvedValue(pizzaCatalogFixture)
     const user = userEvent.setup()
     renderPage()
-    for (let i = 0; i < 2; i++) {
-      await user.click(await screen.findByRole('button', { name: /armar pizza/i }))
-      await user.click(screen.getByRole('button', { name: 'Agregar pizza' }))
-    }
+    await startOrder(user, { table: 4 })
+    await buildPizza(user)
+    await buildPizza(user)
+    expect(within(screen.getByRole('button', { name: /armar pizza/i })).getByText('×2')).toBeVisible()
+    await user.click(screen.getByRole('button', { name: /revisar pedido/i }))
     expect(screen.getAllByText('Estilo Varas')).toHaveLength(2)
   })
 
@@ -735,109 +383,34 @@ describe('OrdersPage pizza builder and notes', () => {
     vi.mocked(listPizzaCatalog).mockResolvedValue(pizzaCatalogFixture)
     const user = userEvent.setup()
     renderPage()
-    await user.click(await screen.findByRole('button', { name: /agregar productos/i }))
-    await user.click(screen.getByRole('button', { name: /armar pizza/i }))
-    await user.click(screen.getByRole('button', { name: 'Agregar pizza' }))
-    await user.click(screen.getByRole('button', { name: /agregar al pedido/i }))
+    await user.click(await screen.findByRole('button', { name: /^pedidos abiertos/i }))
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: /agregar productos/i }))
+    await buildPizza(user)
+    await user.click(screen.getByRole('button', { name: /revisar pedido/i }))
+    await user.click(screen.getByRole('button', { name: 'Agregar al pedido' }))
     expect(addOrderItems).toHaveBeenCalledWith('order-1', [expect.objectContaining({ type: 'pizza', quantity: 1 })])
   })
 
-  it('sends a product line note and keeps noted lines separate from plain ones', async () => {
+  it('keeps noted lines separate from plain ones', async () => {
     const user = userEvent.setup()
     renderPage()
-    await showCategory(user)
-    await user.click(await screen.findByRole('button', { name: 'Pizza queso' }))
-    await user.type(screen.getByLabelText('Nota para Pizza queso'), 'sin cebolla')
+    await reachReview(user, { table: 1 })
+    await user.click(screen.getByRole('button', { name: 'Agregar nota a Pizza queso' }))
+    await user.type(screen.getByRole('textbox', { name: 'Nota para Pizza queso' }), 'sin cebolla')
+    await user.click(screen.getByRole('button', { name: 'Listo' }))
+    await user.click(within(stepItem('Productos')).getByRole('button', { name: 'Productos' }))
     await user.click(screen.getByRole('button', { name: 'Pizza queso' }))
-    expect(screen.getAllByLabelText('Nota para Pizza queso')).toHaveLength(2)
-    await user.click(screen.getByRole('button', { name: 'M-1' }))
-    await chooseService(user)
-    await user.click(screen.getByRole('button', { name: /registrar pedido/i }))
-    expect(createOrder).toHaveBeenCalledWith({
-      tableNumber: 1,
-      customerName: null,
-      items: [
-        { type: 'product', productId: 'p', quantity: 1, notes: 'sin cebolla' },
-        { type: 'product', productId: 'p', quantity: 1 },
-      ],
-      notes: null,
-      scheduledFor: null,
-      service: 'dine_in',
-    })
-  })
-
-  it('sends the order note and clears it afterwards', async () => {
-    const user = userEvent.setup()
-    renderPage()
-    await showCategory(user)
-    await user.click(await screen.findByRole('button', { name: /pizza queso/i }))
-    await user.type(screen.getByLabelText(/nota del pedido/i), '  cliente alérgico ')
-    await user.click(screen.getByRole('button', { name: 'M-2' }))
-    await chooseService(user)
-    await user.click(screen.getByRole('button', { name: /registrar pedido/i }))
-    expect(createOrder).toHaveBeenCalledWith({
-      tableNumber: 2,
-      customerName: null,
-      items: [{ type: 'product', productId: 'p', quantity: 1 }],
-      notes: 'cliente alérgico',
-      scheduledFor: null,
-      service: 'dine_in',
-    })
-    await screen.findByRole('status')
-    expect(screen.getByLabelText(/nota del pedido/i)).toHaveValue('')
-  })
-
-  it('does not ask for an order note when adding to an existing order', async () => {
-    const user = userEvent.setup()
-    renderPage()
-    await user.click(await screen.findByRole('button', { name: /agregar productos/i }))
-    expect(screen.queryByLabelText(/nota del pedido/i)).not.toBeInTheDocument()
-  })
-
-  it('shows item and order notes on open orders', async () => {
-    vi.mocked(listOpenOrders).mockResolvedValue([
-      {
-        ...openOrder,
-        notes: 'Mesa con niños',
-        items: [{ ...openOrder.items[0]!, notes: 'bien cocida' }],
-      },
-    ])
-    renderPage()
-    const card = (await screen.findByText('Ana')).closest('li')!
-    expect(within(card).getByText('Nota: bien cocida')).toBeVisible()
-    expect(within(card).getByText('Nota del pedido: Mesa con niños')).toBeVisible()
-  })
-
-  it('edits the note of an open order and refreshes the list', async () => {
-    vi.mocked(listOpenOrders).mockResolvedValue([{ ...openOrder, notes: 'vieja' }])
-    const user = userEvent.setup()
-    renderPage()
-    await user.click(await screen.findByRole('button', { name: /editar nota/i }))
-    const dialog = screen.getByRole('dialog')
-    const field = within(dialog).getByLabelText('Nota del pedido')
-    expect(field).toHaveValue('vieja')
-    await user.clear(field)
-    await user.type(field, ' nueva ')
-    await user.click(within(dialog).getByRole('button', { name: /guardar nota/i }))
-    expect(setOrderNotes).toHaveBeenCalledWith('order-1', 'nueva')
-    expect(await screen.findByRole('status')).toHaveTextContent(/nota actualizada/i)
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    expect(listOpenOrders).toHaveBeenCalledTimes(2)
-  })
-
-  it('clears the note when saved blank and shows an error when saving fails', async () => {
-    vi.mocked(listOpenOrders).mockResolvedValue([{ ...openOrder, notes: 'vieja' }])
-    vi.mocked(setOrderNotes).mockRejectedValueOnce(new Error('No se pudo guardar la nota.'))
-    const user = userEvent.setup()
-    renderPage()
-    await user.click(await screen.findByRole('button', { name: /editar nota/i }))
-    const dialog = screen.getByRole('dialog')
-    await user.clear(within(dialog).getByLabelText('Nota del pedido'))
-    await user.click(within(dialog).getByRole('button', { name: /guardar nota/i }))
-    expect(await within(dialog).findByRole('alert')).toHaveTextContent('No se pudo guardar la nota.')
-    await user.click(within(dialog).getByRole('button', { name: /guardar nota/i }))
-    expect(setOrderNotes).toHaveBeenLastCalledWith('order-1', null)
-    expect(setOrderNotes).toHaveBeenCalledTimes(2)
+    await user.click(screen.getByRole('button', { name: /revisar pedido/i }))
+    expect(screen.getAllByRole('group', { name: 'Cantidad de Pizza queso' })).toHaveLength(2)
+    await user.click(screen.getByRole('button', { name: /enviar a cocina/i }))
+    expect(createOrder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        items: [
+          { type: 'product', productId: 'p', quantity: 1, notes: 'sin cebolla' },
+          { type: 'product', productId: 'p', quantity: 1 },
+        ],
+      }),
+    )
   })
 
   describe('products with variants', () => {
@@ -849,51 +422,21 @@ describe('OrdersPage pizza builder and notes', () => {
       ])
     })
 
-    async function openPicker(user: ReturnType<typeof userEvent.setup>) {
-      if (!screen.queryByRole('button', { name: 'Hamburguesa' })) await showCategory(user, 'Hamburguesas')
-      await user.click(await screen.findByRole('button', { name: 'Hamburguesa' }))
-      return screen.getByRole('dialog', { name: 'Hamburguesa' })
+    async function pick(user: ReturnType<typeof userEvent.setup>, variant: string) {
+      const choices = await screen.findByRole('group', { name: 'Elige: Hamburguesa' })
+      await user.click(within(choices).getByRole('button', { name: new RegExp(`^${variant}`) }))
     }
 
-    it('opens the picker, adds the chosen variant and sends it in the payload', async () => {
+    it('sends the chosen variant and merges taps on the same one', async () => {
       const user = userEvent.setup()
       renderPage()
-      const picker = await openPicker(user)
-      await user.click(within(picker).getByRole('button', { name: 'Pollo' }))
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-      expect(screen.getByText('Hamburguesa (Pollo)')).toBeInTheDocument()
-
-      await user.click(screen.getByRole('button', { name: 'M-2' }))
-      await chooseService(user)
-      await user.click(screen.getByRole('button', { name: /registrar pedido/i }))
-      expect(createOrder).toHaveBeenCalledWith({
-        tableNumber: 2,
-        customerName: null,
-        items: [{ type: 'product', productId: 'b', quantity: 1, variant: 'Pollo' }],
-        notes: null,
-        scheduledFor: null,
-        service: 'dine_in',
-      })
-    })
-
-    it('keeps different variants as separate lines', async () => {
-      const user = userEvent.setup()
-      renderPage()
-      await user.click(within(await openPicker(user)).getByRole('button', { name: 'Res' }))
-      await user.click(within(await openPicker(user)).getByRole('button', { name: 'Pollo' }))
-      expect(screen.getByText('Hamburguesa (Res)')).toBeInTheDocument()
-      expect(screen.getByText('Hamburguesa (Pollo)')).toBeInTheDocument()
-    })
-
-    it('merges the same variant into one line', async () => {
-      const user = userEvent.setup()
-      renderPage()
-      await user.click(within(await openPicker(user)).getByRole('button', { name: 'Pollo' }))
-      await user.click(within(await openPicker(user)).getByRole('button', { name: 'Pollo' }))
-      expect(screen.getAllByText('Hamburguesa (Pollo)')).toHaveLength(1)
-      await user.click(screen.getByRole('button', { name: 'M-1' }))
-      await chooseService(user)
-      await user.click(screen.getByRole('button', { name: /registrar pedido/i }))
+      await startOrder(user, { table: 1 })
+      await pick(user, 'Pollo')
+      await pick(user, 'Pollo')
+      await user.click(screen.getByRole('button', { name: /revisar pedido/i }))
+      expect(screen.getAllByRole('group', { name: /^Cantidad de Hamburguesa/ })).toHaveLength(1)
+      expect(screen.getByRole('group', { name: 'Cantidad de Hamburguesa (Pollo)' })).toBeVisible()
+      await user.click(screen.getByRole('button', { name: /enviar a cocina/i }))
       expect(createOrder).toHaveBeenCalledWith({
         tableNumber: 1,
         customerName: null,
@@ -904,69 +447,645 @@ describe('OrdersPage pizza builder and notes', () => {
       })
     })
 
-    it('adds nothing when the picker is cancelled', async () => {
+    it('keeps different variants as separate lines', async () => {
       const user = userEvent.setup()
       renderPage()
-      const picker = await openPicker(user)
-      await user.click(within(picker).getByRole('button', { name: /cancelar/i }))
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-      expect(screen.getByText(/agrega productos al pedido/i)).toBeInTheDocument()
-    })
-
-    it('adds a product without variants directly', async () => {
-      const user = userEvent.setup()
-      renderPage()
-      await showCategory(user, 'Hamburguesas')
-      await user.click(await screen.findByRole('button', { name: 'Papas' }))
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-      expect(screen.getByRole('button', { name: 'Quitar una unidad de Papas' })).toBeInTheDocument()
-    })
-
-    it('shows the variant on open orders', async () => {
-      vi.mocked(listOpenOrders).mockResolvedValue([
-        {
-          ...openOrder,
-          items: [{ id: 'i2', productId: 'b', productName: 'Hamburguesa', quantity: 2, type: 'product', pizza: null, notes: null, variant: 'Pollo' }],
-        },
-      ])
-      renderPage()
-      expect(await screen.findByText(/Hamburguesa \(Pollo\) × 2/)).toBeInTheDocument()
+      await startOrder(user, { table: 1 })
+      await pick(user, 'Res')
+      await pick(user, 'Pollo')
+      await user.click(screen.getByRole('button', { name: /revisar pedido/i }))
+      expect(screen.getByRole('group', { name: 'Cantidad de Hamburguesa (Res)' })).toBeVisible()
+      expect(screen.getByRole('group', { name: 'Cantidad de Hamburguesa (Pollo)' })).toBeVisible()
     })
   })
 })
 
-describe('stock in the product grid', () => {
-  it('shows a sold-out product as Agotado and does not add it', async () => {
+/** The table tile of M-n (its name also carries Libre/Ocupada and the order detail). */
+function tableTile(n: number) {
+  return screen.getByRole('button', { name: new RegExp(`^M-${n}\\b`) })
+}
+
+function stepItem(label: string) {
+  return within(screen.getByRole('navigation', { name: 'Pasos del pedido' })).getByText(label).closest('li')!
+}
+
+describe('guided steps: step indicator and Mesa step', () => {
+  const at = (h: number, m: number) => new Date(`2026-01-01T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00Z`)
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('shows the three steps with Mesa as the current one', async () => {
+    renderPage()
+    await screen.findByRole('heading', { name: '¿Dónde es el pedido?' })
+    const nav = screen.getByRole('navigation', { name: 'Pasos del pedido' })
+    const items = within(nav).getAllByRole('listitem')
+    expect(items.map((item) => item.textContent)).toEqual(['1 Mesa', '2 Productos', '3 Revisar'])
+    expect(stepItem('Mesa')).toHaveAttribute('aria-current', 'step')
+    expect(stepItem('Productos')).not.toHaveAttribute('aria-current')
+    expect(within(nav).queryByRole('button')).not.toBeInTheDocument()
+  })
+
+  it('shows the Aquí / Para llevar toggle and the table map with Libre and Ocupada by text', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(at(10, 25))
+    vi.mocked(listOpenOrders).mockResolvedValue([{ ...openOrder, token: 7, waiterName: 'Jorge' }])
+    renderPage()
+    await screen.findByRole('heading', { name: 'Elige la mesa' })
+    const service = screen.getByRole('group', { name: 'Tipo de pedido' })
+    expect(within(service).getByRole('button', { name: 'Aquí' })).toHaveAttribute('aria-pressed', 'false')
+    expect(within(service).getByRole('button', { name: 'Para llevar' })).toHaveAttribute('aria-pressed', 'false')
+
+    const map = screen.getByRole('group', { name: 'Mesa' })
+    expect(within(map).getAllByRole('button')).toHaveLength(9)
+    expect(tableTile(1)).toHaveTextContent('Libre')
+    expect(tableTile(3)).toHaveTextContent('Ocupada')
+    expect(tableTile(3)).toHaveTextContent('Ficha 7 · 25 min · Jorge')
+    expect(tableTile(3)).toHaveClass('min-h-[104px]')
+  })
+
+  it('shows a scheduled table with its time instead of the Sin ficha line', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(at(10, 25))
+    vi.mocked(listOpenOrders).mockResolvedValue([
+      { ...openOrder, token: null, waiterName: 'Jorge', scheduledFor: at(14, 30).toISOString(), queuedAt: null },
+    ])
+    renderPage()
+    await screen.findByRole('heading', { name: 'Elige la mesa' })
+    expect(tableTile(3)).toHaveTextContent('Ocupada')
+    expect(tableTile(3)).toHaveTextContent(/Programado \d{1,2}:30/)
+    expect(tableTile(3)).not.toHaveTextContent('Sin ficha')
+    expect(tableTile(3)).toHaveTextContent('Jorge')
+  })
+
+  it('explains the chosen table under the map, and lets the table be unchosen', async () => {
     const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: /^M-4\b/ }))
+    expect(tableTile(4)).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByText('M-4 está libre. Se abrirá un pedido nuevo.')).toBeVisible()
+    await user.click(tableTile(4))
+    expect(tableTile(4)).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.queryByText(/está libre/)).not.toBeInTheDocument()
+  })
+
+  it('offers Agregar a este pedido on an occupied table, entering add mode at step 2', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(at(10, 25))
+    vi.mocked(listOpenOrders).mockResolvedValue([{ ...openOrder, token: 7, waiterName: 'Jorge' }])
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: /^M-3\b/ }))
+    expect(screen.getByText('M-3 ocupada · Ficha 7 · 25 min · Jorge')).toBeVisible()
+    expect(screen.getByRole('button', { name: /siguiente: productos/i })).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: 'Agregar a este pedido' }))
+    expect(stepItem('Productos')).toHaveAttribute('aria-current', 'step')
+    expect(screen.getByRole('region', { name: /pedido en edición/i })).toHaveTextContent('Agregando al pedido M-3 · Ana')
+    expect(screen.queryByRole('heading', { name: '¿Dónde es el pedido?' })).not.toBeInTheDocument()
+  })
+
+  it('enables Siguiente only with a service and a table or a valid name, and says what is missing', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    const next = await screen.findByRole('button', { name: /siguiente: productos/i })
+    expect(next).toBeDisabled()
+    expect(screen.getByText('Falta: elegir Aquí o Para llevar')).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'Aquí' }))
+    expect(next).toBeDisabled()
+    expect(screen.getByText('Falta: mesa o nombre del cliente')).toBeVisible()
+    await user.type(screen.getByLabelText(/nombre del cliente/i), '   ')
+    expect(next).toBeDisabled()
+    await user.click(tableTile(5))
+    expect(next).toBeEnabled()
+    expect(screen.queryByText(/^Falta:/)).not.toBeInTheDocument()
+    await user.click(tableTile(5))
+    await user.type(screen.getByLabelText(/nombre del cliente/i), ' Juan ')
+    expect(next).toBeEnabled()
+  })
+
+  it('asks for the customer name on takeaway orders, which do not take a table', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: 'Aquí' }))
+    await user.click(tableTile(5))
+    expect(screen.getByLabelText(/nombre del cliente \(opcional en mesa · obligatorio para llevar\)/i)).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'Para llevar' }))
+    expect(screen.queryByRole('group', { name: 'Mesa' })).not.toBeInTheDocument()
+    const next = screen.getByRole('button', { name: /siguiente: productos/i })
+    expect(next).toBeDisabled()
+    expect(screen.getByText('Falta: nombre del cliente')).toBeVisible()
+    expect(screen.getByLabelText(/nombre del cliente \(obligatorio para llevar\)/i)).toBeVisible()
+    await user.type(screen.getByLabelText(/nombre del cliente/i), 'Luis')
+    expect(next).toBeEnabled()
+  })
+
+  it('goes to Productos with Siguiente, keeps the choices and lets Mesa be tapped to go back', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: 'Aquí' }))
+    await user.click(tableTile(4))
+    await user.type(screen.getByLabelText(/nombre del cliente/i), 'Familia Ortega')
+    await user.click(screen.getByRole('button', { name: /siguiente: productos/i }))
+    expect(stepItem('Productos')).toHaveAttribute('aria-current', 'step')
+    expect(stepItem('Mesa')).toHaveTextContent('✓ Mesa')
+    expect(screen.queryByRole('heading', { name: '¿Dónde es el pedido?' })).not.toBeInTheDocument()
+
+    await user.click(within(stepItem('Mesa')).getByRole('button', { name: 'Mesa' }))
+    expect(stepItem('Mesa')).toHaveAttribute('aria-current', 'step')
+    expect(tableTile(4)).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByLabelText(/nombre del cliente/i)).toHaveValue('Familia Ortega')
+    expect(screen.getByRole('button', { name: 'Aquí' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('keeps open orders, including takeaway ones without table, reachable from step 1', async () => {
+    vi.mocked(listOpenOrders).mockResolvedValue([
+      openOrder,
+      { ...openOrder, id: 'order-2', tableNumber: null, customerName: 'Beto', service: 'takeaway' },
+    ])
+    const user = userEvent.setup()
+    renderPage()
+    const opener = await screen.findByRole('button', { name: /^pedidos abiertos/i })
+    expect(opener).toHaveTextContent('2')
+    await user.click(opener)
+    const dialog = screen.getByRole('dialog', { name: 'Pedidos abiertos' })
+    expect(within(dialog).getByText('Beto')).toBeVisible()
+    expect(within(dialog).getAllByRole('button', { name: /agregar productos/i })).toHaveLength(2)
+    expect(within(dialog).getAllByRole('link', { name: /cobrar/i })).toHaveLength(2)
+
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(opener).toHaveFocus()
+  })
+
+  it('starts adding from the open orders sheet and jumps to step 2', async () => {
+    vi.mocked(listOpenOrders).mockResolvedValue([{ ...openOrder, id: 'order-2', tableNumber: null, customerName: 'Beto' }])
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: /^pedidos abiertos/i }))
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: /agregar productos/i }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(stepItem('Productos')).toHaveAttribute('aria-current', 'step')
+    expect(screen.getByRole('region', { name: /pedido en edición/i })).toHaveTextContent('Agregando al pedido Beto')
+  })
+
+  it('cancels an open order only after confirming, from the open orders sheet', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: /^pedidos abiertos/i }))
+    await user.click(within(screen.getByRole('dialog', { name: 'Pedidos abiertos' })).getByRole('button', { name: /cancelar pedido/i }))
+    expect(cancelOrder).not.toHaveBeenCalled()
+    await user.keyboard('{Escape}')
+    expect(screen.getByRole('dialog', { name: 'Pedidos abiertos' })).toBeVisible()
+    await user.click(within(screen.getByRole('dialog', { name: 'Cancelar pedido' })).getByRole('button', { name: /sí, cancelar pedido/i }))
+    expect(cancelOrder).toHaveBeenCalledWith('order-1')
+  })
+
+  it('places the step bar above the bottom nav only when asked to', async () => {
+    renderPage()
+    const next = await screen.findByRole('button', { name: /siguiente: productos/i })
+    expect(next.closest('[data-step-bar]')).toHaveClass('bottom-[calc(68px+env(safe-area-inset-bottom))]', 'sm:bottom-0')
+  })
+})
+
+/** Walks step 1 with the given choices and lands on step 2. */
+async function startOrder(
+  user: ReturnType<typeof userEvent.setup>,
+  { service = 'Aquí', table, name }: { service?: 'Aquí' | 'Para llevar'; table?: number; name?: string } = {},
+) {
+  await user.click(await screen.findByRole('button', { name: service }))
+  if (table !== undefined) await user.click(tableTile(table))
+  if (name !== undefined) await user.type(screen.getByLabelText(/nombre del cliente/i), name)
+  await user.click(screen.getByRole('button', { name: /siguiente: productos/i }))
+}
+
+describe('guided steps: Productos step', () => {
+  it('shows the sticky context bar with table, service and name, and Cambiar goes back to step 1', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await startOrder(user, { table: 4, name: 'Familia Ortega' })
+    const context = screen.getByRole('region', { name: 'Contexto del pedido' })
+    expect(context).toHaveTextContent('M-4 · Aquí · Familia Ortega')
+    expect(context.parentElement).toHaveClass('sticky')
+    await user.click(within(context).getByRole('button', { name: 'Cambiar' }))
+    expect(stepItem('Mesa')).toHaveAttribute('aria-current', 'step')
+    expect(tableTile(4)).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByLabelText(/nombre del cliente/i)).toHaveValue('Familia Ortega')
+  })
+
+  it('names a takeaway order without a table in the context bar', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await startOrder(user, { service: 'Para llevar', name: 'Luis' })
+    expect(screen.getByRole('region', { name: 'Contexto del pedido' })).toHaveTextContent('Para llevar · Luis')
+  })
+
+  it('has search, category pills and product tiles of at least 64px, with a ×N badge once added', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await startOrder(user, { table: 4 })
+    expect(screen.getByRole('searchbox', { name: 'Buscar producto por nombre' })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Botanas' })).toHaveClass('min-h-11')
+    const tile = await screen.findByRole('button', { name: 'Pizza queso' })
+    expect(tile).toHaveClass('min-h-16')
+    expect(tile).not.toHaveTextContent('$')
+    await user.click(tile)
+    await user.click(tile)
+    expect(screen.getByText('×2')).toBeVisible()
+  })
+
+  it('chooses a variant inline on the tile instead of opening a dialog', async () => {
+    vi.mocked(listProducts).mockResolvedValue([
+      { id: 'b', categoryId: 'pizza', name: 'Hamburguesa', priceCents: 9000, active: true, variants: ['Res', 'Pollo'] },
+    ])
+    const user = userEvent.setup()
+    renderPage()
+    await startOrder(user, { table: 4 })
+    const choices = await screen.findByRole('group', { name: 'Elige: Hamburguesa' })
+    await user.click(within(choices).getByRole('button', { name: 'Pollo' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /revisar pedido/i })).toHaveTextContent('1 producto')
+  })
+
+  it('shows the sticky bottom bar with the product count, disabled until there is one', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await startOrder(user, { table: 4 })
+    const bar = await screen.findByRole('button', { name: /revisar pedido/i })
+    expect(bar).toBeDisabled()
+    expect(bar).toHaveTextContent('Agrega productos')
+    await user.click(screen.getByRole('button', { name: 'Pizza queso' }))
+    expect(bar).toBeEnabled()
+    expect(bar).toHaveTextContent('1 producto')
+    expect(bar).toHaveTextContent('Revisar pedido →')
+    await user.click(screen.getByRole('button', { name: 'Pizza queso' }))
+    await user.click(screen.getByRole('button', { name: 'Pizza queso' }))
+    expect(bar).toHaveTextContent('3 productos')
+    expect(bar.closest('[data-step-bar]')).toHaveClass('bottom-[calc(68px+env(safe-area-inset-bottom))]')
+
+    await user.click(bar)
+    expect(stepItem('Revisar')).toHaveAttribute('aria-current', 'step')
+  })
+
+  it('offers a prominent Armar pizza tile that opens the builder and counts the pizzas added', async () => {
+    vi.mocked(listPizzaCatalog).mockResolvedValue(pizzaCatalogFixture)
+    const user = userEvent.setup()
+    renderPage()
+    await startOrder(user, { table: 4 })
+    const armar = await screen.findByRole('button', { name: /armar pizza/i })
+    expect(armar).toHaveClass('min-h-[68px]')
+    await user.click(armar)
+    await user.click(within(screen.getByRole('dialog', { name: /armar pizza/i })).getByRole('button', { name: 'Agregar pizza' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(within(armar).getByText('×1')).toBeVisible()
+    expect(screen.getByRole('button', { name: /revisar pedido/i })).toHaveTextContent('1 producto')
+  })
+
+  it('keeps adding to an open order: context names it and products can be added', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: /^pedidos abiertos/i }))
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: /agregar productos/i }))
+    expect(screen.getByRole('region', { name: /pedido en edición/i })).toHaveTextContent('Agregando al pedido M-3 · Ana')
+    expect(screen.queryByRole('region', { name: 'Contexto del pedido' })).not.toBeInTheDocument()
+    await user.click(await screen.findByRole('button', { name: 'Pizza queso' }))
+    expect(screen.getByRole('button', { name: /revisar pedido/i })).toHaveTextContent('1 producto')
+    expect(within(stepItem('Mesa')).queryByRole('button')).not.toBeInTheDocument()
+  })
+
+  it('hides products of the legacy Pizzas category and its pill', async () => {
+    vi.mocked(listCategories).mockResolvedValue([
+      { id: 'pizza', name: ' pizzas ', sortOrder: 0, legacyPizza: true },
+      { id: 'snacks', name: 'Botanas', sortOrder: 1 },
+    ])
+    vi.mocked(listProducts).mockResolvedValue([
+      { id: 'p', categoryId: 'pizza', name: 'Pizza queso', priceCents: 0, active: true, variants: [] },
+      { id: 'a', categoryId: 'snacks', name: 'Alitas', priceCents: 0, active: true, variants: [] },
+    ])
+    const user = userEvent.setup()
+    renderPage()
+    await startOrder(user, { table: 4 })
+    expect(await screen.findByRole('button', { name: 'Alitas' })).toBeVisible()
+    expect(screen.queryByRole('button', { name: /^pizzas$/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /pizza queso/i })).not.toBeInTheDocument()
+  })
+
+  it('shows a sold-out product as Agotado, disabled', async () => {
     vi.mocked(listProducts).mockResolvedValue([
       { id: 'soda', categoryId: 'pizza', name: 'Refresco', priceCents: 2000, active: true, variants: [], trackStock: true, stock: 0, stockMin: 6 },
-      { id: 'beer', categoryId: 'pizza', name: 'Cerveza', priceCents: 4000, active: true, variants: [], trackStock: true, stock: 2, stockMin: 6 },
     ])
+    const user = userEvent.setup()
     renderPage()
-    await showCategory(user)
-    const soda = screen.getByRole('button', { name: /Refresco/ })
+    await startOrder(user, { table: 4 })
+    const soda = await screen.findByRole('button', { name: /Refresco/ })
     expect(soda).toBeDisabled()
     expect(within(soda).getByText('Agotado')).toBeVisible()
-    const beer = screen.getByRole('button', { name: /Cerveza/ })
-    expect(beer).toBeEnabled()
-    expect(within(beer).queryByText('Agotado')).not.toBeInTheDocument()
-    await user.click(soda)
-    expect(soda).not.toHaveClass('border-emerald-600')
-    await user.click(beer)
-    expect(beer).toHaveClass('border-emerald-600')
-  })
-
-  it('gives a product in the order a dark background in dark mode so its name stays readable', async () => {
-    const user = userEvent.setup()
-    vi.mocked(listProducts).mockResolvedValue([
-      { id: 'beer', categoryId: 'pizza', name: 'Cerveza', priceCents: 4000, active: true, variants: [], trackStock: false, stock: 0, stockMin: 0 },
-    ])
-    renderPage()
-    await showCategory(user)
-    const beer = screen.getByRole('button', { name: /Cerveza/ })
-    expect(beer).not.toHaveClass('dark:bg-emerald-950/60')
-    await user.click(beer)
-    expect(beer).toHaveClass('bg-emerald-50', 'dark:bg-emerald-950/60')
   })
 })
 
+/** Walks steps 1 and 2 (one tap on the first product `taps` times) and lands on step 3. */
+async function reachReview(
+  user: ReturnType<typeof userEvent.setup>,
+  { table = 4, taps = 1, product = 'Pizza queso', ...rest }: { table?: number; taps?: number; product?: string; service?: 'Aquí' | 'Para llevar'; name?: string } = {},
+) {
+  await startOrder(user, { table: rest.service === 'Para llevar' ? undefined : table, service: rest.service, name: rest.name })
+  const tile = await screen.findByRole('button', { name: product })
+  for (let i = 0; i < taps; i++) await user.click(tile)
+  await user.click(screen.getByRole('button', { name: /revisar pedido/i }))
+}
+
+describe('guided steps: Revisar step', () => {
+  it('shows the context summary with Cambiar, which goes back to step 1', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await reachReview(user, { name: 'Familia Ortega' })
+    expect(stepItem('Revisar')).toHaveAttribute('aria-current', 'step')
+    expect(stepItem('Productos')).toHaveTextContent('✓ Productos')
+    const context = screen.getByRole('region', { name: 'Contexto del pedido' })
+    expect(context).toHaveTextContent('M-4 · Aquí · Familia Ortega')
+    await user.click(within(context).getByRole('button', { name: 'Cambiar' }))
+    expect(stepItem('Mesa')).toHaveAttribute('aria-current', 'step')
+  })
+
+  it('lets Productos be tapped to go back and keeps the lines', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await reachReview(user)
+    await user.click(within(stepItem('Productos')).getByRole('button', { name: 'Productos' }))
+    expect(screen.getByText('×1')).toBeVisible()
+  })
+
+  it('edits each line with a large − qty +, where − stops at 1 because Quitar removes', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await reachReview(user)
+    const stepper = screen.getByRole('group', { name: 'Cantidad de Pizza queso' })
+    const less = within(stepper).getByRole('button', { name: 'Quitar uno' })
+    const more = within(stepper).getByRole('button', { name: 'Agregar uno' })
+    expect(less).toHaveAccessibleName('Quitar uno')
+    expect(more).toHaveAccessibleName('Agregar uno')
+    for (const button of [less, more]) expect(button).toHaveClass('h-12', 'w-12')
+    expect(within(stepper).getByText('1')).toBeVisible()
+    expect(less).toBeDisabled()
+    await user.click(more)
+    expect(within(stepper).getByText('2')).toBeVisible()
+    expect(less).toBeEnabled()
+    await user.click(less)
+    expect(within(stepper).getByText('1')).toBeVisible()
+  })
+
+  it('adds and edits a line note through Agregar nota / Editar nota and sends it', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await reachReview(user)
+    expect(screen.queryByRole('textbox', { name: 'Nota para Pizza queso' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Agregar nota a Pizza queso' }))
+    const field = screen.getByRole('textbox', { name: 'Nota para Pizza queso' })
+    expect(field).toHaveFocus()
+    expect(field).toHaveAttribute('maxlength', '200')
+    await user.type(field, '  sin cebolla {Enter}')
+    expect(createOrder).not.toHaveBeenCalled()
+    expect(screen.queryByRole('textbox', { name: 'Nota para Pizza queso' })).not.toBeInTheDocument()
+    expect(screen.getByText('Nota: sin cebolla')).toBeVisible()
+
+    await user.click(screen.getByRole('button', { name: 'Editar nota a Pizza queso' }))
+    expect(screen.getByRole('textbox', { name: 'Nota para Pizza queso' })).toHaveValue('  sin cebolla ')
+    await user.click(screen.getByRole('button', { name: 'Listo' }))
+    await user.click(screen.getByRole('button', { name: /enviar a cocina/i }))
+    expect(createOrder).toHaveBeenCalledWith({
+      tableNumber: 4,
+      customerName: null,
+      items: [{ type: 'product', productId: 'p', quantity: 1, notes: 'sin cebolla' }],
+      notes: null,
+      scheduledFor: null,
+      service: 'dine_in',
+    })
+  })
+
+  describe('removing lines', () => {
+    beforeEach(() => {
+      vi.mocked(listProducts).mockResolvedValue([
+        { id: 'p', categoryId: 'pizza', name: 'Pizza queso', priceCents: 15000, active: true, variants: [] },
+        { id: 'g', categoryId: 'pizza', name: 'Papas gajo', priceCents: 6000, active: true, variants: [] },
+      ])
+    })
+
+    async function twoLines(user: ReturnType<typeof userEvent.setup>) {
+      await startOrder(user, { table: 4 })
+      await user.click(await screen.findByRole('button', { name: 'Pizza queso' }))
+      await user.click(screen.getByRole('button', { name: 'Papas gajo' }))
+      await user.click(screen.getByRole('button', { name: 'Papas gajo' }))
+      await user.click(screen.getByRole('button', { name: /revisar pedido/i }))
+    }
+
+    it('shows an announced undo snackbar after Quitar and restores the line, quantity and note with Deshacer', async () => {
+      const user = userEvent.setup()
+      renderPage()
+      await twoLines(user)
+      await user.click(screen.getByRole('button', { name: 'Agregar nota a Pizza queso' }))
+      await user.type(screen.getByRole('textbox', { name: 'Nota para Pizza queso' }), 'bien cocida')
+      await user.click(screen.getByRole('button', { name: 'Listo' }))
+      expect(screen.queryByRole('status')).not.toBeInTheDocument()
+
+      await user.click(screen.getByRole('button', { name: 'Quitar Pizza queso del pedido' }))
+      const snack = screen.getByRole('status')
+      expect(snack).toHaveTextContent('Quitaste Pizza queso')
+      expect(screen.queryByRole('group', { name: 'Cantidad de Pizza queso' })).not.toBeInTheDocument()
+      expect(screen.getByRole('group', { name: 'Cantidad de Papas gajo' })).toBeVisible()
+
+      await user.click(within(snack).getByRole('button', { name: 'Deshacer' }))
+      expect(screen.queryByRole('status')).not.toBeInTheDocument()
+      const lines = screen.getAllByRole('group', { name: /^Cantidad de/ })
+      expect(lines.map((line) => line.getAttribute('aria-label'))).toEqual(['Cantidad de Pizza queso', 'Cantidad de Papas gajo'])
+      expect(screen.getByText('Nota: bien cocida')).toBeVisible()
+    })
+
+    it('lists what is missing and blocks sending when the last line is removed, and Deshacer fixes it', async () => {
+      const user = userEvent.setup()
+      renderPage()
+      await reachReview(user)
+      const send = screen.getByRole('button', { name: /enviar a cocina/i })
+      expect(send).toBeEnabled()
+      const checklist = screen.getByRole('list', { name: 'Lista de verificación' })
+      expect(within(checklist).queryByText(/^Falta:/)).not.toBeInTheDocument()
+
+      await user.click(screen.getByRole('button', { name: 'Quitar Pizza queso del pedido' }))
+      expect(within(checklist).getByText('Falta: agregar productos')).toBeVisible()
+      expect(send).toBeDisabled()
+      await user.click(screen.getByRole('button', { name: 'Deshacer' }))
+      expect(within(checklist).queryByText(/^Falta:/)).not.toBeInTheDocument()
+      expect(send).toBeEnabled()
+    })
+
+    it('only keeps the last removal undoable and drops the snackbar when the step changes', async () => {
+      const user = userEvent.setup()
+      renderPage()
+      await twoLines(user)
+      await user.click(screen.getByRole('button', { name: 'Quitar Pizza queso del pedido' }))
+      await user.click(screen.getByRole('button', { name: 'Quitar Papas gajo del pedido' }))
+      expect(screen.getByRole('status')).toHaveTextContent('Quitaste Papas gajo')
+      await user.click(within(stepItem('Productos')).getByRole('button', { name: 'Productos' }))
+      expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    })
+
+    it('dismisses the snackbar after the undo window', async () => {
+      const user = userEvent.setup()
+      renderPage()
+      await reachReview(user)
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+      try {
+        fireEvent.click(screen.getByRole('button', { name: 'Quitar Pizza queso del pedido' }))
+        expect(screen.getByRole('status')).toHaveTextContent('Quitaste Pizza queso')
+        act(() => {
+          vi.advanceTimersByTime(8000)
+        })
+        expect(screen.queryByRole('status')).not.toBeInTheDocument()
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+  })
+
+  it('asks for the order note and the pickup time, and sends both', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 9, 21, 12, 0))
+    try {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+      renderPage()
+      await reachReview(user)
+      const note = screen.getByLabelText('Nota del pedido (opcional)')
+      expect(note).toHaveAttribute('maxlength', '300')
+      await user.type(note, '  cliente alérgico ')
+      await user.type(screen.getByLabelText('Hora para recoger (opcional)'), '14:30')
+      await user.click(screen.getByRole('button', { name: /enviar a cocina/i }))
+      expect(createOrder).toHaveBeenCalledWith({
+        tableNumber: 4,
+        customerName: null,
+        items: [{ type: 'product', productId: 'p', quantity: 1 }],
+        notes: 'cliente alérgico',
+        scheduledFor: new Date(2026, 9, 21, 14, 30).toISOString(),
+        service: 'dine_in',
+      })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('rejects a pickup time that is not later today and keeps the draft', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 9, 21, 12, 0))
+    try {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+      renderPage()
+      await reachReview(user)
+      await user.type(screen.getByLabelText('Hora para recoger (opcional)'), '11:00')
+      await user.click(screen.getByRole('button', { name: /enviar a cocina/i }))
+      expect(await screen.findByRole('alert')).toHaveTextContent('La hora del pedido debe ser más tarde hoy.')
+      expect(createOrder).not.toHaveBeenCalled()
+      expect(screen.getByLabelText('Hora para recoger (opcional)')).toHaveValue('11:00')
+      expect(screen.getByRole('group', { name: 'Cantidad de Pizza queso' })).toBeVisible()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('sends with Enviar a cocina, confirms, refreshes the open orders and starts over at step 1', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await reachReview(user, { taps: 2, name: '  Luis   Perez ' })
+    await user.click(screen.getByRole('button', { name: /enviar a cocina/i }))
+    expect(createOrder).toHaveBeenCalledWith({
+      tableNumber: 4,
+      customerName: 'Luis Perez',
+      items: [{ type: 'product', productId: 'p', quantity: 2 }],
+      notes: null,
+      scheduledFor: null,
+      service: 'dine_in',
+    })
+    expect(await screen.findByRole('status')).toHaveTextContent('Pedido registrado correctamente.')
+    expect(listOpenOrders).toHaveBeenCalledTimes(2)
+    expect(stepItem('Mesa')).toHaveAttribute('aria-current', 'step')
+    expect(screen.getByLabelText(/nombre del cliente/i)).toHaveValue('')
+    expect(screen.getByRole('button', { name: 'Aquí' })).toHaveAttribute('aria-pressed', 'false')
+    expect(tableTile(4)).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('button', { name: /siguiente: productos/i })).toBeDisabled()
+  })
+
+  it('shows an error banner and keeps the draft when sending fails', async () => {
+    vi.mocked(createOrder).mockRejectedValueOnce(new Error('No se pudo crear el pedido.'))
+    const user = userEvent.setup()
+    renderPage()
+    await reachReview(user)
+    await user.click(screen.getByRole('button', { name: /enviar a cocina/i }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('No se pudo crear el pedido.')
+    expect(screen.getByRole('button', { name: /enviar a cocina/i })).toBeEnabled()
+    expect(screen.getByRole('group', { name: 'Cantidad de Pizza queso' })).toBeVisible()
+  })
+
+  it('sends a takeaway order with the customer name and no table', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await reachReview(user, { service: 'Para llevar', name: 'Luis' })
+    expect(screen.getByRole('region', { name: 'Contexto del pedido' })).toHaveTextContent('Para llevar · Luis')
+    await user.click(screen.getByRole('button', { name: /enviar a cocina/i }))
+    expect(createOrder).toHaveBeenCalledWith({
+      tableNumber: null,
+      customerName: 'Luis',
+      items: [{ type: 'product', productId: 'p', quantity: 1 }],
+      notes: null,
+      scheduledFor: null,
+      service: 'takeaway',
+    })
+  })
+
+  it('sends to a table without a name', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await reachReview(user, { table: 5 })
+    await user.click(screen.getByRole('button', { name: /enviar a cocina/i }))
+    expect(createOrder).toHaveBeenCalledWith(expect.objectContaining({ tableNumber: 5, customerName: null, service: 'dine_in' }))
+  })
+
+  it('places the send bar above the bottom nav', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await reachReview(user)
+    expect(screen.getByRole('button', { name: /enviar a cocina/i }).closest('[data-step-bar]')).toHaveClass(
+      'bottom-[calc(68px+env(safe-area-inset-bottom))]',
+    )
+  })
+
+  describe('adding to an open order', () => {
+    async function addToOpenOrder(user: ReturnType<typeof userEvent.setup>) {
+      await user.click(await screen.findByRole('button', { name: /^pedidos abiertos/i }))
+      await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: /agregar productos/i }))
+      await user.click(await screen.findByRole('button', { name: 'Pizza queso' }))
+      await user.click(screen.getByRole('button', { name: /revisar pedido/i }))
+    }
+
+    it('reviews the new products only, without order note or pickup time, and adds them', async () => {
+      const user = userEvent.setup()
+      renderPage()
+      await addToOpenOrder(user)
+      expect(screen.getByRole('region', { name: /pedido en edición/i })).toHaveTextContent('Agregando al pedido M-3 · Ana')
+      expect(screen.queryByLabelText(/nota del pedido/i)).not.toBeInTheDocument()
+      expect(screen.queryByLabelText(/hora para recoger/i)).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /enviar a cocina/i })).not.toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'Agregar al pedido' }))
+      expect(addOrderItems).toHaveBeenCalledWith('order-1', [{ type: 'product', productId: 'p', quantity: 1 }])
+      expect(createOrder).not.toHaveBeenCalled()
+      expect(await screen.findByRole('status')).toHaveTextContent('Productos agregados al pedido.')
+      expect(stepItem('Mesa')).toHaveAttribute('aria-current', 'step')
+    })
+
+    it('can leave the add mode from the review without calling the server', async () => {
+      const user = userEvent.setup()
+      renderPage()
+      await addToOpenOrder(user)
+      await user.click(screen.getByRole('button', { name: 'Cancelar edición' }))
+      expect(stepItem('Mesa')).toHaveAttribute('aria-current', 'step')
+      expect(screen.queryByRole('region', { name: /pedido en edición/i })).not.toBeInTheDocument()
+      expect(addOrderItems).not.toHaveBeenCalled()
+    })
+  })
+})

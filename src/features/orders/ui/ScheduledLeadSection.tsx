@@ -87,7 +87,7 @@ export function ScheduledLeadSection() {
         </form>
       )}
       {saved && (
-        <p role="status" className="text-sm font-medium text-green-700">
+        <p role="status" className="text-sm font-medium text-green-700 dark:text-green-400">
           Anticipación guardada.
         </p>
       )}

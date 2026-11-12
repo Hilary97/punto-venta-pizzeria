@@ -7,7 +7,10 @@ import {
   draftItemCount,
   draftToPayload,
   incrementDraftLine,
+  pizzaQuantity,
+  productQuantity,
   removeDraftLine,
+  restoreDraftLine,
   setDraftLineNotes,
 } from './orderDraft'
 import type { DraftLine } from './orderDraft'
@@ -139,5 +142,44 @@ describe('draftToPayload', () => {
       { type: 'pizza', pizza: config, quantity: 1, notes: 'bien cocida' },
       { type: 'product', productId: 'p2', quantity: 1 },
     ])
+  })
+})
+
+describe('productQuantity and pizzaQuantity', () => {
+  const res: DraftLine = { ...margarita, lineId: 'r', productId: 'b', variant: 'Res', quantity: 2 }
+  const pollo: DraftLine = { ...margarita, lineId: 'p', productId: 'b', variant: 'Pollo', quantity: 1 }
+  const noted: DraftLine = { ...res, lineId: 'n', notes: 'sin cebolla', quantity: 3 }
+
+  it('adds up a product across variants and notes, or one variant only', () => {
+    const draft = [res, pollo, noted, soda]
+    expect(productQuantity(draft, 'b')).toBe(6)
+    expect(productQuantity(draft, 'b', 'Res')).toBe(5)
+    expect(productQuantity(draft, 'b', 'Pollo')).toBe(1)
+    expect(productQuantity(draft, 'p2')).toBe(1)
+    expect(productQuantity(draft, 'missing')).toBe(0)
+  })
+
+  it('does not count pizza lines as products', () => {
+    expect(productQuantity([pizzaLine], 'p1')).toBe(0)
+  })
+
+  it('counts the pizzas in the draft', () => {
+    expect(pizzaQuantity([res, pizzaLine, { ...pizzaLine, lineId: 'l4', quantity: 2 }])).toBe(3)
+    expect(pizzaQuantity([res])).toBe(0)
+  })
+})
+
+describe('restoreDraftLine', () => {
+  it('puts a removed line back at its old position with its quantity and note', () => {
+    const noted: DraftLine = { ...soda, quantity: 3, notes: 'sin hielo' }
+    const draft = [margarita, noted, pizzaLine]
+    const index = draft.indexOf(noted)
+    const without = removeDraftLine(draft, noted.lineId)
+    expect(restoreDraftLine(without, noted, index)).toEqual(draft)
+  })
+
+  it('clamps the position to the end and ignores a line that is already back', () => {
+    expect(restoreDraftLine([margarita], soda, 5)).toEqual([margarita, soda])
+    expect(restoreDraftLine([margarita, soda], soda, 0)).toEqual([margarita, soda])
   })
 })

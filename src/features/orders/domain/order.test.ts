@@ -8,7 +8,10 @@ import {
   MAX_ORDER_NOTES_LENGTH,
   normalizeCustomerName,
   normalizeNotes,
+  MISSING_LABEL,
+  missingForOrder,
   orderLabel,
+  pickupClockLabel,
   pickupTimeLabel,
   pickupTimeToIso,
   productLineLabel,
@@ -148,5 +151,45 @@ describe('pickup time', () => {
     expect(pickupTimeLabel(new Date(2026, 9, 21, 9, 30).toISOString())).toBe('Para las 9:30 a.m.')
     expect(pickupTimeLabel(new Date(2026, 9, 21, 12, 0).toISOString())).toBe('Para las 12:00 p.m.')
     expect(pickupTimeLabel(new Date(2026, 9, 21, 0, 15).toISOString())).toBe('Para las 12:15 a.m.')
+  })
+})
+
+describe('pickupClockLabel', () => {
+  it('shows the clock time without the "Para las" prefix', () => {
+    expect(pickupClockLabel(new Date(2026, 9, 21, 14, 30).toISOString())).toBe('2:30 p.m.')
+    expect(pickupClockLabel(new Date(2026, 9, 21, 0, 5).toISOString())).toBe('12:05 a.m.')
+  })
+})
+
+describe('missingForOrder', () => {
+  const ready = { itemCount: 2, adding: false, service: 'dine_in' as const, tableNumber: 4, customerName: '' }
+
+  it('is empty when the order can be sent', () => {
+    expect(missingForOrder(ready)).toEqual([])
+    expect(missingForOrder({ ...ready, tableNumber: null, customerName: ' Ana ' })).toEqual([])
+  })
+
+  it('lists the service, then table or name, then products', () => {
+    expect(missingForOrder({ ...ready, itemCount: 0, service: null, tableNumber: null })).toEqual(['service', 'table-or-name', 'products'])
+    expect(missingForOrder({ ...ready, tableNumber: null, customerName: '   ' })).toEqual(['table-or-name'])
+  })
+
+  it('asks only for the name on takeaway orders', () => {
+    expect(missingForOrder({ ...ready, service: 'takeaway', tableNumber: null })).toEqual(['name'])
+    expect(missingForOrder({ ...ready, service: 'takeaway', tableNumber: null, customerName: 'Luis' })).toEqual([])
+  })
+
+  it('only needs products when adding to an open order', () => {
+    expect(missingForOrder({ ...ready, adding: true, service: null, tableNumber: null })).toEqual([])
+    expect(missingForOrder({ ...ready, adding: true, itemCount: 0 })).toEqual(['products'])
+  })
+
+  it('has a label for every missing piece', () => {
+    expect(MISSING_LABEL).toEqual({
+      service: 'elegir Aquí o Para llevar',
+      'table-or-name': 'mesa o nombre del cliente',
+      name: 'nombre del cliente',
+      products: 'agregar productos',
+    })
   })
 })
