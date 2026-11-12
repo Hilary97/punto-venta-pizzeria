@@ -9,7 +9,7 @@ export function AppLayout({ children }: { children?: ReactNode }) {
     <CashSessionProvider>
       <div className="flex min-h-dvh flex-col bg-slate-50">
         <Nav />
-        <main className="flex-1">
+        <main className="flex-1 pb-[calc(68px+env(safe-area-inset-bottom))] sm:pb-0">
           {children ?? <Outlet />}
         </main>
       </div>
