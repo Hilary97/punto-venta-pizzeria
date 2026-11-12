@@ -4,8 +4,10 @@ import {
   buildConfig,
   clearChiles,
   hasChileVariants,
+  ingredientLevel,
   initialPortions,
   resizePortions,
+  setIngredientLevel,
   setPortionStyle,
   sortBuilderStyles,
   toggleChile,
@@ -187,5 +189,31 @@ describe('chile variants', () => {
     const withChiles: PizzaPortion = { ...mex, chiles: ['serrano'] }
     expect(setPortionStyle(withChiles, special)).toEqual({ ...empty, styleId: 'varas' })
     expect(setPortionStyle(withChiles, mexicana)).toEqual(withChiles)
+  })
+})
+
+describe('setIngredientLevel', () => {
+  const empty: PizzaPortion = { styleId: 'custom', ingredientIds: [], extraIngredientIds: [] }
+
+  it('matches the old tap cycle for an included ingredient: normal, doble, quitar', () => {
+    const normal = setIngredientLevel(empty, 'jal', 'normal', custom)
+    expect(normal).toEqual(toggleIngredient(empty, 'jal', custom))
+    const doble = setIngredientLevel(normal, 'jal', 'doble', custom)
+    expect(doble).toEqual(toggleIngredient(normal, 'jal', custom))
+    expect(ingredientLevel(doble, 'jal')).toBe('doble')
+    expect(setIngredientLevel(doble, 'jal', 'none', custom)).toEqual(empty)
+  })
+
+  it('matches the old extra cycle on a style without included ingredients', () => {
+    const one = setIngredientLevel(empty, 'jal', 'normal', special)
+    expect(one).toEqual(toggleExtra(empty, 'jal'))
+    const two = setIngredientLevel(one, 'jal', 'doble', special)
+    expect(two).toEqual(toggleExtra(one, 'jal'))
+    expect(setIngredientLevel(two, 'jal', 'none', special)).toEqual(empty)
+  })
+
+  it('adds a charged extra once the included slots are full', () => {
+    const full: PizzaPortion = { ...empty, ingredientIds: ['a', 'b'] }
+    expect(setIngredientLevel(full, 'c', 'normal', custom)).toEqual({ ...full, extraIngredientIds: ['c'] })
   })
 })

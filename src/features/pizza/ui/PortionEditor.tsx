@@ -1,124 +1,99 @@
 import { useId } from 'react'
-import { CHILE_VARIANTS } from '../domain/pizza'
+import { cn } from '../../../shared/ui/cn'
 import type { PizzaIngredient, PizzaPortion, PizzaStyle } from '../domain/pizza'
-import {
-  extraCount,
-  clearChiles,
-  hasChileVariants,
-  setPortionStyle,
-  toggleChile,
-  toggleExtra,
-  toggleIngredient,
-} from '../domain/pizzaBuilder'
+import { ingredientLevel, isChargedIngredient, setIngredientLevel } from '../domain/pizzaBuilder'
+import type { IngredientLevel } from '../domain/pizzaBuilder'
 import { ToggleChip } from './ToggleChip'
 
 interface PortionEditorProps {
-  title: string
   portion: PizzaPortion
-  styles: PizzaStyle[]
+  style: PizzaStyle
   ingredients: PizzaIngredient[]
   onChange: (portion: PizzaPortion) => void
 }
 
-/** Style, ingredients and extra ingredients for one portion of the pizza. */
-export function PortionEditor({ title, portion, styles, ingredients, onChange }: PortionEditorProps) {
-  const styleId = useId()
-  const style = styles.find((candidate) => candidate.id === portion.styleId)
+const LEVELS: { level: IngredientLevel; label: 'Normal' | 'Doble' | 'Quitar' }[] = [
+  { level: 'normal', label: 'Normal' },
+  { level: 'doble', label: 'Doble' },
+  { level: 'none', label: 'Quitar' },
+]
+
+function legend(style: PizzaStyle): string {
+  const count = style.includedIngredients
+  if (count === 0) return 'Este estilo no incluye ingredientes a elección · Todo ingrediente que agregues cuenta como extra'
+  const noun = count === 1 ? 'ingrediente' : 'ingredientes'
+  return `Incluye ${count} ${noun} a elección · Doble cuenta como extra`
+}
+
+/** Ingredients of one portion: one chip list, and a Normal / Doble / Quitar control per chosen ingredient. */
+export function PortionEditor({ portion, style, ingredients, onChange }: PortionEditorProps) {
+  const headingId = useId()
+  const chosen = ingredients.filter((ingredient) => ingredientLevel(portion, ingredient.id) !== 'none')
+  const full = portion.ingredientIds.length >= style.includedIngredients
 
   return (
-    <fieldset className="flex min-w-0 flex-col gap-3 rounded-xl border border-slate-200 p-4">
-      <legend className="px-1 text-base font-bold text-slate-900">{title}</legend>
-
-      <div className="flex flex-col gap-1">
-        <label htmlFor={styleId} className="text-sm font-medium text-slate-700">
-          Estilo
-        </label>
-        <select
-          id={styleId}
-          value={portion.styleId}
-          onChange={(event) => {
-            const next = styles.find((candidate) => candidate.id === event.target.value)
-            if (next) onChange(setPortionStyle(portion, next))
-          }}
-          className="min-h-11 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-base text-slate-900"
-        >
-          {styles.map((candidate) => (
-            <option key={candidate.id} value={candidate.id}>
-              {candidate.name}
-            </option>
-          ))}
-        </select>
-        {style?.description && <p className="break-words text-sm text-slate-500">{style.description}</p>}
-      </div>
-
-      {style && hasChileVariants(style) && (
-        <fieldset className="flex flex-col gap-2">
-          <legend className="text-sm font-medium text-slate-700">Chile (elige uno o dos)</legend>
-          <div className="flex flex-wrap gap-2">
-            {CHILE_VARIANTS.map((variant) => (
-              <ToggleChip
-                key={variant.code}
-                label={variant.name}
-                pressed={portion.chiles?.includes(variant.code) ?? false}
-                onToggle={() => onChange(toggleChile(portion, variant.code))}
-              />
-            ))}
-            <ToggleChip
-              label="Los 3 chiles"
-              pressed={!portion.chiles?.length}
-              onToggle={() => onChange(clearChiles(portion))}
-            />
-          </div>
-        </fieldset>
-      )}
-
-      {style && style.includedIngredients > 0 && (
-        <fieldset className="flex flex-col gap-2">
-          <legend className="text-sm font-medium text-slate-700">
-            Ingredientes ({portion.ingredientIds.length}/{style.includedIngredients})
-          </legend>
-          <div className="flex flex-wrap gap-2">
-            {ingredients.map((ingredient) => {
-              // Tap cycle: included, doubled (one charged extra), removed.
-              const pressed = portion.ingredientIds.includes(ingredient.id)
-              const doubled = pressed && portion.extraIngredientIds.includes(ingredient.id)
-              return (
-                <ToggleChip
-                  key={ingredient.id}
-                  label={ingredient.name}
-                  pressed={pressed}
-                  emphasized={doubled}
-                  hint={doubled ? 'Extra' : undefined}
-                  disabled={!pressed && portion.ingredientIds.length >= style.includedIngredients}
-                  onToggle={() => onChange(toggleIngredient(portion, ingredient.id, style))}
-                />
-              )
-            })}
-          </div>
-        </fieldset>
+    <div className="flex flex-col gap-3">
+      <p className="rounded-xl border border-amber-600 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800 dark:border-amber-500 dark:bg-amber-950/60 dark:text-amber-200">{legend(style)}</p>
+      {style.includedIngredients > 0 && (
+        <p aria-live="polite" className="text-xs text-slate-500">
+          Ingredientes incluidos: {portion.ingredientIds.length}/{style.includedIngredients}
+        </p>
       )}
 
       <fieldset className="flex flex-col gap-2">
-        <legend className="text-sm font-medium text-slate-700">
-          Ingredientes extra ({portion.extraIngredientIds.length})
-        </legend>
-        <div className="flex flex-wrap gap-2">
+        <legend className="text-sm font-bold text-slate-900">Elige ingredientes</legend>
+        <div role="group" aria-label="Ingredientes disponibles" className="flex flex-wrap gap-2">
           {ingredients.map((ingredient) => {
-            // Tap cycle: extra, doubled extra (charged twice), removed.
-            const count = extraCount(portion, ingredient.id)
+            const picked = ingredientLevel(portion, ingredient.id) !== 'none'
             return (
               <ToggleChip
                 key={ingredient.id}
                 label={ingredient.name}
-                pressed={count > 0}
-                emphasized={count > 1}
-                hint={count > 1 ? 'Extra' : undefined}
-                onToggle={() => onChange(toggleExtra(portion, ingredient.id))}
+                pressed={picked}
+                hint={!picked && style.includedIngredients > 0 && full ? 'Extra' : undefined}
+                onToggle={() => onChange(setIngredientLevel(portion, ingredient.id, picked ? 'none' : 'normal', style))}
               />
             )
           })}
         </div>
       </fieldset>
-    </fieldset>
+
+      {chosen.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <h4 id={headingId} className="text-sm font-bold text-slate-900">
+            Ajusta cada ingrediente
+          </h4>
+          <ul aria-labelledby={headingId} className="flex flex-col gap-2">
+            {chosen.map((ingredient) => {
+              const current = ingredientLevel(portion, ingredient.id)
+              return (
+                <li key={ingredient.id} className="flex min-h-[52px] items-center gap-2 rounded-xl border border-slate-200 bg-white py-1 pl-3 pr-1">
+                  <span className="min-w-0 flex-1 text-sm font-bold text-slate-900">
+                    {ingredient.name}
+                    {isChargedIngredient(portion, ingredient.id) && <span className="block text-xs font-medium text-amber-700 dark:text-amber-300">Extra</span>}
+                  </span>
+                  <div role="group" aria-label={`Cantidad de ${ingredient.name}`} className="flex gap-0.5 rounded-lg bg-slate-100 p-0.5">
+                    {LEVELS.map((option) => (
+                      <button
+                        key={option.label}
+                        type="button"
+                        aria-pressed={option.level !== 'none' && option.level === current}
+                        onClick={() => onChange(setIngredientLevel(portion, ingredient.id, option.level, style))}
+                        className={cn(
+                          'min-h-11 min-w-14 rounded-md px-1.5 text-sm font-bold',
+                          option.level !== 'none' && option.level === current ? 'bg-red-700 text-white' : 'text-slate-600 hover:bg-slate-200',
+                        )}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      )}
+    </div>
   )
 }

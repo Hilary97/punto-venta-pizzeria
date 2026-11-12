@@ -1,13 +1,16 @@
 import { useId, useMemo, useState } from 'react'
 import { Button } from '../../../shared/ui/Button'
 import { byName } from '../../../shared/sortByName'
+import { cn } from '../../../shared/ui/cn'
 import { Modal } from '../../../shared/ui/Modal'
 import { Textarea } from '../../../shared/ui/Textarea'
 import { MAX_ITEM_NOTES_LENGTH } from '../../orders/domain/order'
 import { describePizza, isSizeSoldOut, portionLabel, validatePizzaConfig } from '../domain/pizza'
-import type { PizzaCatalog, PizzaConfig, PizzaPortion, PizzaSize, PizzaSizeCode } from '../domain/pizza'
+import type { PizzaCatalog, PizzaConfig, PizzaPortion, PizzaSize, PizzaSizeCode, PizzaStyle } from '../domain/pizza'
 import { buildConfig, initialPortions, resizePortions, sortBuilderStyles, togglePizzaExtra } from '../domain/pizzaBuilder'
+import { PizzaDiagram } from './PizzaDiagram'
 import { PortionEditor } from './PortionEditor'
+import { StyleCards } from './StyleCards'
 import { ToggleChip } from './ToggleChip'
 
 export interface BuiltPizza {
@@ -23,14 +26,31 @@ interface PizzaBuilderModalProps {
   onClose: () => void
 }
 
+type Step = { kind: 'size' } | { kind: 'division' } | { kind: 'style'; index: number } | { kind: 'ingredients' }
+
+const MAX_QUANTITY = 20
+
 function portionTitle(count: number, index: number): string {
   if (count === 1) return 'Pizza entera'
   return count === 2 ? `Mitad ${index + 1}` : `Porción ${index + 1}`
 }
 
+/** `Mitad`, `Tercio`, `Cuarto` for the live summary. */
+function portionWord(count: number): string {
+  return count === 2 ? 'Mitad' : count === 3 ? 'Tercio' : 'Cuarto'
+}
+
+function shortStyle(style: PizzaStyle | undefined): string {
+  return (style?.name ?? '').replace(/^Estilo /, '')
+}
+
 function sizeHint(size: PizzaSize): string | undefined {
   if (isSizeSoldOut(size)) return 'Agotado'
   return size.doughLeft === null ? undefined : `Quedan ${size.doughLeft}`
+}
+
+function sameStep(a: Step, b: Step): boolean {
+  return a.kind === b.kind && (a.kind !== 'style' || (b.kind === 'style' && a.index === b.index))
 }
 
 export function PizzaBuilderModal({ catalog, onAdd, onClose }: PizzaBuilderModalProps) {
@@ -45,6 +65,9 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose }: PizzaBuilderModal
   const [portions, setPortions] = useState<PizzaPortion[]>(() => initialPortions(1, defaultStyleId))
   const [extraIds, setExtraIds] = useState<string[]>([])
   const [notes, setNotes] = useState('')
+  const [quantity, setQuantity] = useState(1)
+  const [step, setStep] = useState<Step>({ kind: 'size' })
+  const [activePortion, setActivePortion] = useState(0)
 
   if (sizes.length === 0) return null
 
@@ -52,120 +75,290 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose }: PizzaBuilderModal
   const available = sizes.filter((candidate) => !isSizeSoldOut(candidate))
   const size = available.find((candidate) => candidate.code === sizeCode) ?? available[0]
   const noDough = size === undefined
+  const hasDivision = (size?.allowedPortions.length ?? 0) > 1
 
   const config = buildConfig(size?.code ?? sizeCode, portions, extraIds)
   const errors = noDough ? [] : validatePizzaConfig(config, catalog)
   const description = noDough ? '' : describePizza(config, catalog)
 
+  const flow: Step[] = [
+    { kind: 'size' },
+    ...(hasDivision ? [{ kind: 'division' } as const] : []),
+    ...portions.map((_, index) => ({ kind: 'style', index }) as const),
+    { kind: 'ingredients' },
+  ]
+  const position = Math.max(0, flow.findIndex((candidate) => sameStep(candidate, step)))
+  const current = flow[position] as Step
+  const previous = flow[position - 1]
+  const following = flow[position + 1]
+  const count = portions.length
+  const shownPortion = current.kind === 'style' ? current.index : Math.min(activePortion, count - 1)
+
+  function stepName(target: Step | undefined): string {
+    if (!target) return ''
+    if (target.kind === 'size') return 'Tamaño'
+    if (target.kind === 'division') return 'División'
+    if (target.kind === 'style') return count > 1 ? portionTitle(count, target.index) : 'Estilo'
+    return 'Ingredientes'
+  }
+
   function selectSize(code: PizzaSizeCode) {
     const next = sizes.find((candidate) => candidate.code === code)
     if (!next) return
     setSizeCode(code)
-    setPortions((current) => resizePortions(current, next, defaultStyleId))
+    setPortions((existing) => resizePortions(existing, next, defaultStyleId))
+    setActivePortion(0)
   }
 
-  function selectDivision(count: number) {
+  function selectDivision(next: number) {
     // Keeps what was already chosen; new portions start with the first portion's style.
-    setPortions((current) => {
-      const fresh = initialPortions(count, current[0]?.styleId ?? defaultStyleId)
-      return fresh.map((portion, index) => current[index] ?? portion)
+    setPortions((existing) => {
+      const fresh = initialPortions(next, existing[0]?.styleId ?? defaultStyleId)
+      return fresh.map((portion, index) => existing[index] ?? portion)
     })
+    setActivePortion(0)
   }
 
   function updatePortion(index: number, portion: PizzaPortion) {
-    setPortions((current) => current.map((candidate, i) => (i === index ? portion : candidate)))
+    setPortions((existing) => existing.map((candidate, i) => (i === index ? portion : candidate)))
   }
+
+  function goTo(target: Step | undefined) {
+    if (!target) return
+    setStep(target)
+    if (target.kind === 'ingredients') setActivePortion(0)
+  }
+
+  function addPizzas() {
+    if (noDough || errors.length > 0) return
+    const pizza: BuiltPizza = { config, name: description, notes }
+    for (let i = 0; i < quantity; i++) onAdd(pizza)
+    onClose()
+  }
+
+  const styleOf = (portion: PizzaPortion | undefined) => styles.find((candidate) => candidate.id === portion?.styleId)
+  const summaryParts = portions.map((portion) => `${count > 1 ? `${portionWord(count)} ` : ''}${shortStyle(styleOf(portion))}`)
+  const extraNames = extras.filter((extra) => extraIds.includes(extra.id)).map((extra) => extra.name)
+  const summary = [summaryParts.join(' / '), ...(extraNames.length > 0 ? [extraNames.join(', ')] : [])].join(' · ')
+
+  const headerItems = [
+    { label: 'Tamaño', value: size?.name ?? '', state: current.kind === 'size' ? 'cur' : 'done' },
+    {
+      label: 'División',
+      value: portionLabel(count),
+      state: current.kind === 'division' ? 'cur' : current.kind === 'size' ? 'todo' : 'done',
+    },
+    {
+      label: 'Estilo',
+      value: current.kind === 'style' ? portionTitle(count, current.index) : portions.map((p) => shortStyle(styleOf(p))).join(' / '),
+      state: current.kind === 'style' ? 'cur' : current.kind === 'ingredients' ? 'done' : 'todo',
+    },
+    { label: 'Ingredientes', value: current.kind === 'ingredients' ? portionTitle(count, shownPortion) : 'Después', state: current.kind === 'ingredients' ? 'cur' : 'todo' },
+  ] as const
+
+  const activeStyle = styleOf(portions[shownPortion])
+  const diagramLabel =
+    count === 1 ? 'Pizza entera' : `Pizza dividida en ${portionLabel(count)}; ${portionTitle(count, shownPortion)} seleccionada`
 
   return (
     <Modal title="Armar pizza" onClose={onClose} wide>
-      <div className="flex min-w-0 flex-col gap-5">
-        <fieldset className="flex flex-col gap-2">
-          <legend className="text-sm font-medium text-slate-700">Tamaño</legend>
-          <div className="flex flex-wrap gap-2">
-            {sizes.map((candidate) => (
-              <ToggleChip
-                key={candidate.code}
-                label={candidate.name}
-                pressed={candidate.code === size?.code}
-                disabled={isSizeSoldOut(candidate)}
-                hint={sizeHint(candidate)}
-                onToggle={() => selectSize(candidate.code)}
-              />
-            ))}
-          </div>
-        </fieldset>
-
-        {size && size.allowedPortions.length > 1 && (
-          <fieldset className="flex flex-col gap-2">
-            <legend className="text-sm font-medium text-slate-700">División</legend>
-            <div className="flex flex-wrap gap-2">
-              {size.allowedPortions.map((count) => (
-                <ToggleChip
-                  key={count}
-                  label={portionLabel(count)}
-                  pressed={portions.length === count}
-                  onToggle={() => selectDivision(count)}
-                />
-              ))}
-            </div>
-          </fieldset>
-        )}
-
-        {portions.map((portion, index) => (
-          <PortionEditor
-            key={index}
-            title={portionTitle(portions.length, index)}
-            portion={portion}
-            styles={styles}
-            ingredients={ingredients}
-            onChange={(next) => updatePortion(index, next)}
-          />
-        ))}
-
-        {extras.length > 0 && (
-          <fieldset className="flex flex-col gap-2">
-            <legend className="text-sm font-medium text-slate-700">Extras</legend>
-            <p className="text-sm text-slate-500">Se aplican a toda la pizza.</p>
-            <div className="flex flex-wrap gap-2">
-              {extras.map((extra) => (
-                <ToggleChip
-                  key={extra.id}
-                  label={extra.name}
-                  pressed={extraIds.includes(extra.id)}
-                  onToggle={() => setExtraIds((current) => togglePizzaExtra(current, extra.id))}
-                />
-              ))}
-            </div>
-          </fieldset>
-        )}
-
-        <Textarea
-          id={notesId}
-          label="Nota de la pizza (opcional)"
-          value={notes}
-          maxLength={MAX_ITEM_NOTES_LENGTH}
-          onChange={(event) => setNotes(event.target.value)}
-        />
-
-        <div className="flex flex-col gap-1 rounded-xl bg-slate-50 p-4">
-          <p className="text-sm font-medium text-slate-500">Resumen</p>
-          {noDough ? (
-            <p className="font-semibold text-amber-700">No hay masas de pizza disponibles.</p>
+      <div className="flex min-w-0 flex-col gap-4">
+        <div className="flex items-center">
+          {previous ? (
+            <Button variant="ghost" size="md" onClick={() => goTo(previous)}>
+              {`← ${stepName(previous)}`}
+            </Button>
           ) : (
-            <p className="break-words font-semibold text-slate-900">{description}</p>
-          )}
-          {errors.length > 0 && (
-            <ul className="list-disc pl-5 text-sm text-amber-700">
-              {errors.map((error) => (
-                <li key={error}>{error}</li>
-              ))}
-            </ul>
+            <Button variant="ghost" size="md" onClick={onClose}>
+              ← Cancelar pizza
+            </Button>
           )}
         </div>
 
-        <Button size="lg" disabled={noDough || errors.length > 0} onClick={() => onAdd({ config, name: description, notes })}>
-          Agregar pizza
-        </Button>
+        <ol aria-label="Pasos de la pizza" className="grid list-none grid-cols-4 gap-1 p-0">
+          {headerItems.map((item) => (
+            <li
+              key={item.label}
+              aria-current={item.state === 'cur' ? 'step' : undefined}
+              className={cn(
+                'border-t-4 pt-1 text-xs leading-tight text-slate-500',
+                item.state === 'done' && 'border-emerald-600 dark:border-emerald-400',
+                item.state === 'cur' && 'border-red-700 dark:border-red-400',
+                item.state === 'todo' && 'border-slate-300',
+              )}
+            >
+              <b className={cn('block', item.state === 'done' && 'text-emerald-700 dark:text-emerald-300', item.state === 'cur' && 'text-red-800 dark:text-red-300', item.state === 'todo' && 'text-slate-900')}>
+                {item.label}
+                {item.state === 'done' ? ' ✓' : ''}
+              </b>
+              {item.value}
+            </li>
+          ))}
+        </ol>
+
+        {current.kind === 'size' && (
+          <fieldset className="flex flex-col gap-2">
+            <legend className="mb-2 text-sm font-medium text-slate-700">Tamaño</legend>
+            <div className="flex flex-wrap gap-2">
+              {sizes.map((candidate) => (
+                <ToggleChip
+                  key={candidate.code}
+                  label={candidate.name}
+                  pressed={candidate.code === size?.code}
+                  disabled={isSizeSoldOut(candidate)}
+                  hint={sizeHint(candidate)}
+                  onToggle={() => selectSize(candidate.code)}
+                />
+              ))}
+            </div>
+            {noDough && <p className="font-semibold text-amber-700 dark:text-amber-300">No hay masas de pizza disponibles.</p>}
+          </fieldset>
+        )}
+
+        {current.kind === 'division' && size && (
+          <fieldset className="flex flex-col gap-2">
+            <legend className="mb-2 text-sm font-medium text-slate-700">División</legend>
+            <div className="flex flex-wrap gap-2">
+              {size.allowedPortions.map((option) => (
+                <ToggleChip
+                  key={option}
+                  label={portionLabel(option)}
+                  pressed={count === option}
+                  onToggle={() => selectDivision(option)}
+                />
+              ))}
+            </div>
+          </fieldset>
+        )}
+
+        {current.kind === 'style' && (
+          <>
+            <div className="flex items-center gap-3">
+              <PizzaDiagram count={count} index={current.index} label={diagramLabel} />
+              <p className="text-sm text-slate-500">
+                <strong className="block text-base text-slate-900">{portionTitle(count, current.index)}</strong>
+                Elige el estilo
+              </p>
+            </div>
+            <StyleCards
+              title={portionTitle(count, current.index)}
+              portion={portions[current.index] as PizzaPortion}
+              styles={styles}
+              onChange={(portion) => updatePortion(current.index, portion)}
+            />
+          </>
+        )}
+
+        {current.kind === 'ingredients' && activeStyle && (
+          <>
+            <div className="flex items-center gap-3">
+              <PizzaDiagram count={count} index={shownPortion} label={diagramLabel} />
+              <div role={count > 1 ? 'group' : undefined} aria-label={count > 1 ? 'Porción de la pizza' : undefined} className="grid flex-1 gap-1 rounded-xl bg-slate-100 p-1" style={{ gridTemplateColumns: `repeat(${Math.min(count, 2)}, minmax(0, 1fr))` }}>
+                {count > 1 ? (
+                  portions.map((portion, index) => (
+                    <button
+                      key={index}
+                      type="button"
+                      aria-pressed={index === shownPortion}
+                      onClick={() => setActivePortion(index)}
+                      className={cn(
+                        'min-h-11 rounded-lg px-2 text-sm font-bold',
+                        index === shownPortion ? 'bg-red-700 text-white' : 'text-slate-600 hover:bg-slate-200',
+                      )}
+                    >
+                      {`${portionTitle(count, index)} · ${shortStyle(styleOf(portion))}`}
+                    </button>
+                  ))
+                ) : (
+                  <p className="px-2 py-2 text-sm font-bold text-slate-900">{`Pizza entera · ${shortStyle(activeStyle)}`}</p>
+                )}
+              </div>
+            </div>
+
+            <PortionEditor
+              portion={portions[shownPortion] as PizzaPortion}
+              style={activeStyle}
+              ingredients={ingredients}
+              onChange={(portion) => updatePortion(shownPortion, portion)}
+            />
+
+            {extras.length > 0 && (
+              <fieldset className="flex flex-col gap-2">
+                <legend className="mb-1 text-sm font-bold text-slate-900">Extras para toda la pizza</legend>
+                {extras.map((extra) => (
+                  <label
+                    key={extra.id}
+                    className="flex min-h-12 items-center justify-between rounded-xl border border-slate-200 bg-white px-3 text-base font-semibold text-slate-900"
+                  >
+                    {extra.name}
+                    <input
+                      type="checkbox"
+                      checked={extraIds.includes(extra.id)}
+                      onChange={() => setExtraIds((existing) => togglePizzaExtra(existing, extra.id))}
+                      className="size-6 accent-red-700"
+                    />
+                  </label>
+                ))}
+              </fieldset>
+            )}
+
+            <Textarea
+              id={notesId}
+              label="Nota de la pizza (opcional)"
+              value={notes}
+              maxLength={MAX_ITEM_NOTES_LENGTH}
+              onChange={(event) => setNotes(event.target.value)}
+            />
+          </>
+        )}
+
+        <div className="sticky -bottom-6 -mx-6 -mb-6 flex flex-col gap-2 border-t border-slate-300 bg-white px-6 pb-4 pt-3 shadow-[0_-6px_16px_rgba(15,23,42,0.08)]">
+          {!noDough && (
+            <div role="status" aria-label="Resumen de la pizza" aria-live="polite" className="text-sm text-slate-500">
+              <b className="break-words text-slate-900">{`Pizza ${size?.name ?? ''}`}</b>
+              {summary ? ` · ${summary}` : ''}
+              {current.kind === 'ingredients' && errors.length > 0 && (
+                <ul className="list-disc pl-5 text-amber-700 dark:text-amber-300">
+                  {errors.map((error) => (
+                    <li key={error}>{error}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+          {current.kind === 'ingredients' ? (
+            <div className="flex items-center gap-3">
+              <div role="group" aria-label="Cantidad de pizzas" className="flex w-36 flex-none items-center justify-between rounded-xl bg-slate-100 p-1">
+                <button
+                  type="button"
+                  aria-label="Menos"
+                  disabled={quantity <= 1}
+                  onClick={() => setQuantity((value) => Math.max(1, value - 1))}
+                  className="min-h-11 min-w-11 rounded-lg text-xl font-bold text-slate-700 hover:bg-slate-200 disabled:opacity-40"
+                >
+                  −
+                </button>
+                <output aria-live="polite" className="font-bold text-slate-900">{`×${quantity}`}</output>
+                <button
+                  type="button"
+                  aria-label="Más"
+                  disabled={quantity >= MAX_QUANTITY}
+                  onClick={() => setQuantity((value) => Math.min(MAX_QUANTITY, value + 1))}
+                  className="min-h-11 min-w-11 rounded-lg text-xl font-bold text-slate-700 hover:bg-slate-200 disabled:opacity-40"
+                >
+                  +
+                </button>
+              </div>
+              <Button size="lg" className="flex-1" disabled={noDough || errors.length > 0} onClick={addPizzas}>
+                Agregar pizza
+              </Button>
+            </div>
+          ) : (
+            <Button size="lg" disabled={noDough} onClick={() => goTo(following)}>
+              {`Siguiente: ${stepName(following)} →`}
+            </Button>
+          )}
+        </div>
       </div>
     </Modal>
   )

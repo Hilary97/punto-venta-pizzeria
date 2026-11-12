@@ -322,10 +322,18 @@ describe('open orders', () => {
   })
 })
 
+async function finishPizza(user: ReturnType<typeof userEvent.setup>) {
+  const dialog = screen.getByRole('dialog', { name: /armar pizza/i })
+  for (let i = 0; i < 6 && !within(dialog).queryByRole('button', { name: 'Agregar pizza' }); i++) {
+    await user.click(within(dialog).getByRole('button', { name: /^Siguiente/ }))
+  }
+  await user.click(within(dialog).getByRole('button', { name: 'Agregar pizza' }))
+}
+
 describe('built pizzas, notes and variants in the order', () => {
   async function buildPizza(user: ReturnType<typeof userEvent.setup>) {
     await user.click(await screen.findByRole('button', { name: /armar pizza/i }))
-    await user.click(within(screen.getByRole('dialog', { name: /armar pizza/i })).getByRole('button', { name: 'Agregar pizza' }))
+    await finishPizza(user)
   }
 
   it('does not offer the builder when the pizza catalog has no sizes', async () => {
@@ -735,7 +743,7 @@ describe('guided steps: Productos step', () => {
     const armar = await screen.findByRole('button', { name: /armar pizza/i })
     expect(armar).toHaveClass('min-h-[68px]')
     await user.click(armar)
-    await user.click(within(screen.getByRole('dialog', { name: /armar pizza/i })).getByRole('button', { name: 'Agregar pizza' }))
+    await finishPizza(user)
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(within(armar).getByText('×1')).toBeVisible()
     expect(screen.getByRole('button', { name: /revisar pedido/i })).toHaveTextContent('1 producto')
