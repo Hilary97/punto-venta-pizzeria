@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tabs operativas y cobro maestro-detalle</title>
+<style>
+  :root {
+    --brand: #b91c1c; --brand-strong: #991b1b; --brand-soft: #fef2f2; --on-brand: #fff;
+    --canvas: #f8fafc; --surface: #fff; --surface-sunken: #f1f5f9; --border: #e2e8f0; --border-strong: #cbd5e1;
+    --text: #0f172a; --text-muted: #475569; --text-subtle: #64748b;
+    --success: #047857; --success-soft: #ecfdf5; --warning: #92400e; --warning-soft: #fffbeb;
+    --danger: #be123c; --danger-soft: #fff1f2; --focus: #0369a1;
+    --r-sm: 8px; --r-md: 12px; --r-lg: 16px;
+    --shadow-sm: 0 1px 2px rgb(15 23 42 / .06); --shadow-lg: 0 16px 32px rgb(15 23 42 / .16);
+    --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  /* Same token names, dark values: components never change, only the tokens do */
+  [data-theme="dark"] {
+    --brand: #dc2626; --brand-strong: #ef4444; --brand-soft: #3b1215; --on-brand: #fff;
+    --canvas: #0b1120; --surface: #111a2e; --surface-sunken: #1c2740; --border: #24314d; --border-strong: #354466;
+    --text: #f1f5f9; --text-muted: #b6c2d6; --text-subtle: #94a3b8;
+    --success: #6ee7b7; --success-soft: #0b2e24; --warning: #fcd34d; --warning-soft: #33260a;
+    --danger: #fda4af; --danger-soft: #3a1220; --focus: #7dd3fc;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: var(--font); color: var(--text); background: var(--canvas); font-size: 15px; line-height: 1.45; }
+  :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+  header.top { height: 64px; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 16px; padding: 0 20px; }
+  .brand { font-weight: 800; display: flex; align-items: center; gap: 8px; }
+  .brand-mark { width: 30px; height: 30px; border-radius: var(--r-sm); background: var(--brand); color: var(--on-brand); display: grid; place-items: center; }
+  nav.tabs { display: flex; gap: 4px; height: 100%; }
+  nav.tabs a, .more > button { position: relative; display: flex; align-items: center; gap: 8px; padding: 0 16px; height: 100%; font: inherit; font-weight: 700; color: var(--text-muted); text-decoration: none; background: none; border: 0; cursor: pointer; }
+  nav.tabs a:hover, .more > button:hover { color: var(--text); }
+  nav.tabs a[aria-current="page"] { color: var(--brand); }
+  nav.tabs a[aria-current="page"]::after { content: ""; position: absolute; left: 12px; right: 12px; bottom: 0; height: 3px; border-radius: 3px 3px 0 0; background: var(--brand); }
+  .count { min-width: 22px; padding: 0 6px; border-radius: 999px; background: var(--surface-sunken); color: var(--text); font-size: 12px; text-align: center; }
+  .more { position: relative; height: 100%; }
+  .menu { position: absolute; top: 58px; left: 0; width: 260px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md); box-shadow: var(--shadow-lg); padding: 8px; display: none; z-index: 5; }
+  .menu.open { display: block; }
+  .menu h3 { margin: 6px 10px 4px; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-subtle); }
+  .menu a { display: flex; min-height: 40px; align-items: center; padding: 0 10px; border-radius: var(--r-sm); color: var(--text); text-decoration: none; font-weight: 600; }
+  .menu a:hover { background: var(--surface-sunken); }
+  .spacer { flex: 1; }
+  .who { color: var(--text-muted); font-size: 14px; }
+  .btn { font: inherit; font-weight: 700; min-height: 44px; padding: 0 14px; border-radius: var(--r-sm); border: 1px solid transparent; cursor: pointer; background: transparent; color: var(--text-muted); }
+  .btn:hover { background: var(--surface-sunken); color: var(--text); }
+  .btn-outline { border-color: var(--border-strong); color: var(--text); }
+  .btn-danger { color: var(--danger); }
+  .btn-danger:hover { background: var(--danger-soft); color: var(--danger); }
+  .btn-primary { background: var(--brand); color: var(--on-brand); }
+  .btn-primary:hover { background: var(--brand-strong); color: var(--on-brand); }
+  .btn-primary:disabled { background: var(--border-strong); color: var(--text-muted); cursor: not-allowed; }
+
+  .layout { display: grid; grid-template-columns: 380px 1fr; height: calc(100vh - 64px); }
+  .queue { border-right: 1px solid var(--border); background: var(--surface); display: flex; flex-direction: column; min-height: 0; }
+  .queue-head { padding: 16px; display: grid; gap: 12px; border-bottom: 1px solid var(--border); }
+  .queue-head h1 { margin: 0; font-size: 18px; display: flex; justify-content: space-between; align-items: center; }
+  .live { font-size: 12px; font-weight: 600; color: var(--success); display: inline-flex; align-items: center; gap: 6px; }
+  .live::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+  .search { width: 100%; min-height: 44px; border: 1px solid var(--border-strong); border-radius: var(--r-sm); padding: 0 12px; font: inherit; background: var(--surface); color: var(--text); }
+  .chips { display: flex; gap: 6px; overflow-x: auto; }
+  .chips button { flex: none; min-height: 36px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text); font: inherit; font-weight: 700; font-size: 14px; cursor: pointer; }
+  .chips button[aria-pressed="true"] { background: var(--text); color: var(--surface); border-color: var(--text); }
+  .orders { list-style: none; margin: 0; padding: 8px; overflow-y: auto; flex: 1; }
+  .orders button { width: 100%; text-align: left; font: inherit; color: inherit; background: none; border: 1px solid transparent; border-radius: var(--r-md); padding: 12px; display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; cursor: pointer; }
+  .orders button:hover { background: var(--surface-sunken); }
+  .orders button[aria-current="true"] { background: var(--brand-soft); border-color: var(--brand); }
+  .o-name { font-weight: 700; } .o-total { font-weight: 800; font-variant-numeric: tabular-nums; text-align: right; }
+  .o-meta { font-size: 13px; color: var(--text-muted); }
+  .status { font-size: 12px; font-weight: 700; text-align: right; }
+  .status.ready { color: var(--success); } .status.cooking { color: var(--warning); } .status.blocked { color: var(--danger); }
+
+  .detail { overflow-y: auto; padding: 24px 32px; display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 24px; align-content: start; }
+  .detail-head { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+  .detail-head h2 { margin: 0; font-size: 24px; }
+  .detail-head p { margin: 4px 0 0; color: var(--text-muted); }
+  .ticket { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 8px 20px; box-shadow: var(--shadow-sm); }
+  .ticket table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  .ticket th { text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--text-subtle); padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .ticket td { padding: 12px 0; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .ticket .num { text-align: right; width: 90px; }
+  .ticket small { display: block; color: var(--text-muted); }
+  .ticket tfoot td { border: 0; font-size: 20px; font-weight: 800; padding-top: 14px; }
+  .pay { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 20px; display: grid; gap: 14px; align-self: start; position: sticky; top: 0; box-shadow: var(--shadow-sm); }
+  .pay h3 { margin: 0; font-size: 16px; }
+  .row { display: flex; justify-content: space-between; align-items: baseline; font-variant-numeric: tabular-nums; }
+  .row strong { font-size: 30px; }
+  label.lbl { font-weight: 600; }
+  .money { display: flex; align-items: center; border: 2px solid var(--border-strong); border-radius: var(--r-md); padding: 0 12px; margin-top: 6px; }
+  .money:focus-within { border-color: var(--focus); }
+  .money span { font-size: 20px; color: var(--text-muted); font-weight: 700; }
+  .money input { border: 0; outline: 0; font: inherit; font-size: 24px; font-weight: 700; width: 100%; padding: 10px 6px; background: transparent; color: var(--text); }
+  .change { border-radius: var(--r-md); padding: 12px 14px; background: var(--surface-sunken); color: var(--text-muted); font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
+  .change strong { font-size: 28px; font-variant-numeric: tabular-nums; }
+  .change.ok { background: var(--success-soft); color: var(--success); }
+  .change.short { background: var(--danger-soft); color: var(--danger); }
+  .xl { min-height: 56px; font-size: 17px; border-radius: var(--r-md); }
+  .toast { position: fixed; right: 24px; bottom: 24px; background: var(--surface); border: 1px solid var(--border); border-left: 6px solid var(--success); border-radius: var(--r-md); box-shadow: var(--shadow-lg); padding: 14px 18px; display: none; gap: 2px; min-width: 300px; }
+  .toast.open { display: grid; }
+  .toast b { font-size: 26px; color: var(--success); font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand"><span class="brand-mark" aria-hidden="true">P</span> Don Toño</div>
+  <nav class="tabs" aria-label="Principal">
+    <a href="#" aria-current="page">Venta</a>
+    <a href="#">Pedidos <span class="count">6</span></a>
+    <a href="#">Cocina <span class="count">4</span></a>
+    <a href="#">Entrega <span class="count">2</span></a>
+    <div class="more">
+      <button type="button" aria-expanded="false" aria-controls="more-menu" id="more-btn">Más ▾</button>
+      <div class="menu" id="more-menu">
+        <h3>Caja</h3><a href="#">Corte de caja</a><a href="#">Ventas del día</a>
+        <h3>Administración</h3><a href="#">Productos</a><a href="#">Pizzas</a><a href="#">Inventario</a><a href="#">Insumos</a><a href="#">Meseros</a><a href="#">Historial de cortes</a>
+      </div>
+    </div>
+  </nav>
+  <span class="spacer"></span>
+  <button class="btn" type="button" id="theme" aria-pressed="false">Modo oscuro</button>
+  <span class="who">Rosa Méndez · Admin</span>
+  <button class="btn" type="button">Salir</button>
+</header>
+
+<div class="layout">
+  <section class="queue" aria-labelledby="q-title">
+    <div class="queue-head">
+      <h1 id="q-title">Por cobrar (6) <span class="live">En vivo</span></h1>
+      <label class="lbl" for="q" style="position:absolute;left:-9999px">Buscar por cliente</label>
+      <input id="q" class="search" type="search" placeholder="Buscar por cliente o ficha">
+      <div class="chips" role="group" aria-label="Mesa">
+        <button type="button" aria-pressed="true">Todas</button><button type="button" aria-pressed="false">M-1</button><button type="button" aria-pressed="false">M-2</button><button type="button" aria-pressed="false">M-4</button><button type="button" aria-pressed="false">M-6</button><button type="button" aria-pressed="false">Para llevar</button>
+      </div>
+    </div>
+    <ul class="orders">
+      <li><button type="button" aria-current="true"><span class="o-name">M-4 · Familia Ortega</span><span class="o-total">$569.00</span><span class="o-meta">Lucía · 48 min · Ficha 12</span><span class="status ready">✓ Entregado</span></button></li>
+      <li><button type="button"><span class="o-name">M-1 · Andrés</span><span class="o-total">$214.00</span><span class="o-meta">Jorge · 31 min · Ficha 7</span><span class="status cooking">● En cocina</span></button></li>
+      <li><button type="button"><span class="o-name">Para llevar · Mariana R.</span><span class="o-total">$318.00</span><span class="o-meta">Mostrador · recoge 19:30</span><span class="status cooking">● En cocina</span></button></li>
+      <li><button type="button"><span class="o-name">M-6</span><span class="o-total">$450.00</span><span class="o-meta">Lucía · 22 min · Ficha 3</span><span class="status ready">✓ Entregado</span></button></li>
+      <li><button type="button"><span class="o-name">M-2 · Cumpleaños Paty</span><span class="o-total">$1,284.00</span><span class="o-meta">Jorge · 1 h 05 min · Ficha 15</span><span class="status blocked">✕ Producto agotado</span></button></li>
+      <li><button type="button"><span class="o-name">Domicilio · Calle Juárez 118</span><span class="o-total">$276.00</span><span class="o-meta">Teléfono · 12 min</span><span class="status cooking">● En cocina</span></button></li>
+    </ul>
+  </section>
+
+  <section class="detail" aria-labelledby="d-title">
+    <div class="detail-head">
+      <div><h2 id="d-title">M-4 · Familia Ortega</h2><p>Comer aquí · Atendió Lucía · Nota: sin cebolla en todo</p></div>
+      <div style="display:flex;gap:8px"><button class="btn btn-outline" type="button">Editar pedido</button><button class="btn btn-danger" type="button">Descartar cobro</button></div>
+    </div>
+    <div class="ticket">
+      <table>
+        <thead><tr><th>Producto</th><th class="num">Cant.</th><th class="num">Importe</th></tr></thead>
+        <tbody>
+          <tr><td>Pizza grande · Mitad hawaiana / mitad pepperoni<small>Orilla rellena de queso</small></td><td class="num">1</td><td class="num">$289.00</td></tr>
+          <tr><td>Alitas BBQ · 10 piezas<small>Nota: bien doradas</small></td><td class="num">1</td><td class="num">$165.00</td></tr>
+          <tr><td>Refresco 600 ml<small>Coca-Cola · $35.00 c/u</small></td><td class="num">2</td><td class="num">$70.00</td></tr>
+          <tr><td>Agua de horchata 1 L</td><td class="num">1</td><td class="num">$45.00</td></tr>
+        </tbody>
+        <tfoot><tr><td>Total</td><td></td><td class="num">$569.00</td></tr></tfoot>
+      </table>
+    </div>
+    <form class="pay" aria-labelledby="p-title" onsubmit="return false">
+      <h3 id="p-title">Pago en efectivo</h3>
+      <div class="row"><span>Total</span><strong>$569.00</strong></div>
+      <div><label class="lbl" for="recv">Monto recibido</label><div class="money"><span aria-hidden="true">$</span><input id="recv" inputmode="decimal" placeholder="0.00" aria-describedby="chg"></div></div>
+      <div class="change" id="box"><span id="lbl">Cambio</span><strong id="chg" aria-live="polite">—</strong></div>
+      <label style="display:flex;gap:8px;align-items:center;color:var(--text-muted);font-weight:600"><input type="checkbox" style="width:20px;height:20px;accent-color:var(--brand)"> Dividir cuenta</label>
+      <button class="btn btn-primary xl" id="go" type="submit" disabled>Ingresa el monto recibido</button>
+    </form>
+  </section>
+</div>
+
+<div class="toast" id="toast" role="status"><span>M-4 · Familia Ortega cobrado. Entrega de cambio:</span><b id="t-chg">$31.00</b></div>
+
+<script>
+  const total = 569, fmt = n => '$' + n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const recv = document.getElementById('recv'), box = document.getElementById('box'), chg = document.getElementById('chg'), lbl = document.getElementById('lbl'), go = document.getElementById('go');
+  recv.addEventListener('input', () => {
+    const v = parseFloat(recv.value.replace(/,/g, '')); box.className = 'change';
+    if (recv.value.trim() === '') { lbl.textContent = 'Cambio'; chg.textContent = '—'; go.disabled = true; go.textContent = 'Ingresa el monto recibido'; return; }
+    if (isNaN(v) || v < total) { box.classList.add('short'); lbl.textContent = isNaN(v) ? 'Monto no válido' : 'Faltan'; chg.textContent = isNaN(v) ? '—' : fmt(total - v); go.disabled = true; go.textContent = 'Monto insuficiente'; return; }
+    box.classList.add('ok'); lbl.textContent = 'Cambio'; chg.textContent = fmt(v - total); go.disabled = false; go.textContent = 'Cobrar ' + fmt(total);
+  });
+  go.addEventListener('click', () => { document.getElementById('t-chg').textContent = chg.textContent; document.getElementById('toast').classList.add('open'); });
+  const moreBtn = document.getElementById('more-btn'), menu = document.getElementById('more-menu');
+  moreBtn.addEventListener('click', () => { const o = menu.classList.toggle('open'); moreBtn.setAttribute('aria-expanded', String(o)); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && menu.classList.contains('open')) { menu.classList.remove('open'); moreBtn.setAttribute('aria-expanded', 'false'); moreBtn.focus(); } });
+  const theme = document.getElementById('theme');
+  theme.addEventListener('click', () => { const d = document.documentElement.dataset.theme === 'dark'; document.documentElement.dataset.theme = d ? '' : 'dark'; theme.setAttribute('aria-pressed', String(!d)); theme.textContent = d ? 'Modo oscuro' : 'Modo claro'; });
+  document.querySelectorAll('.chips button').forEach(b => b.addEventListener('click', () => document.querySelectorAll('.chips button').forEach(x => x.setAttribute('aria-pressed', String(x === b)))));
+</script>
+</body>
+</html>

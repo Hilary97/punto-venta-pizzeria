@@ -1,0 +1,504 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1760">
+<title>Pedidos · 04 Combinada (recomendada)</title>
+<style>
+:root{
+  --brand:#b91c1c; --brand-strong:#991b1b; --brand-soft:#fef2f2; --on-brand:#fff;
+  --canvas:#f8fafc; --surface:#fff; --surface-sunken:#f1f5f9;
+  --border:#e2e8f0; --border-strong:#cbd5e1;
+  --text:#0f172a; --text-muted:#475569; --text-subtle:#64748b;
+  --success:#047857; --success-soft:#ecfdf5;
+  --warning:#92400e; --warning-soft:#fffbeb;
+  --danger:#be123c; --danger-soft:#fff1f2; --focus:#0369a1;
+  --r1:8px; --r2:12px; --r3:16px;
+  --font:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:#e5e7eb;font-family:var(--font);color:var(--text)}
+.artboard{width:1760px;height:960px;margin:0 auto;background:#e8ecf1;padding:10px 40px 0;overflow:hidden}
+.top{display:flex;align-items:flex-start;gap:24px;height:62px}
+.top .t{flex:1}
+.top h1{margin:0;font-size:20px;line-height:26px}
+.top p{margin:0;font-size:14px;line-height:20px;color:var(--text-muted)}
+.demo{display:flex;align-items:center;gap:10px;border-left:2px solid var(--border-strong);padding-left:16px;font-size:12px;color:var(--text-muted);line-height:16px}
+.demo button{min-height:44px;padding:0 12px;border:1px dashed var(--text-muted);background:#fff;border-radius:var(--r1);font-size:13px;font-weight:600}
+.demo button[aria-pressed="true"]{background:var(--text);color:#fff;border-style:solid}
+.row{display:flex;gap:40px;justify-content:center}
+figure{margin:0;width:390px}
+figcaption{height:30px;font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px;white-space:nowrap}
+figcaption span{font-weight:400;color:var(--text-muted);font-size:12px;white-space:normal;line-height:14px}
+.top .fn{margin:0;font-size:12px;line-height:16px;color:var(--text-muted)}
+button,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+[hidden]{display:none!important}
+.sr{position:absolute;left:-9999px}
+
+.phone{position:relative;width:390px;height:844px;border-radius:32px;border:1px solid var(--border-strong);background:var(--canvas);overflow:hidden;display:flex;flex-direction:column;box-shadow:0 8px 24px rgba(15,23,42,.12)}
+
+.ctx{display:flex;gap:8px;align-items:center;padding:14px 12px 8px;background:var(--surface);border-bottom:1px solid var(--border);position:relative;z-index:2}
+.chip{min-height:44px;padding:0 14px;border:1px solid var(--border-strong);background:var(--surface);border-radius:var(--r2);font-size:15px;font-weight:600;white-space:nowrap}
+.chip.dashed{border-style:dashed;color:var(--text-muted);font-weight:500}
+.chip.hl{border-color:var(--brand);background:var(--brand-soft);color:var(--brand-strong)}
+.missing .chip.need{border:2px solid #d97706;background:var(--warning-soft);color:var(--warning);animation:pulse 1.4s ease-in-out infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(217,119,6,.55)}50%{box-shadow:0 0 0 6px rgba(217,119,6,0)}}
+.menu{position:absolute;top:64px;left:12px;background:var(--surface);border:1px solid var(--border-strong);border-radius:var(--r2);box-shadow:0 8px 20px rgba(15,23,42,.18);padding:6px;z-index:5;display:flex;flex-direction:column;min-width:190px}
+.menu button{min-height:44px;border:0;background:none;text-align:left;padding:0 12px;border-radius:var(--r1);font-size:15px}
+.menu button[aria-checked="true"]{background:var(--brand-soft);color:var(--brand-strong);font-weight:700}
+
+.find{padding:8px 12px 0}
+.find input{width:100%;min-height:44px;border:1px solid var(--border-strong);border-radius:var(--r2);padding:0 14px;background:var(--surface);font-size:15px}
+.find input::placeholder{color:var(--text-subtle)}
+.pills{display:flex;gap:8px;overflow-x:auto;padding:8px 12px;scrollbar-width:none;flex:none}
+.pill{flex:none;min-height:44px;padding:0 16px;border:1px solid var(--border-strong);background:var(--surface);border-radius:999px;font-size:14px;font-weight:600}
+.pill[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:var(--on-brand)}
+.scroller{flex:1;overflow:auto;padding:0 12px 12px;min-height:0}
+.lbl{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text-muted);margin:4px 0 6px}
+.armar{width:100%;min-height:48px;border:0;border-radius:var(--r2);background:var(--brand);color:var(--on-brand);font-weight:700;font-size:16px;display:flex;align-items:center;justify-content:center;gap:8px}
+.presets{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:8px 0 10px}
+.preset{min-height:52px;border:1px solid var(--brand);background:var(--brand-soft);color:var(--brand-strong);border-radius:var(--r2);font-weight:700;font-size:13px;line-height:16px;padding:6px;display:flex;align-items:center;justify-content:center;text-align:center}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.tile{background:var(--surface);border:1px solid var(--border-strong);border-radius:var(--r2);min-height:92px;display:flex;flex-direction:column}
+.tile.has{border:2px solid var(--brand)}
+.tile .add{flex:1;border:0;background:none;text-align:left;padding:10px 10px 6px;border-radius:var(--r2);font-weight:700;font-size:15px;line-height:19px}
+.tile .add small{display:block;font-weight:500;font-size:12px;color:var(--text-muted);margin-top:2px}
+.tile .stepper{margin:0 8px 8px}
+.tile.out{background:var(--surface-sunken);border-style:dashed}
+.tile.out .add{color:var(--text-muted);cursor:not-allowed}
+.badge{display:inline-block;margin-top:4px;padding:2px 8px;border-radius:999px;background:var(--danger-soft);color:var(--danger);font-size:12px;font-weight:700;border:1px solid var(--danger)}
+.vars{margin:0 8px 8px;padding:0;border:0}
+.vars legend{font-size:12px;font-weight:700;color:var(--text-muted);padding:0;margin-bottom:4px}
+.vars div{display:flex;gap:6px;flex-wrap:wrap}
+.vars button{min-height:44px;flex:1 1 auto;padding:0 10px;border:1px solid var(--border-strong);background:var(--surface);border-radius:var(--r1);font-size:13px;font-weight:700}
+.vars button[aria-pressed="true"]{background:var(--brand-soft);border:2px solid var(--brand);color:var(--brand-strong)}
+.vars button[aria-pressed="true"]::before{content:"✓ "}
+.stepper{display:flex;align-items:center;justify-content:space-between;border:1px solid var(--border-strong);border-radius:var(--r2);background:var(--surface-sunken)}
+.stepper button{width:44px;height:44px;border:0;background:none;font-size:22px;font-weight:700;border-radius:var(--r2);color:var(--brand-strong)}
+.stepper output{min-width:28px;text-align:center;font-weight:800;font-size:17px}
+
+.peek{background:var(--surface);border-top:1px solid var(--border-strong);border-radius:var(--r3) var(--r3) 0 0;box-shadow:0 -6px 16px rgba(15,23,42,.12);padding:0 12px 10px;position:relative;z-index:3;flex:none}
+.peek .open{display:block;width:100%;border:0;background:none;text-align:left;padding:8px 0 4px;min-height:44px}
+.grab{display:block;width:40px;height:4px;border-radius:2px;background:var(--border-strong);margin:0 auto 6px}
+.peek ul{list-style:none;margin:0;padding:0;font-size:13px;line-height:20px;color:var(--text-muted)}
+.peek li{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.peek li b{color:var(--text)}
+.sendrow{display:flex;align-items:center;gap:10px;margin-top:4px}
+.sendrow .count{flex:1;font-weight:700;font-size:14px;line-height:18px}
+.sendrow .count small{display:block;font-weight:500;color:var(--text-muted);font-size:12px}
+.send{min-height:52px;padding:0 14px;border:0;border-radius:var(--r2);background:var(--brand);color:var(--on-brand);font-weight:800;font-size:15px;flex:none;max-width:190px;line-height:18px}
+.send .alt{display:none}
+.missing .send{background:var(--warning-soft);color:var(--warning);border:2px solid #d97706}
+.missing .send .std{display:none}
+.missing .send .alt{display:inline}
+
+.tabs{display:flex;background:var(--surface);border-top:1px solid var(--border);height:60px;flex:none;position:relative;z-index:4}
+.tabs a{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:12px;font-weight:600;color:var(--text-muted);text-decoration:none;min-height:44px}
+.tabs a[aria-current="page"]{color:var(--brand);font-weight:800}
+.tabs svg{width:22px;height:22px}
+
+/* sheet (screen 2) */
+.dim{position:absolute;inset:0;background:rgba(15,23,42,.45);z-index:5}
+.sheet{position:absolute;left:0;right:0;bottom:0;top:96px;background:var(--surface);border-radius:var(--r3) var(--r3) 0 0;z-index:6;display:flex;flex-direction:column;box-shadow:0 -8px 24px rgba(15,23,42,.25)}
+.sheet header{display:flex;align-items:center;padding:10px 12px 8px 16px;border-bottom:1px solid var(--border)}
+.sheet header h3{margin:0;font-size:17px;flex:1;line-height:22px}
+.sheet header h3 small{display:block;font-size:12px;font-weight:500;color:var(--text-muted)}
+.ghost{min-height:44px;padding:0 14px;border:1px solid var(--border-strong);background:var(--surface);border-radius:var(--r2);font-weight:600;font-size:14px}
+.sheet .body{flex:1;overflow:auto;padding:10px 12px;min-height:0}
+.mesas{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}
+.mesa{min-height:108px;border:1px solid var(--border-strong);background:var(--surface);border-radius:var(--r2);padding:8px 6px;text-align:left;display:flex;flex-direction:column;gap:2px;font-size:12px;line-height:15px;color:var(--text-muted)}
+.mesa .n{font-size:16px;font-weight:800;color:var(--text);line-height:20px}
+.mesa.free{border-color:var(--success)}
+.mesa.free .lib{color:var(--success);font-weight:700;font-size:13px}
+.mesa.busy{background:var(--surface-sunken)}
+.mesa .st{margin-top:auto;display:inline-flex;gap:4px;align-items:flex-start;padding:2px 6px;border-radius:var(--r1);font-size:12px;font-weight:700;line-height:14px}
+.st.cook{background:var(--warning-soft);color:var(--warning);border:1px solid #d97706}
+.st.ok{background:var(--success-soft);color:var(--success);border:1px solid var(--success)}
+.st.sched{background:#fff;color:var(--text);border:1px solid var(--text-muted)}
+.mesa[aria-pressed="true"]{border:3px solid var(--warning);background:var(--warning-soft);padding:6px 4px}
+.mesa[aria-pressed="true"] .n::after{content:" ✓"}
+.alert{display:flex;gap:10px;background:var(--warning-soft);border:1px solid #d97706;border-radius:var(--r2);padding:10px 12px;color:var(--warning);font-size:15px;line-height:20px;font-weight:600}
+.alert svg{flex:none;width:22px;height:22px;margin-top:1px}
+.stack{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.primary{min-height:52px;border:0;border-radius:var(--r2);background:var(--brand);color:var(--on-brand);font-weight:800;font-size:16px;padding:0 14px;width:100%}
+.alt-btn{min-height:48px;border:1px solid var(--border-strong);background:var(--surface);border-radius:var(--r2);font-weight:700;font-size:15px;width:100%}
+.mini{margin-top:12px;font-size:12px;color:var(--text-muted)}
+.mini .bar{margin-top:4px;display:flex;align-items:center;gap:8px;background:var(--warning-soft);border:1px solid #d97706;border-radius:var(--r1);padding:6px 10px;color:var(--warning);font-weight:700;font-size:13px}
+.mini .bar span:last-child{margin-left:auto;font-weight:600;text-decoration:underline}
+
+/* pizza screens */
+.ptop{display:flex;align-items:center;justify-content:space-between;padding:14px 12px 6px;background:var(--surface);border-bottom:1px solid var(--border)}
+.link{min-height:44px;padding:0 6px;border:0;background:none;color:var(--brand-strong);font-weight:700;font-size:15px}
+.ptop .ctxt{font-size:13px;font-weight:700;color:var(--brand-strong);background:var(--brand-soft);border:1px solid var(--brand);border-radius:var(--r2);padding:6px 12px;min-height:32px}
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;list-style:none;margin:0;padding:8px 12px;background:var(--surface);border-bottom:1px solid var(--border)}
+.steps li{font-size:12px;line-height:15px;color:var(--text-muted);border-top:4px solid var(--border-strong);padding-top:4px}
+.steps li b{display:block;font-size:12px;color:var(--text)}
+.steps li.done{border-top-color:var(--success)}
+.steps li.done b{color:var(--success)}
+.steps li.cur{border-top-color:var(--brand)}
+.steps li.cur b{color:var(--brand-strong)}
+.pscroll{flex:1;overflow:auto;padding:12px;min-height:0}
+.diagram{display:flex;gap:12px;align-items:center;margin-bottom:12px}
+.diagram p{margin:0;font-size:14px;line-height:19px;color:var(--text-muted)}
+.diagram strong{display:block;color:var(--text);font-size:16px}
+fieldset{border:0;margin:0;padding:0}
+.cards{display:flex;flex-direction:column;gap:8px}
+.card{display:block;position:relative}
+.card input{position:absolute;opacity:0;inset:0;width:100%;height:100%;margin:0;cursor:pointer}
+.card .box{display:flex;align-items:center;gap:10px;min-height:60px;padding:8px 12px;border:1px solid var(--border-strong);background:var(--surface);border-radius:var(--r2)}
+.card .t{flex:1}
+.card b{display:block;font-size:15px;line-height:19px}
+.card small{display:block;font-size:12px;line-height:16px;color:var(--text-muted)}
+.card .ck{width:26px;height:26px;border-radius:50%;border:2px solid var(--border-strong);display:flex;align-items:center;justify-content:center;color:transparent;font-weight:800;font-size:14px;flex:none}
+.card input:checked + .box{border:2px solid var(--brand);background:var(--brand-soft)}
+.card input:checked + .box .ck{background:var(--brand);border-color:var(--brand);color:#fff}
+.card input:focus-visible + .box{outline:3px solid var(--focus);outline-offset:2px}
+.foot{flex:none;background:var(--surface);border-top:1px solid var(--border-strong);padding:10px 12px 16px;box-shadow:0 -6px 16px rgba(15,23,42,.08)}
+.summary{font-size:13px;line-height:18px;color:var(--text-muted);margin-bottom:8px}
+.summary b{color:var(--text)}
+.frow{display:flex;gap:10px;align-items:center}
+.frow .primary{flex:1}
+.frow .stepper{width:134px;flex:none}
+.legend{margin:0 0 10px;padding:8px 12px;border-radius:var(--r2);background:var(--warning-soft);border:1px solid #d97706;color:var(--warning);font-size:13px;line-height:18px;font-weight:600}
+.portion{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;background:var(--surface-sunken);border-radius:var(--r2);margin-bottom:6px}
+.portion button{min-height:44px;border:0;border-radius:var(--r1);background:transparent;font-weight:700;font-size:14px;color:var(--text-muted)}
+.portion button[aria-pressed="true"]{background:var(--brand);color:#fff}
+.count2{font-size:12px;color:var(--text-muted);margin:0 0 6px;line-height:16px}
+h3.sec{font-size:13px;margin:12px 0 6px;color:var(--text);line-height:18px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips button{min-height:44px;padding:0 12px;border:1px solid var(--border-strong);background:var(--surface);border-radius:999px;font-size:14px;font-weight:600}
+.chips button[aria-pressed="true"]{background:var(--brand-soft);border:2px solid var(--brand);color:var(--brand-strong);font-weight:700}
+.chips button[aria-pressed="true"]::before{content:"✓ "}
+.picked{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.picked li{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:4px 4px 4px 10px;min-height:52px}
+.picked .nm{flex:1;font-weight:700;font-size:14px}
+.tri{display:flex;gap:2px;background:var(--surface-sunken);border-radius:var(--r1);padding:2px}
+.tri label{position:relative}
+.tri input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer;width:100%;height:100%}
+.tri span{display:flex;align-items:center;justify-content:center;min-height:44px;min-width:56px;padding:0 6px;border-radius:6px;font-size:13px;font-weight:700;color:var(--text-muted)}
+.tri input:checked + span{background:var(--brand);color:#fff}
+.tri input:focus-visible + span{outline:3px solid var(--focus);outline-offset:1px}
+.toggle{display:flex;align-items:center;justify-content:space-between;min-height:48px;padding:0 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);font-size:15px;font-weight:600;margin-bottom:6px}
+.toggle input{width:24px;height:24px;accent-color:var(--brand)}
+textarea.nota{width:100%;height:60px;border:1px solid var(--border-strong);border-radius:var(--r2);padding:10px 12px;background:var(--surface);font-size:15px;resize:none}
+@media (prefers-reduced-motion:reduce){
+  *{animation:none!important;transition:none!important}
+  .missing .chip.need{box-shadow:0 0 0 4px rgba(217,119,6,.45)}
+}
+</style>
+</head>
+<body>
+<main class="artboard" style="position:relative">
+  <header class="top">
+    <div class="t">
+      <h1>04 · Combinada (recomendada)</h1>
+      <p>Compromiso: pantalla única rápida con comanda siempre a la vista (02) + pizza guiada paso a paso (03) y mapa de mesas ocupadas; son más piezas por construir, pero cada una es simple.</p>
+      <p class="fn">Descripciones de estilos: confirmar con el menú</p>
+    </div>
+    <div class="demo" role="group" aria-label="Control de demostración (no forma parte de la app)">
+      <span>Demo del<br>artboard:</span>
+      <button id="simMiss" type="button" aria-pressed="false">Ver estado “falta tipo”</button>
+    </div>
+  </header>
+
+  <div class="row">
+
+    <!-- 1 -->
+    <figure>
+      <figcaption>1 · Tomar pedido</figcaption>
+      <div class="phone" id="phone1" aria-label="Pantalla Tomar pedido">
+        <div class="ctx" role="group" aria-label="Contexto del pedido">
+          <button class="chip need" id="chipTipo" type="button" aria-haspopup="menu" aria-expanded="false">Aquí ▾</button>
+          <button class="chip hl" type="button" aria-label="Mesa M-4, cambiar">M-4 ▾</button>
+          <button class="chip dashed" type="button">+ Nombre</button>
+          <div class="menu" id="menuTipo" role="menu" hidden>
+            <button role="menuitemradio" aria-checked="true" data-v="Aquí" type="button">Aquí (en mesa)</button>
+            <button role="menuitemradio" aria-checked="false" data-v="Llevar" type="button">Para llevar</button>
+          </div>
+        </div>
+        <div class="find">
+          <label class="sr" for="busca">Buscar producto</label>
+          <input id="busca" type="search" placeholder="Buscar producto…">
+        </div>
+        <div class="pills" role="group" aria-label="Categorías">
+          <button class="pill" type="button" aria-pressed="true">Todo</button>
+          <button class="pill" type="button" aria-pressed="false">Hamburguesas</button>
+          <button class="pill" type="button" aria-pressed="false">Botanas</button>
+          <button class="pill" type="button" aria-pressed="false">Bebidas</button>
+          <button class="pill" type="button" aria-pressed="false">Extras</button>
+          <button class="pill" type="button" aria-pressed="false">Ensaladas</button>
+        </div>
+        <div class="scroller">
+          <div class="lbl">Pizzas</div>
+          <button class="armar" type="button">🍕 Armar pizza</button>
+          <div class="presets" role="group" aria-label="Pizzas rápidas, agregan con un toque">
+            <button class="preset" type="button" data-name="Pizza Grande · Pepperoni">+ Pepperoni grande</button>
+            <button class="preset" type="button" data-name="Pizza Mediana · Hawaiana">+ Hawaiana mediana</button>
+            <button class="preset" type="button" data-name="Pizza Grande · Mitad y mitad">+ Mitad y mitad grande</button>
+          </div>
+          <div class="lbl">Menú</div>
+          <div class="grid" id="grid1">
+            <article class="tile has" data-name="Hamburguesa El Ranchito" data-var="Res" data-q="2">
+              <button class="add" type="button">Hamburguesa El Ranchito</button>
+              <fieldset class="vars"><legend>Elige:</legend><div><button type="button" aria-pressed="true">Res</button><button type="button" aria-pressed="false">Pollo</button></div></fieldset>
+              <div class="stepper" role="group" aria-label="Cantidad Hamburguesa El Ranchito"><button type="button" data-d="-1" aria-label="Quitar uno">−</button><output>2</output><button type="button" data-d="1" aria-label="Agregar uno">+</button></div>
+            </article>
+            <article class="tile" data-name="Alitas 5 pzas" data-var="" data-q="0">
+              <button class="add" type="button">Alitas 5 pzas</button>
+              <fieldset class="vars"><legend>Elige:</legend><div><button type="button" aria-pressed="false">Búfalo</button><button type="button" aria-pressed="false">BBQ</button><button type="button" aria-pressed="false">Mango-Habanero</button></div></fieldset>
+              <div class="stepper" role="group" aria-label="Cantidad Alitas" hidden><button type="button" data-d="-1" aria-label="Quitar uno">−</button><output>0</output><button type="button" data-d="1" aria-label="Agregar uno">+</button></div>
+            </article>
+            <article class="tile out">
+              <button class="add" type="button" disabled aria-disabled="true">Hamburguesa Monster doble carne<span class="badge">Agotado</span></button>
+            </article>
+            <article class="tile" data-name="Hamburguesa Monster sencilla" data-var="" data-q="0">
+              <button class="add" type="button">Hamburguesa Monster sencilla</button>
+              <div class="stepper" role="group" aria-label="Cantidad Monster sencilla" hidden><button type="button" data-d="-1" aria-label="Quitar uno">−</button><output>0</output><button type="button" data-d="1" aria-label="Agregar uno">+</button></div>
+            </article>
+            <article class="tile has" data-name="Refresco Coca-Cola" data-var="" data-q="1">
+              <button class="add" type="button">Refresco Coca-Cola</button>
+              <div class="stepper" role="group" aria-label="Cantidad Coca-Cola"><button type="button" data-d="-1" aria-label="Quitar uno">−</button><output>1</output><button type="button" data-d="1" aria-label="Agregar uno">+</button></div>
+            </article>
+            <article class="tile has" data-name="Papas gajo" data-var="" data-q="1">
+              <button class="add" type="button">Papas gajo</button>
+              <div class="stepper" role="group" aria-label="Cantidad Papas gajo"><button type="button" data-d="-1" aria-label="Quitar uno">−</button><output>1</output><button type="button" data-d="1" aria-label="Agregar uno">+</button></div>
+            </article>
+            <article class="tile" data-name="Naranjada" data-var="" data-q="0">
+              <button class="add" type="button">Naranjada</button>
+              <div class="stepper" role="group" aria-label="Cantidad Naranjada" hidden><button type="button" data-d="-1" aria-label="Quitar uno">−</button><output>0</output><button type="button" data-d="1" aria-label="Agregar uno">+</button></div>
+            </article>
+          </div>
+        </div>
+        <section class="peek" aria-label="Comanda">
+          <button class="open" type="button" aria-label="Abrir comanda completa"><span class="grab"></span>
+            <ul id="peekList"></ul>
+          </button>
+          <div class="sendrow">
+            <div class="count" aria-live="polite"><span id="peekCount">4 productos · M-4</span><small>Toca arriba para ver todo</small></div>
+            <button class="send" type="button"><span class="std">Enviar a cocina</span><span class="alt">Elige Aquí o Para llevar</span></button>
+          </div>
+        </section>
+        <nav class="tabs" aria-label="Navegación"><a href="#" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg>Pedidos</a><a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 7h11v9H3zM14 10h4l3 3v3h-7"/><circle cx="7" cy="17" r="1.6"/><circle cx="17" cy="17" r="1.6"/></svg>Entrega</a></nav>
+      </div>
+    </figure>
+
+    <!-- 2 -->
+    <figure>
+      <figcaption>2 · Elegir mesa <span>Hoja sobre la pantalla 1</span></figcaption>
+      <div class="phone" aria-label="Pantalla Elegir mesa">
+        <div class="ctx" aria-hidden="true">
+          <span class="chip">Aquí ▾</span><span class="chip hl">M-4 ▾</span><span class="chip dashed">+ Nombre</span>
+        </div>
+        <div class="dim"></div>
+        <section class="sheet" aria-labelledby="shT">
+          <header>
+            <h3 id="shT">Elegir mesa<small>Toca una mesa. Las ocupadas muestran su ficha.</small></h3>
+            <button class="ghost" type="button">Cerrar</button>
+          </header>
+          <div class="body">
+            <div class="mesas" id="mesas" role="group" aria-label="Mesas">
+              <button class="mesa busy" type="button" aria-pressed="false" data-m="M-1" data-f="7" data-n="Jorge" data-t="25"><span class="n">M-1</span><span>Ficha 7 · Jorge · 25 min</span><span class="st cook"><span aria-hidden="true">◔</span>En cocina</span></button>
+              <button class="mesa free" type="button" aria-pressed="false" data-m="M-2"><span class="n">M-2</span><span class="lib">Libre</span></button>
+              <button class="mesa busy" type="button" aria-pressed="false" data-m="M-3" data-f="12" data-n="Lucía" data-t="31"><span class="n">M-3</span><span>Ficha 12 · Lucía · 31 min</span><span class="st ok"><span aria-hidden="true">✓</span>Listo para entregar</span></button>
+              <button class="mesa free" type="button" aria-pressed="false" data-m="M-4"><span class="n">M-4</span><span class="lib">Libre</span></button>
+              <button class="mesa busy" type="button" aria-pressed="false" data-m="M-5" data-f="9" data-n="Marco" data-t="6"><span class="n">M-5</span><span>Ficha 9 · Marco · 6 min</span><span class="st cook"><span aria-hidden="true">◔</span>En cocina</span></button>
+              <button class="mesa busy" type="button" aria-pressed="true" data-m="M-6" data-f="3" data-n="Lucía" data-t="22"><span class="n">M-6</span><span>Ficha 3 · Lucía · 22 min</span><span class="st cook"><span aria-hidden="true">◔</span>En cocina</span></button>
+              <button class="mesa busy" type="button" aria-pressed="false" data-m="M-7" data-f="14" data-n="Lucía" data-t="2"><span class="n">M-7</span><span>Ficha 14 · Lucía · 2 min</span><span class="st sched"><span aria-hidden="true">⏱</span>Programado 2:30 p.m.</span></button>
+              <button class="mesa free" type="button" aria-pressed="false" data-m="M-8"><span class="n">M-8</span><span class="lib">Libre</span></button>
+              <button class="mesa free" type="button" aria-pressed="false" data-m="M-9"><span class="n">M-9</span><span class="lib">Libre</span></button>
+            </div>
+            <div class="alert" id="callout" role="status">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.5"/></svg>
+              <span id="calloutTxt">M-6 ya tiene un pedido abierto (Ficha 3 · Lucía · 22 min)</span>
+            </div>
+            <div class="stack" id="actions">
+              <button class="primary" type="button" id="btnAdd">Agregar a ese pedido</button>
+              <button class="alt-btn" type="button">Elegir otra mesa</button>
+            </div>
+            <div class="mini" id="miniNote">Al agregar, la pantalla 1 muestra esta barra ámbar:
+              <div class="bar"><span>Agregando a M-6 · Ficha 3</span><span>Salir</span></div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </figure>
+
+    <!-- 3 -->
+    <figure>
+      <figcaption>3 · Pizza · Estilo <span>Paso 3 de 4</span></figcaption>
+      <div class="phone" aria-label="Pantalla Pizza, paso Estilo">
+        <div class="ptop">
+          <button class="link" type="button" style="padding-left:0">← Cancelar pizza</button>
+          <span class="ctxt">M-4</span>
+        </div>
+        <ol class="steps" aria-label="Pasos de la pizza">
+          <li class="done"><b>Tamaño ✓</b>Grande</li>
+          <li class="done"><b>División ✓</b>Mitades</li>
+          <li class="cur" aria-current="step"><b>Estilo</b>Mitad 1</li>
+          <li><b>Ingredientes</b>Después</li>
+        </ol>
+        <div class="pscroll">
+          <div class="diagram">
+            <svg width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="Pizza dividida en mitades; Mitad 1 seleccionada, a la izquierda">
+              <circle cx="32" cy="32" r="29" fill="#fff" stroke="#991b1b" stroke-width="3"/>
+              <path d="M32 3 A29 29 0 0 0 32 61 Z" fill="#b91c1c"/>
+              <line x1="32" y1="3" x2="32" y2="61" stroke="#991b1b" stroke-width="3"/>
+            </svg>
+            <p><strong>Mitad 1</strong>Elige el estilo de la mitad izquierda</p>
+          </div>
+          <fieldset>
+            <legend class="sr">Estilo de la Mitad 1</legend>
+            <div class="cards">
+              <label class="card"><input type="radio" name="estilo" checked><span class="box"><span class="t"><b>Estilo Pepperoni</b><small>Pepperoni, queso mozzarella y salsa de tomate</small></span><span class="ck" aria-hidden="true">✓</span></span></label>
+              <label class="card"><input type="radio" name="estilo"><span class="box"><span class="t"><b>Estilo Hawaiana</b><small>Jamón, piña y queso mozzarella</small></span><span class="ck" aria-hidden="true">✓</span></span></label>
+              <label class="card"><input type="radio" name="estilo"><span class="box"><span class="t"><b>Estilo Varas</b><small>Chorizo, tocino, cebolla y jalapeños</small></span><span class="ck" aria-hidden="true">✓</span></span></label>
+              <label class="card"><input type="radio" name="estilo"><span class="box"><span class="t"><b>Estilo Chuy's</b><small>Salami, salchicha, champiñones y pimiento morrón</small></span><span class="ck" aria-hidden="true">✓</span></span></label>
+              <label class="card"><input type="radio" name="estilo"><span class="box"><span class="t"><b>Estilo Mexicana</b><small>Chorizo, jalapeños, jitomate y cebolla</small></span><span class="ck" aria-hidden="true">✓</span></span></label>
+              <label class="card"><input type="radio" name="estilo"><span class="box"><span class="t"><b>Arma tu combinación</b><small>Tú eliges los ingredientes en el siguiente paso</small></span><span class="ck" aria-hidden="true">✓</span></span></label>
+            </div>
+          </fieldset>
+        </div>
+        <div class="foot">
+          <div class="frow"><button class="primary" type="button">Siguiente: Mitad 2 →</button></div>
+        </div>
+      </div>
+    </figure>
+
+    <!-- 4 -->
+    <figure>
+      <figcaption>4 · Pizza · Ingredientes <span>Al agregar, entra a la comanda de 1</span></figcaption>
+      <div class="phone" aria-label="Pantalla Pizza, paso Ingredientes">
+        <div class="ptop">
+          <button class="link" type="button" style="padding-left:0">← Estilo</button>
+          <span class="ctxt">M-4</span>
+        </div>
+        <div class="pscroll">
+          <p class="legend">Incluye 2 ingredientes a elección · Doble cuenta como extra</p>
+          <div class="portion" role="group" aria-label="Mitad de la pizza">
+            <button type="button" aria-pressed="true" data-h="0">Mitad 1 · Pepperoni</button>
+            <button type="button" aria-pressed="false" data-h="1">Mitad 2 · Hawaiana</button>
+          </div>
+          <p class="count2" id="count2" aria-live="polite"></p>
+          <h3 class="sec">Elige ingredientes</h3>
+          <div class="chips" id="chips" role="group" aria-label="Ingredientes disponibles"></div>
+          <h3 class="sec">Ajusta cada ingrediente</h3>
+          <ul class="picked" id="picked"></ul>
+          <h3 class="sec">Extras para toda la pizza</h3>
+          <label class="toggle">Extra queso<input type="checkbox" checked id="x1"></label>
+          <label class="toggle">Orilla rellena<input type="checkbox" id="x2"></label>
+          <h3 class="sec"><label for="nota">Nota de la pizza</label></h3>
+          <textarea class="nota" id="nota" placeholder="Ej. bien cocida, sin cortar"></textarea>
+        </div>
+        <div class="foot">
+          <div class="summary" aria-live="polite"><b>Pizza Grande</b> · Mitad Pepperoni / Mitad Hawaiana · <span id="sx">Extra queso</span></div>
+          <div class="frow">
+            <div class="stepper" role="group" aria-label="Cantidad de pizzas"><button type="button" id="mn" aria-label="Menos">−</button><output id="q" aria-live="polite">×1</output><button type="button" id="pl" aria-label="Más">+</button></div>
+            <button class="primary" type="button">Agregar pizza</button>
+          </div>
+        </div>
+      </div>
+    </figure>
+  </div>
+</main>
+<script>
+/* Screen 1: comanda */
+const tiles=[...document.querySelectorAll("#grid1 .tile[data-name]")];
+const extra=[]; // presets
+const pl=document.getElementById("peekList"),pc=document.getElementById("peekCount");
+function renderPeek(){
+  const lines=[];
+  tiles.forEach(t=>{const q=+t.dataset.q;if(q>0)lines.push([t.dataset.name+(t.dataset.var?" · "+t.dataset.var:""),q]);});
+  extra.forEach(e=>lines.push(e));
+  const total=lines.reduce((a,l)=>a+l[1],0);
+  pl.innerHTML="";
+  lines.slice(0,2).forEach(l=>{const li=document.createElement("li");li.innerHTML="<b></b> ×"+l[1];li.firstChild.textContent=l[0];pl.appendChild(li);});
+  if(lines.length>2){const li=document.createElement("li");li.textContent="y "+(lines.length-2)+" más…";pl.appendChild(li);}
+  pc.textContent=total+" producto"+(total===1?"":"s")+" · M-4";
+}
+tiles.forEach(t=>{
+  const st=t.querySelector(".stepper"),out=st.querySelector("output"),vars=t.querySelector(".vars");
+  function set(q){t.dataset.q=q;out.textContent=q;st.hidden=q===0;t.classList.toggle("has",q>0);renderPeek();}
+  t.querySelector(".add").onclick=()=>{ if(vars&&!t.dataset.var)return; set(+t.dataset.q+1); };
+  st.querySelectorAll("button").forEach(b=>b.onclick=()=>set(Math.max(0,+t.dataset.q+ +b.dataset.d)));
+  if(vars)vars.querySelectorAll("button").forEach(b=>b.onclick=()=>{
+    vars.querySelectorAll("button").forEach(o=>o.setAttribute("aria-pressed",o===b));
+    t.dataset.var=b.textContent; if(+t.dataset.q===0)set(1);else renderPeek();
+  });
+});
+document.querySelectorAll(".preset").forEach(b=>b.onclick=()=>{
+  const e=extra.find(x=>x[0]===b.dataset.name);if(e)e[1]++;else extra.push([b.dataset.name,1]);renderPeek();
+});
+document.querySelectorAll(".pill").forEach(b=>b.onclick=()=>document.querySelectorAll(".pill").forEach(o=>o.setAttribute("aria-pressed",o===b)));
+renderPeek();
+/* tipo menu */
+const chipTipo=document.getElementById("chipTipo"),menu=document.getElementById("menuTipo"),phone1=document.getElementById("phone1");
+chipTipo.onclick=()=>{menu.hidden=!menu.hidden;chipTipo.setAttribute("aria-expanded",!menu.hidden);};
+menu.querySelectorAll("button").forEach(b=>b.onclick=()=>{
+  menu.querySelectorAll("button").forEach(o=>o.setAttribute("aria-checked",o===b));
+  chipTipo.textContent=(b.dataset.v==="Llevar"?"Para llevar":"Aquí")+" ▾";
+  menu.hidden=true;chipTipo.setAttribute("aria-expanded","false");phone1.classList.remove("missing");
+  document.getElementById("simMiss").setAttribute("aria-pressed","false");
+});
+const sim=document.getElementById("simMiss");
+sim.onclick=()=>{const on=sim.getAttribute("aria-pressed")!=="true";sim.setAttribute("aria-pressed",on);phone1.classList.toggle("missing",on);};
+
+/* Screen 2: mesas */
+const callout=document.getElementById("callout"),ctxt=document.getElementById("calloutTxt"),actions=document.getElementById("actions"),mini=document.getElementById("miniNote"),btnAdd=document.getElementById("btnAdd");
+const mesas=[...document.querySelectorAll("#mesas .mesa")];
+mesas.forEach(m=>m.onclick=()=>{
+  mesas.forEach(o=>o.setAttribute("aria-pressed",o===m));
+  const busy=m.classList.contains("busy");
+  callout.hidden=!busy;mini.hidden=!busy;
+  if(busy){ctxt.textContent=m.dataset.m+" ya tiene un pedido abierto (Ficha "+m.dataset.f+" · "+m.dataset.n+" · "+m.dataset.t+" min)";
+    mini.querySelector(".bar span").textContent="Agregando a "+m.dataset.m+" · Ficha "+m.dataset.f;}
+  btnAdd.textContent=busy?"Agregar a ese pedido":"Tomar pedido en "+m.dataset.m;
+  actions.querySelector(".alt-btn").hidden=!busy;
+});
+
+/* Screen 4: ingredientes */
+const ings=["Jamón","Pepperoni","Chorizo","Serrano","Salami","Salchicha","Cebolla","Piña","Jitomate","Pimiento morrón","Champiñones","Jalapeños","Tocino","Aceituna negra","Ajo"];
+const halves=[new Map([["Pepperoni","n"]]),new Map([["Jamón","n"],["Piña","d"]])];
+let cur=0;
+const chips=document.getElementById("chips"),picked=document.getElementById("picked"),count2=document.getElementById("count2");
+function render(focusName){
+  const sel=halves[cur];chips.innerHTML="";picked.innerHTML="";
+  ings.forEach(n=>{
+    const b=document.createElement("button");b.type="button";b.textContent=n;b.setAttribute("aria-pressed",sel.has(n));
+    b.onclick=()=>{sel.has(n)?sel.delete(n):sel.set(n,"n");render(n);};
+    chips.appendChild(b);
+    if(n===focusName)b.dataset.f="1";
+  });
+  const f=chips.querySelector("[data-f]");if(f)f.focus();
+  let inc=0,ext=0;
+  [...sel].forEach(([n,v],i)=>{
+    if(v!=="q"){inc++; if(v==="d")ext++;}
+    const li=document.createElement("li");
+    li.innerHTML='<span class="nm"></span><div class="tri" role="radiogroup"></div>';
+    li.querySelector(".nm").textContent=n;
+    const g=li.querySelector(".tri");g.setAttribute("aria-label",n);
+    [["n","Normal"],["d","Doble"],["q","Quitar"]].forEach(([k,l])=>{
+      const lb=document.createElement("label");lb.innerHTML='<input type="radio" value="'+k+'"><span>'+l+'</span>';
+      const r=lb.querySelector("input");r.name="t"+i;r.checked=v===k;r.onchange=()=>{sel.set(n,k);render();};
+      g.appendChild(lb);
+    });
+    picked.appendChild(li);
+  });
+  if(!sel.size){const li=document.createElement("li");li.textContent="Aún no eliges ingredientes.";li.style.color="var(--text-muted)";li.style.fontSize="13px";picked.appendChild(li);}
+  const extras=Math.max(0,inc-2)+ext;
+  count2.textContent="Mitad "+(cur+1)+": "+Math.min(inc,2)+" de 2 incluidos"+(extras?" · "+extras+" extra"+(extras>1?"s":""):"");
+}
+document.querySelectorAll(".portion button").forEach(b=>b.onclick=()=>{
+  cur=+b.dataset.h;document.querySelectorAll(".portion button").forEach(o=>o.setAttribute("aria-pressed",o===b));render();
+});
+render();
+const x1=document.getElementById("x1"),x2=document.getElementById("x2"),sx=document.getElementById("sx");
+function ex(){const a=[];if(x1.checked)a.push("Extra queso");if(x2.checked)a.push("Orilla rellena");sx.textContent=a.length?a.join(" · "):"Sin extras";}
+x1.onchange=x2.onchange=ex;
+let q=1;const qo=document.getElementById("q");
+document.getElementById("pl").onclick=()=>{q++;qo.textContent="×"+q};
+document.getElementById("mn").onclick=()=>{q=Math.max(1,q-1);qo.textContent="×"+q};
+</script>
+</body>
+</html>

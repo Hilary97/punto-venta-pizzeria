@@ -1,0 +1,9 @@
+{
+  "title": "Navegación y cobro del POS",
+  "brief": "Rediseñar la navegación (12 links planos) y la pantalla de cobro del punto de venta de la pizzería: agrupar por tarea, mostrar el cambio en grande, distinguir acciones destructivas y proponer tokens semánticos que también resuelvan el modo oscuro.",
+  "artboards": [
+    { "file": "01-rail-agrupado.html", "title": "Rail lateral agrupado + cobro en dos columnas", "tradeoff": "Navegación clara por grupos (Operación, Caja, Admin) con contadores; usa ~240px de ancho fijo, menos espacio para el contenido en tablets chicas", "width": 1440, "height": 900 },
+    { "file": "02-tabs-maestro-detalle.html", "title": "Tabs operativas + maestro-detalle (con modo oscuro)", "tradeoff": "Cobrás sin salir de la lista de pendientes y el modo oscuro sale gratis de los tokens; Caja y Admin quedan a un clic más, dentro de 'Más'", "width": 1440, "height": 900 },
+    { "file": "03-tablet-teclado.html", "title": "Tablet táctil: teclado, billetes y cambio a pantalla completa", "tradeoff": "El más rápido y a prueba de errores para el cajero en mostrador; en desktop con teclado físico se siente sobredimensionado", "width": 1180, "height": 820 }
+  ]
+}

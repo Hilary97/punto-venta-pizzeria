@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1440">
+<title>Dirección 03 · Mesas primero + pizza por pasos</title>
+<style>
+:root{
+  --brand:#b91c1c;--brand-strong:#991b1b;--brand-soft:#fef2f2;--on-brand:#fff;
+  --canvas:#f8fafc;--surface:#fff;--surface-sunken:#f1f5f9;--border:#e2e8f0;--border-strong:#cbd5e1;
+  --text:#0f172a;--text-muted:#475569;--text-subtle:#64748b;
+  --success:#047857;--success-soft:#ecfdf5;--warning:#92400e;--warning-soft:#fffbeb;
+  --danger:#be123c;--danger-soft:#fff1f2;--focus:#0369a1;
+  --r-sm:8px;--r-md:12px;--r-lg:16px;
+  --font:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:var(--font);color:var(--text);background:#e5e7eb;font-size:14px;line-height:1.3}
+.artboard{width:1440px;height:960px;margin:0 auto;background:#e5e7eb;padding:20px 60px 0;overflow:hidden}
+.artboard>header{height:52px}
+.artboard h1{margin:0;font-size:20px}
+.artboard header p{margin:2px 0 0;color:var(--text-muted);font-size:13px}
+.screens{display:flex;gap:60px;justify-content:center;margin-top:6px}
+figure{margin:0}
+figcaption{font-weight:700;font-size:13px;margin:0 0 6px 4px;color:var(--text)}
+.phone{width:390px;height:844px;background:var(--canvas);border-radius:32px;border:1px solid var(--border-strong);box-shadow:0 8px 24px rgba(15,23,42,.15);overflow:hidden;display:flex;flex-direction:column;position:relative}
+button,input{font-family:inherit;font-size:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.scroll{flex:1;overflow-y:auto;padding:12px 16px}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:26px 16px 8px;background:var(--surface);border-bottom:1px solid var(--border);min-height:72px}
+.topbar h2{margin:0;font-size:18px}
+.link{background:none;border:0;min-height:44px;padding:0 8px;color:var(--brand-strong);font-weight:600;border-radius:var(--r-sm)}
+.seg{display:grid;grid-template-columns:1fr 1fr;background:var(--surface-sunken);border-radius:var(--r-md);padding:4px;gap:4px}
+.seg button{min-height:44px;border:0;border-radius:var(--r-sm);background:transparent;font-weight:600;color:var(--text-muted)}
+.seg button[aria-pressed=true]{background:var(--surface);color:var(--brand-strong);box-shadow:0 1px 3px rgba(15,23,42,.2)}
+.hint{margin:10px 0;color:var(--text-muted);font-size:13px}
+/* S1 */
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.table{min-height:136px;border-radius:var(--r-md);border:1px solid var(--border-strong);background:var(--surface);padding:10px 8px;text-align:left;display:flex;flex-direction:column;gap:3px}
+.table .n{font-weight:800;font-size:18px}
+.table small{color:var(--text-muted);font-size:12px}
+.table.free{border-style:dashed;background:var(--surface-sunken)}
+.table.free .cta{margin-top:auto;font-weight:700;color:var(--brand-strong);font-size:13px}
+.table.busy{border-width:2px;border-color:var(--text-subtle)}
+.table.ready{border-color:var(--success);background:var(--success-soft)}
+.chip{display:inline-block;margin-top:auto;padding:3px 6px;border-radius:999px;font-size:11px;font-weight:700;border:1px solid currentColor;width:fit-content}
+.chip.cook{color:var(--warning);background:var(--warning-soft)}
+.chip.ok{color:var(--success);background:var(--surface)}
+.chip.sched{color:var(--text);background:var(--surface-sunken);border-color:var(--border-strong)}
+.fab{position:absolute;right:16px;bottom:84px;min-height:52px;padding:0 20px;border:0;border-radius:999px;background:var(--brand);color:var(--on-brand);font-weight:700;box-shadow:0 6px 16px rgba(153,27,27,.4)}
+.tabbar{display:grid;grid-template-columns:1fr 1fr;background:var(--surface);border-top:1px solid var(--border);height:68px}
+.tabbar a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--text-muted);text-decoration:none;font-size:12px;font-weight:600}
+.tabbar a[aria-current=page]{color:var(--brand);border-top:3px solid var(--brand);font-weight:800}
+/* stepper */
+.steps{display:flex;gap:4px;list-style:none;margin:0;padding:8px 12px;background:var(--surface);border-bottom:1px solid var(--border)}
+.steps li{flex:1;font-size:11px;padding:6px 4px;border-radius:var(--r-sm);text-align:center;color:var(--text-muted);background:var(--surface-sunken);font-weight:600}
+.steps li b{display:block;color:var(--text);font-size:12px}
+.steps li.done{color:var(--success);background:var(--success-soft)}
+.steps li.cur{background:var(--brand-soft);color:var(--brand-strong);outline:2px solid var(--brand);outline-offset:-2px}
+.steps li.cur b{color:var(--brand-strong)}
+.diagram{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);padding:10px 12px;margin-bottom:12px}
+.diagram p{margin:0;font-size:13px;color:var(--text-muted)}
+.diagram strong{color:var(--text);display:block;font-size:15px}
+fieldset{border:0;margin:0;padding:0}
+.cards{display:flex;flex-direction:column;gap:8px}
+.card{display:block;position:relative}
+.card input{position:absolute;opacity:0;inset:0;width:100%;height:100%;margin:0;cursor:pointer}
+.card span.box{display:flex;gap:10px;align-items:center;min-height:64px;padding:10px 12px;border:2px solid var(--border);background:var(--surface);border-radius:var(--r-md)}
+.card .t{flex:1}
+.card .t b{display:block;font-size:15px}
+.card .t small{color:var(--text-muted);font-size:12.5px}
+.card .ck{width:26px;height:26px;border-radius:50%;border:2px solid var(--border-strong);display:grid;place-items:center;color:transparent;font-weight:800;font-size:15px;flex:none}
+.card input:checked+.box{border-color:var(--brand);background:var(--brand-soft)}
+.card input:checked+.box .ck{background:var(--brand);border-color:var(--brand);color:var(--on-brand)}
+.card input:focus-visible+.box{outline:3px solid var(--focus);outline-offset:2px}
+.foot{background:var(--surface);border-top:1px solid var(--border);padding:10px 16px 18px;display:flex;flex-direction:column;gap:8px}
+.primary{min-height:52px;border:0;border-radius:var(--r-md);background:var(--brand);color:var(--on-brand);font-weight:700;font-size:16px;flex:1;padding:0 16px}
+.primary:hover{background:var(--brand-strong)}
+.row{display:flex;gap:8px;align-items:center}
+/* S3 */
+.legend{margin:0 0 10px;padding:8px 10px;border-radius:var(--r-sm);background:var(--warning-soft);color:var(--warning);font-size:13px;font-weight:600}
+.portion{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:10px}
+.portion button{min-height:44px;border-radius:var(--r-sm);border:2px solid var(--border);background:var(--surface);font-weight:600;font-size:13px}
+.portion button[aria-pressed=true]{border-color:var(--brand);background:var(--brand-soft);color:var(--brand-strong)}
+h3{font-size:13px;margin:14px 0 6px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips button{min-height:44px;padding:0 12px;border-radius:999px;border:1.5px solid var(--border-strong);background:var(--surface)}
+.chips button[aria-pressed=true]{background:var(--brand-soft);border-color:var(--brand);color:var(--brand-strong);font-weight:700}
+.chips button[aria-pressed=true]::before{content:"✓ "}
+.picked{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.picked li{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);padding:6px 8px}
+.picked .nm{flex:1;font-weight:700}
+.tri{display:flex;background:var(--surface-sunken);border-radius:var(--r-sm);padding:2px}
+.tri label{position:relative}
+.tri input{position:absolute;opacity:0;inset:0;width:100%;height:100%;margin:0;cursor:pointer}
+.tri span{display:flex;align-items:center;min-height:40px;padding:0 9px;border-radius:6px;font-size:12.5px;font-weight:600;color:var(--text-muted)}
+.tri input:checked+span{background:var(--surface);color:var(--text);box-shadow:0 1px 2px rgba(15,23,42,.3)}
+.tri input[value=d]:checked+span{background:var(--warning-soft);color:var(--warning)}
+.tri input[value=q]:checked+span{background:var(--danger-soft);color:var(--danger)}
+.tri input:focus-visible+span{outline:3px solid var(--focus);outline-offset:1px}
+.toggle{display:flex;align-items:center;justify-content:space-between;min-height:48px;padding:0 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);margin-bottom:6px}
+.toggle input{width:24px;height:24px;accent-color:var(--brand)}
+textarea{width:100%;min-height:56px;border:1.5px solid var(--border-strong);border-radius:var(--r-md);padding:8px;font:inherit;resize:none}
+.summary{background:var(--brand-soft);border:1px solid var(--brand);border-radius:var(--r-md);padding:8px 10px;font-size:13px}
+.summary b{color:var(--brand-strong)}
+.qty{display:flex;align-items:center;border:1.5px solid var(--border-strong);border-radius:var(--r-md);background:var(--surface)}
+.qty button{width:44px;min-height:52px;border:0;background:none;font-size:20px;font-weight:700}
+.qty output{min-width:32px;text-align:center;font-weight:700}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+<main class="artboard">
+<header>
+  <h1>Dirección 03 · Mesas primero + pizza por pasos</h1>
+  <p>Ventaja: el mesero siempre sabe en qué mesa está y cada paso es una sola decisión. Costo: la pizza pasa de un scroll a 4 pasos, y el tablero necesita datos en vivo.</p>
+</header>
+<div class="screens">
+
+<!-- SCREEN 1 -->
+<figure>
+<figcaption>1 · Mesas</figcaption>
+<section class="phone" aria-label="Pantalla Mesas">
+  <div class="topbar">
+    <h2>Pedidos · Lucía</h2>
+    <button class="link" type="button">Cambiar mesero</button>
+  </div>
+  <div class="scroll">
+    <div class="seg" role="group" aria-label="Tipo de pedido">
+      <button type="button" aria-pressed="true">Mesas</button>
+      <button type="button" aria-pressed="false">Para llevar (2)</button>
+    </div>
+    <p class="hint">Toca una mesa libre para empezar, o una mesa ocupada para agregar productos a su pedido.</p>
+    <div class="grid">
+      <button class="table busy" type="button"><span class="n">M-1</span><small>Ficha 7</small><small>Lucía · 14 min</small><span class="chip cook">◔ En cocina</span></button>
+      <button class="table free" type="button"><span class="n">M-2</span><small>Libre</small><span class="cta">Tomar pedido</span></button>
+      <button class="table busy ready" type="button"><span class="n">M-3</span><small>Ficha 12</small><small>Lucía · 31 min</small><span class="chip ok">✓ Listo para entregar</span></button>
+      <button class="table free" type="button"><span class="n">M-4</span><small>Libre</small><span class="cta">Tomar pedido</span></button>
+      <button class="table busy" type="button"><span class="n">M-5</span><small>Ficha 9</small><small>Marco · 6 min</small><span class="chip cook">◔ En cocina</span></button>
+      <button class="table free" type="button"><span class="n">M-6</span><small>Libre</small><span class="cta">Tomar pedido</span></button>
+      <button class="table busy" type="button"><span class="n">M-7</span><small>Ficha 14</small><small>Lucía · 2 min</small><span class="chip sched">⏱ Programado 2:30 p.m.</span></button>
+      <button class="table free" type="button"><span class="n">M-8</span><small>Libre</small><span class="cta">Tomar pedido</span></button>
+      <button class="table free" type="button"><span class="n">M-9</span><small>Libre</small><span class="cta">Tomar pedido</span></button>
+    </div>
+  </div>
+  <button class="fab" type="button">+ Pedido para llevar</button>
+  <nav class="tabbar" aria-label="Principal">
+    <a href="#" aria-current="page"><span aria-hidden="true">🧾</span>Pedidos</a>
+    <a href="#"><span aria-hidden="true">🛵</span>Entrega</a>
+  </nav>
+</section>
+</figure>
+
+<!-- SCREEN 2 -->
+<figure>
+<figcaption>2 · Pizza · paso 2 de 4 (Estilo)</figcaption>
+<section class="phone" aria-label="Pantalla Pizza, paso Estilo">
+  <div class="topbar">
+    <button class="link" type="button" style="padding-left:0">← Cancelar pizza</button>
+    <span style="color:var(--text-muted);font-size:13px">M-1 · Ficha 7</span>
+  </div>
+  <ol class="steps" aria-label="Pasos de la pizza">
+    <li class="done"><b>Tamaño ✓</b>Grande</li>
+    <li class="done"><b>División ✓</b>Mitades</li>
+    <li class="cur" aria-current="step"><b>Estilo</b>Paso 2</li>
+    <li><b>Ingredientes</b>Después</li>
+  </ol>
+  <div class="scroll">
+    <div class="diagram">
+      <svg width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="Pizza dividida en mitades; Mitad 1 seleccionada">
+        <circle cx="32" cy="32" r="29" fill="#fff" stroke="#991b1b" stroke-width="3"/>
+        <path d="M32 3 A29 29 0 0 0 32 61 Z" fill="#b91c1c"/>
+        <line x1="32" y1="3" x2="32" y2="61" stroke="#991b1b" stroke-width="3"/>
+      </svg>
+      <p><strong>Mitad 1</strong>Elige el estilo de la mitad izquierda</p>
+    </div>
+    <fieldset>
+      <legend class="sr">Estilo de la Mitad 1</legend>
+      <div class="cards">
+        <label class="card"><input type="radio" name="estilo" checked><span class="box"><span class="t"><b>Estilo Pepperoni</b><small>Pepperoni, queso mozzarella y salsa de tomate</small></span><span class="ck" aria-hidden="true">✓</span></span></label>
+        <label class="card"><input type="radio" name="estilo"><span class="box"><span class="t"><b>Estilo Hawaiana</b><small>Jamón, piña y queso mozzarella</small></span><span class="ck" aria-hidden="true">✓</span></span></label>
+        <label class="card"><input type="radio" name="estilo"><span class="box"><span class="t"><b>Estilo Varas</b><small>Chorizo, tocino, cebolla y jalapeños</small></span><span class="ck" aria-hidden="true">✓</span></span></label>
+        <label class="card"><input type="radio" name="estilo"><span class="box"><span class="t"><b>Estilo Chuy's</b><small>Salami, salchicha, champiñones y pimiento morrón</small></span><span class="ck" aria-hidden="true">✓</span></span></label>
+        <label class="card"><input type="radio" name="estilo"><span class="box"><span class="t"><b>Estilo Mexicana</b><small>Chorizo, jalapeños, jitomate y cebolla</small></span><span class="ck" aria-hidden="true">✓</span></span></label>
+        <label class="card"><input type="radio" name="estilo"><span class="box"><span class="t"><b>Arma tu combinación</b><small>Tú eliges los ingredientes en el siguiente paso</small></span><span class="ck" aria-hidden="true">✓</span></span></label>
+      </div>
+    </fieldset>
+  </div>
+  <div class="foot">
+    <div class="row"><button class="primary" type="button">Siguiente: Mitad 2 →</button></div>
+  </div>
+</section>
+</figure>
+
+<!-- SCREEN 3 -->
+<figure>
+<figcaption>3 · Pizza · Ingredientes</figcaption>
+<section class="phone" aria-label="Pantalla Pizza, paso Ingredientes">
+  <div class="topbar">
+    <button class="link" type="button" style="padding-left:0">← Estilo</button>
+    <span style="color:var(--text-muted);font-size:13px">M-1 · Ficha 7 · Paso 4 de 4</span>
+  </div>
+  <div class="scroll">
+    <p class="legend">Incluye 2 ingredientes a elección · Doble cuenta como extra</p>
+    <div class="portion" role="group" aria-label="Porción">
+      <button type="button" aria-pressed="true">Mitad 1 · Pepperoni</button>
+      <button type="button" aria-pressed="false">Mitad 2 · Hawaiana</button>
+    </div>
+    <h3>Elige ingredientes</h3>
+    <div class="chips" id="chips" role="group" aria-label="Ingredientes disponibles"></div>
+    <h3>Ajusta cada ingrediente</h3>
+    <ul class="picked" id="picked"></ul>
+    <h3>Extras para toda la pizza</h3>
+    <label class="toggle">Extra queso<input type="checkbox" checked id="x1"></label>
+    <label class="toggle">Orilla rellena<input type="checkbox" id="x2"></label>
+    <h3><label for="nota">Nota de la pizza</label></h3>
+    <textarea id="nota" placeholder="Ej. bien cocida, sin cortar"></textarea>
+  </div>
+  <div class="foot">
+    <div class="summary" aria-live="polite"><b>Pizza Grande</b> · Mitad Pepperoni / Mitad Hawaiana · <span id="sx">Extra queso</span></div>
+    <div class="row">
+      <div class="qty" role="group" aria-label="Cantidad">
+        <button type="button" id="mn" aria-label="Menos">−</button><output id="q" aria-live="polite">×1</output><button type="button" id="pl" aria-label="Más">+</button>
+      </div>
+      <button class="primary" type="button">Agregar pizza</button>
+    </div>
+  </div>
+</section>
+</figure>
+
+</div>
+</main>
+<script>
+const ings=["Jamón","Pepperoni","Chorizo","Serrano","Salami","Salchicha","Cebolla","Piña","Jitomate","Pimiento morrón","Champiñones","Jalapeños","Tocino","Aceituna negra","Ajo"];
+const sel=new Map([["Pepperoni","n"],["Jamón","n"]]);
+const chips=document.getElementById("chips"),picked=document.getElementById("picked");
+function render(){
+  chips.innerHTML="";picked.innerHTML="";
+  ings.forEach(n=>{
+    const b=document.createElement("button");b.type="button";b.textContent=n;
+    b.setAttribute("aria-pressed",sel.has(n));
+    b.onclick=()=>{sel.has(n)?sel.delete(n):sel.set(n,"n");render();chips.querySelectorAll("button")[ings.indexOf(n)].focus();};
+    chips.appendChild(b);
+  });
+  [...sel].forEach(([n,v],i)=>{
+    const li=document.createElement("li");
+    li.innerHTML='<span class="nm"></span><div class="tri" role="radiogroup"></div>';
+    li.querySelector(".nm").textContent=n;
+    const g=li.querySelector(".tri");g.setAttribute("aria-label",n);
+    [["n","Normal"],["d","Doble"],["q","Quitar"]].forEach(([k,l])=>{
+      const lb=document.createElement("label");
+      lb.innerHTML='<input type="radio" value="'+k+'"><span>'+l+'</span>';
+      const r=lb.querySelector("input");r.name="t"+i;r.checked=v===k;
+      r.onchange=()=>{sel.set(n,k);};
+      g.appendChild(lb);
+    });
+    picked.appendChild(li);
+  });
+}
+render();
+const x1=document.getElementById("x1"),x2=document.getElementById("x2"),sx=document.getElementById("sx");
+function ex(){const a=[];if(x1.checked)a.push("Extra queso");if(x2.checked)a.push("Orilla rellena");sx.textContent=a.length?a.join(" · "):"Sin extras";}
+x1.onchange=x2.onchange=ex;
+let q=1;const qo=document.getElementById("q");
+document.getElementById("pl").onclick=()=>{q++;qo.textContent="×"+q};
+document.getElementById("mn").onclick=()=>{q=Math.max(1,q-1);qo.textContent="×"+q};
+document.querySelectorAll(".portion button").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll(".portion button").forEach(o=>o.setAttribute("aria-pressed",o===b));
+});
+document.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll(".seg button").forEach(o=>o.setAttribute("aria-pressed",o===b));
+});
+</script>
+</body>
+</html>

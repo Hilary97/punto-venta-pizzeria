@@ -1,0 +1,34 @@
+{
+  "title": "Pedidos para meseros",
+  "brief": "Rediseñar la toma de pedidos para que los meseros la aprendan rápido y sean eficientes frente al cliente (celular): contexto de mesa siempre visible, mesas ocupadas, comanda a la vista y armado de pizza más corto. Sin precios para meseros.",
+  "artboards": [
+    {
+      "file": "01-pasos-guiados.html",
+      "title": "Pasos guiados: Mesa → Productos → Revisar",
+      "tradeoff": "La más fácil de aprender y con contexto fijo arriba; un pedido repetido o un agregado cuesta tres pantallas",
+      "width": 1440,
+      "height": 960
+    },
+    {
+      "file": "02-comanda-siempre-visible.html",
+      "title": "Una pantalla con la comanda siempre visible",
+      "tradeoff": "La más rápida para meseros con experiencia (pizzas rápidas, steppers en las tarjetas); más densa para un mesero nuevo",
+      "width": 1440,
+      "height": 960
+    },
+    {
+      "file": "03-mesas-y-pizza-por-pasos.html",
+      "title": "Mesas primero + pizza por pasos",
+      "tradeoff": "Tablero de mesas en vivo y cada paso de la pizza es una sola decisión; la pizza pasa de un scroll a 4 pasos y el tablero necesita datos en vivo",
+      "width": 1440,
+      "height": 960
+    },
+    {
+      "file": "04-combinada-recomendada.html",
+      "title": "Combinada (recomendada): una pantalla + mesas ocupadas + pizza por pasos",
+      "tradeoff": "Rápida para expertos con la comanda siempre visible y pizza clara por pasos; más piezas para construir y el mapa de mesas necesita datos en vivo",
+      "width": 1760,
+      "height": 960
+    }
+  ]
+}

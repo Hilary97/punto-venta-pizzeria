@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cobro con navegación lateral agrupada</title>
+<style>
+  :root {
+    /* Proposed semantic tokens (starter, derived from current red-700 + slate usage) */
+    --brand: #b91c1c; --brand-strong: #991b1b; --brand-soft: #fef2f2; --on-brand: #fff;
+    --canvas: #f8fafc; --surface: #fff; --surface-sunken: #f1f5f9; --border: #e2e8f0; --border-strong: #cbd5e1;
+    --text: #0f172a; --text-muted: #475569; --text-subtle: #64748b;
+    --success: #047857; --success-soft: #ecfdf5; --warning: #92400e; --warning-soft: #fffbeb;
+    --danger: #be123c; --danger-soft: #fff1f2; --focus: #0369a1;
+    --r-sm: 8px; --r-md: 12px; --r-lg: 16px;
+    --shadow-sm: 0 1px 2px rgb(15 23 42 / .06); --shadow-lg: 0 20px 40px rgb(15 23 42 / .18);
+    --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: var(--font); color: var(--text); background: var(--canvas); font-size: 15px; line-height: 1.45; }
+  :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+  .app { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
+
+  /* Sidebar */
+  aside { background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 16px 12px; gap: 20px; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 8px; font-weight: 800; font-size: 17px; }
+  .brand-mark { width: 32px; height: 32px; border-radius: var(--r-sm); background: var(--brand); color: var(--on-brand); display: grid; place-items: center; font-size: 16px; }
+  .cash-state { margin: 0 8px; padding: 8px 10px; border-radius: var(--r-sm); background: var(--success-soft); color: var(--success); font-size: 13px; font-weight: 600; display: flex; gap: 6px; align-items: center; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+  nav { display: flex; flex-direction: column; gap: 18px; flex: 1; overflow-y: auto; }
+  .group-label { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-subtle); padding: 0 10px 6px; }
+  nav ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+  nav a { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 10px; border-radius: var(--r-sm); color: var(--text); text-decoration: none; font-weight: 600; }
+  nav a:hover { background: var(--surface-sunken); }
+  nav a[aria-current="page"] { background: var(--brand); color: var(--on-brand); }
+  nav a svg { width: 20px; height: 20px; flex: none; }
+  .count { margin-left: auto; min-width: 24px; padding: 1px 7px; border-radius: 999px; background: var(--surface-sunken); color: var(--text); font-size: 12px; font-weight: 700; text-align: center; }
+  nav a[aria-current="page"] .count { background: rgb(255 255 255 / .22); color: var(--on-brand); }
+  details summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; min-height: 36px; padding: 0 10px; border-radius: var(--r-sm); font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-subtle); }
+  details summary::-webkit-details-marker { display: none; }
+  details summary::after { content: "▸"; font-size: 12px; }
+  details[open] summary::after { content: "▾"; }
+  .user { border-top: 1px solid var(--border); padding: 12px 8px 0; display: flex; align-items: center; gap: 10px; }
+  .avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--surface-sunken); display: grid; place-items: center; font-weight: 700; font-size: 13px; }
+  .user-name { font-weight: 600; font-size: 14px; } .user-role { font-size: 12px; color: var(--text-muted); }
+  .user button { margin-left: auto; }
+
+  /* Buttons */
+  .btn { font: inherit; font-weight: 700; min-height: 44px; padding: 0 16px; border-radius: var(--r-sm); border: 1px solid transparent; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+  .btn-ghost { background: transparent; color: var(--text-muted); } .btn-ghost:hover { background: var(--surface-sunken); color: var(--text); }
+  .btn-secondary { background: var(--surface); color: var(--text); border-color: var(--border-strong); } .btn-secondary:hover { background: var(--surface-sunken); }
+  .btn-danger { background: var(--surface); color: var(--danger); border-color: #fda4af; } .btn-danger:hover { background: var(--danger-soft); }
+  .btn-primary { background: var(--brand); color: var(--on-brand); } .btn-primary:hover { background: var(--brand-strong); }
+  .btn-primary:disabled { background: var(--border-strong); color: var(--text-muted); cursor: not-allowed; }
+
+  /* Main */
+  main { padding: 24px 32px; display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+  .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+  .crumb { font-size: 13px; color: var(--text-muted); margin: 0 0 4px; }
+  .crumb a { color: var(--text-muted); }
+  h1 { margin: 0; font-size: 26px; line-height: 1.2; }
+  .meta { margin: 6px 0 0; color: var(--text-muted); display: flex; gap: 8px; flex-wrap: wrap; }
+  .tag { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 999px; background: var(--warning-soft); color: var(--warning); font-weight: 700; font-size: 13px; }
+  .head-actions { display: flex; gap: 8px; }
+  .cols { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(360px, 1fr); gap: 20px; align-items: start; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--shadow-sm); }
+  .card h2 { margin: 0; font-size: 17px; }
+  .card-head { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+  .note { margin: 16px 20px 0; padding: 10px 12px; border-radius: var(--r-sm); background: var(--warning-soft); color: var(--warning); font-size: 14px; }
+  .lines { list-style: none; margin: 0; padding: 4px 20px; }
+  .line { display: grid; grid-template-columns: 1fr 56px 96px; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--border); align-items: start; }
+  .line:last-child { border-bottom: 0; }
+  .line-title { font-weight: 600; } .line-sub { font-size: 13px; color: var(--text-muted); }
+  .line-note { font-size: 13px; color: var(--warning); margin-top: 2px; }
+  .qty, .amount { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+  .qty { color: var(--text-muted); }
+  .totals { padding: 14px 20px 18px; border-top: 1px solid var(--border); display: grid; gap: 6px; font-variant-numeric: tabular-nums; }
+  .totals div { display: flex; justify-content: space-between; color: var(--text-muted); }
+  .totals .grand { color: var(--text); font-size: 20px; font-weight: 800; padding-top: 6px; }
+
+  .pay { padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+  .due { display: flex; justify-content: space-between; align-items: baseline; }
+  .due span { color: var(--text-muted); font-weight: 600; }
+  .due strong { font-size: 34px; font-variant-numeric: tabular-nums; }
+  .field label { display: block; font-weight: 600; margin-bottom: 6px; }
+  .money-input { display: flex; align-items: center; border: 2px solid var(--border-strong); border-radius: var(--r-md); padding: 0 14px; background: var(--surface); }
+  .money-input:focus-within { border-color: var(--focus); }
+  .money-input span { font-size: 22px; color: var(--text-muted); font-weight: 700; }
+  .money-input input { border: 0; outline: 0; font: inherit; font-size: 26px; font-weight: 700; width: 100%; padding: 10px 8px; background: transparent; color: var(--text); font-variant-numeric: tabular-nums; }
+  .quick { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .quick button { min-height: 48px; font: inherit; font-weight: 700; border-radius: var(--r-sm); border: 1px solid var(--border-strong); background: var(--surface); color: var(--text); cursor: pointer; font-variant-numeric: tabular-nums; }
+  .quick button:hover { background: var(--surface-sunken); }
+  .quick button[aria-pressed="true"] { border-color: var(--brand); background: var(--brand-soft); color: var(--brand-strong); }
+  .change { border-radius: var(--r-md); padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; background: var(--surface-sunken); color: var(--text-muted); font-weight: 600; }
+  .change strong { font-size: 30px; font-variant-numeric: tabular-nums; }
+  .change.ok { background: var(--success-soft); color: var(--success); }
+  .change.short { background: var(--danger-soft); color: var(--danger); }
+  .split { display: flex; align-items: center; gap: 10px; font-weight: 600; color: var(--text-muted); }
+  .split input { width: 20px; height: 20px; accent-color: var(--brand); }
+  .btn-xl { min-height: 60px; font-size: 18px; width: 100%; border-radius: var(--r-md); }
+
+  /* Success dialog */
+  .scrim { position: fixed; inset: 0; background: rgb(15 23 42 / .45); display: none; place-items: center; }
+  .scrim.open { display: grid; }
+  .dialog { width: 440px; background: var(--surface); border-radius: var(--r-lg); box-shadow: var(--shadow-lg); padding: 28px; text-align: center; display: flex; flex-direction: column; gap: 14px; }
+  .dialog .check { width: 56px; height: 56px; border-radius: 50%; background: var(--success-soft); color: var(--success); display: grid; place-items: center; margin: 0 auto; font-size: 28px; font-weight: 800; }
+  .dialog h2 { margin: 0; font-size: 20px; }
+  .dialog .big { font-size: 56px; font-weight: 800; color: var(--success); font-variant-numeric: tabular-nums; line-height: 1; }
+  .dialog dl { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; margin: 0; text-align: left; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+  .dialog dd { margin: 0; text-align: right; color: var(--text); font-weight: 600; }
+  @media (prefers-reduced-motion: no-preference) { .scrim.open .dialog { animation: pop .16s ease-out; } }
+  @keyframes pop { from { transform: scale(.96); opacity: 0; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside>
+    <div class="brand"><span class="brand-mark" aria-hidden="true">P</span> Pizzería Don Toño</div>
+    <p class="cash-state" role="status"><span class="dot" aria-hidden="true"></span> Caja abierta desde 12:05</p>
+    <nav aria-label="Principal">
+      <div>
+        <div class="group-label" id="g-op">Operación</div>
+        <ul aria-labelledby="g-op">
+          <li><a href="#" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h3"/></svg>Venta</a></li>
+          <li><a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg>Pedidos<span class="count" aria-label="6 abiertos">6</span></a></li>
+          <li><a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 11h16v3a6 6 0 0 1-6 6h-4a6 6 0 0 1-6-6z"/><path d="M8 7c0-2 2-2 2-4M13 7c0-2 2-2 2-4"/></svg>Cocina<span class="count" aria-label="4 en preparación">4</span></a></li>
+          <li><a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 7h11v9H3zM14 10h4l3 3v3h-7"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg>Entrega<span class="count" aria-label="2 listos">2</span></a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="group-label" id="g-caja">Caja</div>
+        <ul aria-labelledby="g-caja">
+          <li><a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 4h16v16H4zM4 9h16M9 9v11"/></svg>Corte de caja</a></li>
+          <li><a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>Ventas del día</a></li>
+        </ul>
+      </div>
+      <details>
+        <summary>Administración</summary>
+        <ul>
+          <li><a href="#">Productos</a></li>
+          <li><a href="#">Pizzas</a></li>
+          <li><a href="#">Inventario</a></li>
+          <li><a href="#">Insumos</a></li>
+          <li><a href="#">Meseros</a></li>
+          <li><a href="#">Historial de cortes</a></li>
+        </ul>
+      </details>
+    </nav>
+    <div class="user">
+      <span class="avatar" aria-hidden="true">RM</span>
+      <div><div class="user-name">Rosa Méndez</div><div class="user-role">Administradora</div></div>
+      <button class="btn btn-ghost" type="button">Salir</button>
+    </div>
+  </aside>
+
+  <main>
+    <header class="page-head">
+      <div>
+        <p class="crumb"><a href="#">Pedidos</a> / Cobro</p>
+        <h1>Cobrar M-4 · Familia Ortega</h1>
+        <p class="meta"><span class="tag">Comer aquí</span> Atendió Lucía · abierto hace 48 min · Ficha 12</p>
+      </div>
+      <div class="head-actions">
+        <button class="btn btn-secondary" type="button">← Volver a pedidos</button>
+        <button class="btn btn-danger" type="button">Descartar cobro</button>
+      </div>
+    </header>
+
+    <div class="cols">
+      <section class="card" aria-labelledby="h-order">
+        <div class="card-head"><h2 id="h-order">Pedido</h2><span style="color:var(--text-muted);font-size:14px">5 productos</span></div>
+        <p class="note">Nota del pedido: sin cebolla en todo, traer salsa aparte.</p>
+        <ul class="lines">
+          <li class="line"><div><div class="line-title">Pizza grande · Mitad hawaiana / mitad pepperoni</div><div class="line-sub">Orilla rellena de queso · $289.00 c/u</div></div><div class="qty">×1</div><div class="amount">$289.00</div></li>
+          <li class="line"><div><div class="line-title">Alitas BBQ · 10 piezas</div><div class="line-sub">$165.00 c/u</div><div class="line-note">Nota: bien doradas</div></div><div class="qty">×1</div><div class="amount">$165.00</div></li>
+          <li class="line"><div><div class="line-title">Refresco 600 ml</div><div class="line-sub">Coca-Cola · $35.00 c/u</div></div><div class="qty">×2</div><div class="amount">$70.00</div></li>
+          <li class="line"><div><div class="line-title">Agua de horchata 1 L</div><div class="line-sub">$45.00 c/u</div></div><div class="qty">×1</div><div class="amount">$45.00</div></li>
+        </ul>
+        <div class="totals">
+          <div><span>Subtotal</span><span>$569.00</span></div>
+          <div class="grand"><span>Total</span><span>$569.00</span></div>
+        </div>
+      </section>
+
+      <section class="card pay" aria-labelledby="h-pay">
+        <h2 id="h-pay">Pago en efectivo</h2>
+        <div class="due"><span>Total a cobrar</span><strong>$569.00</strong></div>
+        <div class="field">
+          <label for="received">Monto recibido</label>
+          <div class="money-input"><span aria-hidden="true">$</span><input id="received" inputmode="decimal" placeholder="0.00" aria-describedby="change-msg" autocomplete="off"></div>
+        </div>
+        <div class="quick" role="group" aria-label="Montos rápidos">
+          <button type="button" data-v="569">Exacto</button>
+          <button type="button" data-v="600">$600</button>
+          <button type="button" data-v="700">$700</button>
+          <button type="button" data-v="1000">$1,000</button>
+        </div>
+        <div class="change" id="change-box"><span id="change-label">Cambio</span><strong id="change-msg" aria-live="polite">—</strong></div>
+        <label class="split"><input type="checkbox"> Dividir cuenta entre varias personas</label>
+        <button class="btn btn-primary btn-xl" id="confirm" type="button" disabled>Ingresa el monto recibido</button>
+      </section>
+    </div>
+  </main>
+</div>
+
+<div class="scrim" id="scrim">
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="d-title">
+    <div class="check" aria-hidden="true">✓</div>
+    <h2 id="d-title">M-4 · Familia Ortega cobrado</h2>
+    <div><div style="color:var(--text-muted);font-weight:600">Entrega de cambio</div><div class="big" id="d-change">$31.00</div></div>
+    <dl><dt>Total</dt><dd>$569.00</dd><dt>Recibido</dt><dd id="d-recv">$600.00</dd></dl>
+    <button class="btn btn-primary btn-xl" type="button" id="done">Siguiente cobro</button>
+  </div>
+</div>
+
+<script>
+  const total = 569, fmt = n => '$' + n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const input = document.getElementById('received'), box = document.getElementById('change-box'), msg = document.getElementById('change-msg'),
+        label = document.getElementById('change-label'), btn = document.getElementById('confirm'), quick = document.querySelectorAll('.quick button');
+  function update() {
+    const v = parseFloat(input.value.replace(/,/g, ''));
+    quick.forEach(b => b.setAttribute('aria-pressed', String(Number(b.dataset.v) === v)));
+    box.className = 'change';
+    if (input.value.trim() === '') { label.textContent = 'Cambio'; msg.textContent = '—'; btn.disabled = true; btn.textContent = 'Ingresa el monto recibido'; return; }
+    if (isNaN(v) || v < 0) { box.classList.add('short'); label.textContent = 'Monto no válido'; msg.textContent = '—'; btn.disabled = true; btn.textContent = 'Revisa el monto'; return; }
+    if (v < total) { box.classList.add('short'); label.textContent = 'Faltan'; msg.textContent = fmt(total - v); btn.disabled = true; btn.textContent = 'Monto insuficiente'; return; }
+    box.classList.add('ok'); label.textContent = 'Cambio'; msg.textContent = fmt(v - total); btn.disabled = false; btn.textContent = 'Cobrar ' + fmt(total);
+  }
+  input.addEventListener('input', update);
+  quick.forEach(b => b.addEventListener('click', () => { input.value = b.dataset.v; update(); input.focus(); }));
+  const scrim = document.getElementById('scrim');
+  btn.addEventListener('click', () => {
+    const v = parseFloat(input.value.replace(/,/g, ''));
+    document.getElementById('d-change').textContent = fmt(v - total);
+    document.getElementById('d-recv').textContent = fmt(v);
+    scrim.classList.add('open'); document.getElementById('done').focus();
+  });
+  function close() { scrim.classList.remove('open'); input.value = ''; update(); input.focus(); }
+  document.getElementById('done').addEventListener('click', close);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && scrim.classList.contains('open')) close(); });
+</script>
+</body>
+</html>
