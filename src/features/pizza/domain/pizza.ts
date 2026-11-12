@@ -144,7 +144,8 @@ function validateExtras(extraIds: string[], catalog: PizzaCatalog): string | nul
   return null
 }
 
-function validatePortion(portion: PizzaPortion, catalog: PizzaCatalog): string | null {
+/** Error of one portion, or `null` when it is valid. */
+export function validatePortion(portion: PizzaPortion, catalog: PizzaCatalog): string | null {
   const style = catalog.styles.find((candidate) => candidate.id === portion.styleId)
   if (!style) return 'Uno de los estilos no existe o no está activo.'
 

@@ -5,7 +5,7 @@ import { cn } from '../../../shared/ui/cn'
 import { Modal } from '../../../shared/ui/Modal'
 import { Textarea } from '../../../shared/ui/Textarea'
 import { MAX_ITEM_NOTES_LENGTH } from '../../orders/domain/order'
-import { describePizza, isSizeSoldOut, portionLabel, validatePizzaConfig } from '../domain/pizza'
+import { describePizza, isSizeSoldOut, portionLabel, validatePizzaConfig, validatePortion } from '../domain/pizza'
 import type { PizzaCatalog, PizzaConfig, PizzaPortion, PizzaSize, PizzaSizeCode, PizzaStyle } from '../domain/pizza'
 import { buildConfig, initialPortions, resizePortions, sortBuilderStyles, togglePizzaExtra } from '../domain/pizzaBuilder'
 import { PizzaDiagram } from './PizzaDiagram'
@@ -26,13 +26,18 @@ interface PizzaBuilderModalProps {
   onClose: () => void
 }
 
-type Step = { kind: 'size' } | { kind: 'division' } | { kind: 'style'; index: number } | { kind: 'ingredients' }
+type Step = { kind: 'size' } | { kind: 'division' } | { kind: 'portion'; index: number }
 
 const MAX_QUANTITY = 20
 
 function portionTitle(count: number, index: number): string {
   if (count === 1) return 'Pizza entera'
   return count === 2 ? `Mitad ${index + 1}` : `Porción ${index + 1}`
+}
+
+/** Short step name: `Pizza` for a whole pizza, otherwise the portion title. */
+function portionStepName(count: number, index: number): string {
+  return count === 1 ? 'Pizza' : portionTitle(count, index)
 }
 
 /** `Mitad`, `Tercio`, `Cuarto` for the live summary. */
@@ -50,7 +55,7 @@ function sizeHint(size: PizzaSize): string | undefined {
 }
 
 function sameStep(a: Step, b: Step): boolean {
-  return a.kind === b.kind && (a.kind !== 'style' || (b.kind === 'style' && a.index === b.index))
+  return a.kind === b.kind && (a.kind !== 'portion' || (b.kind === 'portion' && a.index === b.index))
 }
 
 export function PizzaBuilderModal({ catalog, onAdd, onClose }: PizzaBuilderModalProps) {
@@ -67,7 +72,8 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose }: PizzaBuilderModal
   const [notes, setNotes] = useState('')
   const [quantity, setQuantity] = useState(1)
   const [step, setStep] = useState<Step>({ kind: 'size' })
-  const [activePortion, setActivePortion] = useState(0)
+  /** Portions whose style was picked: their style list shows collapsed. */
+  const [collapsed, setCollapsed] = useState<number[]>([])
 
   if (sizes.length === 0) return null
 
@@ -84,39 +90,37 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose }: PizzaBuilderModal
   const flow: Step[] = [
     { kind: 'size' },
     ...(hasDivision ? [{ kind: 'division' } as const] : []),
-    ...portions.map((_, index) => ({ kind: 'style', index }) as const),
-    { kind: 'ingredients' },
+    ...portions.map((_, index) => ({ kind: 'portion', index }) as const),
   ]
   const position = Math.max(0, flow.findIndex((candidate) => sameStep(candidate, step)))
   const current = flow[position] as Step
   const previous = flow[position - 1]
   const following = flow[position + 1]
   const count = portions.length
-  const shownPortion = current.kind === 'style' ? current.index : Math.min(activePortion, count - 1)
+  const isLast = current.kind === 'portion' && current.index === count - 1
 
   function stepName(target: Step | undefined): string {
     if (!target) return ''
     if (target.kind === 'size') return 'Tamaño'
     if (target.kind === 'division') return 'División'
-    if (target.kind === 'style') return count > 1 ? portionTitle(count, target.index) : 'Estilo'
-    return 'Ingredientes'
+    return portionStepName(count, target.index)
   }
 
   function selectSize(code: PizzaSizeCode) {
     const next = sizes.find((candidate) => candidate.code === code)
     if (!next) return
     setSizeCode(code)
+    setCollapsed([])
     setPortions((existing) => resizePortions(existing, next, defaultStyleId))
-    setActivePortion(0)
   }
 
   function selectDivision(next: number) {
+    setCollapsed([])
     // Keeps what was already chosen; new portions start with the first portion's style.
     setPortions((existing) => {
       const fresh = initialPortions(next, existing[0]?.styleId ?? defaultStyleId)
       return fresh.map((portion, index) => existing[index] ?? portion)
     })
-    setActivePortion(0)
   }
 
   function updatePortion(index: number, portion: PizzaPortion) {
@@ -126,7 +130,6 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose }: PizzaBuilderModal
   function goTo(target: Step | undefined) {
     if (!target) return
     setStep(target)
-    if (target.kind === 'ingredients') setActivePortion(0)
   }
 
   function addPizzas() {
@@ -148,17 +151,20 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose }: PizzaBuilderModal
       value: portionLabel(count),
       state: current.kind === 'division' ? 'cur' : current.kind === 'size' ? 'todo' : 'done',
     },
-    {
-      label: 'Estilo',
-      value: current.kind === 'style' ? portionTitle(count, current.index) : portions.map((p) => shortStyle(styleOf(p))).join(' / '),
-      state: current.kind === 'style' ? 'cur' : current.kind === 'ingredients' ? 'done' : 'todo',
-    },
-    { label: 'Ingredientes', value: current.kind === 'ingredients' ? portionTitle(count, shownPortion) : 'Después', state: current.kind === 'ingredients' ? 'cur' : 'todo' },
+    ...portions.map((portion, index) => ({
+      label: portionStepName(count, index),
+      value: shortStyle(styleOf(portion)),
+      state: current.kind === 'portion' ? (current.index === index ? 'cur' : current.index > index ? 'done' : 'todo') : 'todo',
+    })),
   ] as const
 
-  const activeStyle = styleOf(portions[shownPortion])
+  const portionIndex = current.kind === 'portion' ? current.index : 0
+  const activePortion = portions[portionIndex] as PizzaPortion
+  const activeStyle = styleOf(activePortion)
+  const portionError = current.kind === 'portion' ? validatePortion(activePortion, catalog) : null
+  const stepErrors = isLast ? errors : portionError ? [portionError] : []
   const diagramLabel =
-    count === 1 ? 'Pizza entera' : `Pizza dividida en ${portionLabel(count)}; ${portionTitle(count, shownPortion)} seleccionada`
+    count === 1 ? 'Pizza entera' : `Pizza dividida en ${portionLabel(count)}; ${portionTitle(count, portionIndex)} seleccionada`
 
   return (
     <Modal title="Armar pizza" onClose={onClose} wide>
@@ -175,13 +181,13 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose }: PizzaBuilderModal
           )}
         </div>
 
-        <ol aria-label="Pasos de la pizza" className="grid list-none grid-cols-4 gap-1 p-0">
+        <ol aria-label="Pasos de la pizza" className="grid list-none gap-1 p-0" style={{ gridTemplateColumns: `repeat(${headerItems.length}, minmax(0, 1fr))` }}>
           {headerItems.map((item) => (
             <li
               key={item.label}
               aria-current={item.state === 'cur' ? 'step' : undefined}
               className={cn(
-                'border-t-4 pt-1 text-xs leading-tight text-slate-500',
+                'min-w-0 break-words border-t-4 pt-1 text-xs leading-tight text-slate-500',
                 item.state === 'done' && 'border-emerald-600 dark:border-emerald-400',
                 item.state === 'cur' && 'border-red-700 dark:border-red-400',
                 item.state === 'todo' && 'border-slate-300',
@@ -231,7 +237,7 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose }: PizzaBuilderModal
           </fieldset>
         )}
 
-        {current.kind === 'style' && (
+        {current.kind === 'portion' && (
           <>
             <div className="flex items-center gap-3">
               <PizzaDiagram count={count} index={current.index} label={diagramLabel} />
@@ -242,47 +248,24 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose }: PizzaBuilderModal
             </div>
             <StyleCards
               title={portionTitle(count, current.index)}
-              portion={portions[current.index] as PizzaPortion}
+              portion={activePortion}
               styles={styles}
               onChange={(portion) => updatePortion(current.index, portion)}
-            />
-          </>
-        )}
-
-        {current.kind === 'ingredients' && activeStyle && (
-          <>
-            <div className="flex items-center gap-3">
-              <PizzaDiagram count={count} index={shownPortion} label={diagramLabel} />
-              <div role={count > 1 ? 'group' : undefined} aria-label={count > 1 ? 'Porción de la pizza' : undefined} className="grid flex-1 gap-1 rounded-xl bg-slate-100 p-1" style={{ gridTemplateColumns: `repeat(${Math.min(count, 2)}, minmax(0, 1fr))` }}>
-                {count > 1 ? (
-                  portions.map((portion, index) => (
-                    <button
-                      key={index}
-                      type="button"
-                      aria-pressed={index === shownPortion}
-                      onClick={() => setActivePortion(index)}
-                      className={cn(
-                        'min-h-11 rounded-lg px-2 text-sm font-bold',
-                        index === shownPortion ? 'bg-red-700 text-white' : 'text-slate-600 hover:bg-slate-200',
-                      )}
-                    >
-                      {`${portionTitle(count, index)} · ${shortStyle(styleOf(portion))}`}
-                    </button>
-                  ))
-                ) : (
-                  <p className="px-2 py-2 text-sm font-bold text-slate-900">{`Pizza entera · ${shortStyle(activeStyle)}`}</p>
-                )}
-              </div>
-            </div>
-
-            <PortionEditor
-              portion={portions[shownPortion] as PizzaPortion}
-              style={activeStyle}
-              ingredients={ingredients}
-              onChange={(portion) => updatePortion(shownPortion, portion)}
+              collapsed={collapsed.includes(current.index)}
+              onPick={() => setCollapsed((existing) => (existing.includes(current.index) ? existing : [...existing, current.index]))}
+              onReopen={() => setCollapsed((existing) => existing.filter((index) => index !== current.index))}
             />
 
-            {extras.length > 0 && (
+            {activeStyle && (
+              <PortionEditor
+                portion={activePortion}
+                style={activeStyle}
+                ingredients={ingredients}
+                onChange={(portion) => updatePortion(current.index, portion)}
+              />
+            )}
+
+            {isLast && extras.length > 0 && (
               <fieldset className="flex flex-col gap-2">
                 <legend className="mb-1 text-sm font-bold text-slate-900">Extras para toda la pizza</legend>
                 {extras.map((extra) => (
@@ -302,13 +285,15 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose }: PizzaBuilderModal
               </fieldset>
             )}
 
-            <Textarea
-              id={notesId}
-              label="Nota de la pizza (opcional)"
-              value={notes}
-              maxLength={MAX_ITEM_NOTES_LENGTH}
-              onChange={(event) => setNotes(event.target.value)}
-            />
+            {isLast && (
+              <Textarea
+                id={notesId}
+                label="Nota de la pizza (opcional)"
+                value={notes}
+                maxLength={MAX_ITEM_NOTES_LENGTH}
+                onChange={(event) => setNotes(event.target.value)}
+              />
+            )}
           </>
         )}
 
@@ -317,16 +302,16 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose }: PizzaBuilderModal
             <div role="status" aria-label="Resumen de la pizza" aria-live="polite" className="text-sm text-slate-500">
               <b className="break-words text-slate-900">{`Pizza ${size?.name ?? ''}`}</b>
               {summary ? ` · ${summary}` : ''}
-              {current.kind === 'ingredients' && errors.length > 0 && (
+              {current.kind === 'portion' && stepErrors.length > 0 && (
                 <ul className="list-disc pl-5 text-amber-700 dark:text-amber-300">
-                  {errors.map((error) => (
+                  {stepErrors.map((error) => (
                     <li key={error}>{error}</li>
                   ))}
                 </ul>
               )}
             </div>
           )}
-          {current.kind === 'ingredients' ? (
+          {isLast ? (
             <div className="flex items-center gap-3">
               <div role="group" aria-label="Cantidad de pizzas" className="flex w-36 flex-none items-center justify-between rounded-xl bg-slate-100 p-1">
                 <button
@@ -354,7 +339,7 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose }: PizzaBuilderModal
               </Button>
             </div>
           ) : (
-            <Button size="lg" disabled={noDough} onClick={() => goTo(following)}>
+            <Button size="lg" disabled={noDough || portionError !== null} onClick={() => goTo(following)}>
               {`Siguiente: ${stepName(following)} →`}
             </Button>
           )}

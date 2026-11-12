@@ -10,23 +10,33 @@ interface StyleCardsProps {
   portion: PizzaPortion
   styles: PizzaStyle[]
   onChange: (portion: PizzaPortion) => void
+  /** Once a style is picked only that card shows, with a button to see the list again. */
+  collapsed?: boolean
+  /** Called when the user picks a card (collapses the list). */
+  onPick?: () => void
+  /** Called by `Cambiar estilo` to show the full list again. */
+  onReopen?: () => void
 }
 
 /** Style of one portion as selectable cards, plus the chiles for Estilo Mexicana. */
-export function StyleCards({ title, portion, styles, onChange }: StyleCardsProps) {
+export function StyleCards({ title, portion, styles, onChange, collapsed = false, onPick, onReopen }: StyleCardsProps) {
   const style = styles.find((candidate) => candidate.id === portion.styleId)
   return (
     <div className="flex flex-col gap-3">
       <fieldset className="flex flex-col gap-2">
         <legend className="sr-only">{`Estilo de la ${title}`}</legend>
-        {styles.map((candidate) => {
+        {(collapsed && style ? [style] : styles).map((candidate) => {
           const selected = candidate.id === portion.styleId
           return (
             <button
               key={candidate.id}
               type="button"
               aria-pressed={selected}
-              onClick={() => onChange(setPortionStyle(portion, candidate))}
+              onClick={() => {
+                // Picking the style already chosen keeps its ingredients; a different one resets them.
+                if (candidate.id !== portion.styleId) onChange(setPortionStyle(portion, candidate))
+                onPick?.()
+              }}
               className={cn(
                 'flex min-h-[60px] items-center gap-3 rounded-xl border px-3 py-2 text-left transition-colors',
                 selected ? 'border-2 border-red-700 bg-red-50 dark:border-red-400 dark:bg-red-950/60' : 'border-slate-300 bg-white hover:bg-slate-50',
@@ -49,6 +59,16 @@ export function StyleCards({ title, portion, styles, onChange }: StyleCardsProps
           )
         })}
       </fieldset>
+
+      {collapsed && style && (
+        <button
+          type="button"
+          onClick={onReopen}
+          className="min-h-11 self-start rounded-lg px-3 text-sm font-bold text-red-700 underline underline-offset-2 hover:bg-slate-100 dark:text-red-300"
+        >
+          Cambiar estilo
+        </button>
+      )}
 
       {style && hasChileVariants(style) && (
         <fieldset className="flex flex-col gap-2">
