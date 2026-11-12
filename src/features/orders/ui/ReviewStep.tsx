@@ -152,7 +152,7 @@ export function ReviewStep({
                       aria-label="Quitar uno"
                       disabled={isSubmitting || line.quantity <= 1}
                       onClick={() => onDecrement(line.lineId)}
-                      className="h-12 w-12 rounded-lg border border-slate-300 bg-white text-2xl font-bold text-red-700 disabled:opacity-40"
+                      className="h-12 w-12 rounded-lg border border-slate-300 bg-white text-2xl font-bold text-red-700 disabled:opacity-40 dark:text-red-300"
                     >
                       −
                     </button>
@@ -164,7 +164,7 @@ export function ReviewStep({
                       aria-label="Agregar uno"
                       disabled={isSubmitting}
                       onClick={() => onIncrement(line.lineId)}
-                      className="h-12 w-12 rounded-lg border border-slate-300 bg-white text-2xl font-bold text-red-700 disabled:opacity-40"
+                      className="h-12 w-12 rounded-lg border border-slate-300 bg-white text-2xl font-bold text-red-700 disabled:opacity-40 dark:text-red-300"
                     >
                       +
                     </button>
@@ -174,7 +174,7 @@ export function ReviewStep({
                     aria-label={`${hasNote ? 'Editar nota' : 'Agregar nota'} a ${label}`}
                     disabled={isSubmitting}
                     onClick={() => setEditingNoteId(isEditing ? null : line.lineId)}
-                    className="min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm font-bold text-red-700 disabled:opacity-50"
+                    className="min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm font-bold text-red-700 disabled:opacity-50 dark:text-red-300"
                   >
                     {hasNote ? 'Editar nota' : 'Nota'}
                   </button>
@@ -183,7 +183,7 @@ export function ReviewStep({
                     aria-label={`Quitar ${label} del pedido`}
                     disabled={isSubmitting}
                     onClick={() => handleRemove(line)}
-                    className="ml-auto min-h-11 rounded-lg border border-rose-300 bg-rose-50 px-3 text-sm font-bold text-rose-800 disabled:opacity-50"
+                    className="ml-auto min-h-11 rounded-lg border border-rose-300 bg-rose-50 px-3 text-sm font-bold text-rose-800 disabled:opacity-50 dark:border-rose-700 dark:bg-rose-950/60 dark:text-rose-200"
                   >
                     Quitar
                   </button>
@@ -236,7 +236,7 @@ export function ReviewStep({
         <div
           role="status"
           className={cn(
-            'fixed inset-x-3 z-30 mx-auto flex min-h-12 max-w-2xl items-center justify-between rounded-xl bg-slate-900 gap-2 py-1 pl-3.5 pr-1.5 text-sm text-white shadow-lg',
+            'fixed inset-x-3 z-30 mx-auto flex min-h-12 max-w-2xl items-center justify-between gap-2 rounded-xl bg-slate-900 py-1 pl-3.5 pr-1.5 text-sm text-white shadow-lg dark:bg-slate-200 dark:text-slate-900',
             aboveBottomNav
               ? 'bottom-[calc(68px+5.5rem+env(safe-area-inset-bottom))] sm:bottom-[calc(5.5rem+env(safe-area-inset-bottom))]'
               : 'bottom-[calc(5.5rem+env(safe-area-inset-bottom))]',
@@ -260,8 +260,8 @@ export function ReviewStep({
 
 function CheckRow({ ok = false, children }: { ok?: boolean; children: string }) {
   return (
-    <li className={cn('flex gap-2', ok ? 'text-slate-800' : 'font-bold text-amber-800')}>
-      <span aria-hidden="true" className={ok ? 'text-emerald-700' : undefined}>
+    <li className={cn('flex gap-2', ok ? 'text-slate-800' : 'font-bold text-amber-800 dark:text-amber-300')}>
+      <span aria-hidden="true" className={ok ? 'text-emerald-700 dark:text-emerald-400' : undefined}>
         {ok ? '✓' : '!'}
       </span>
       <span>{children}</span>

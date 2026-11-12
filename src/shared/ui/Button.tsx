@@ -5,7 +5,7 @@ const VARIANT_CLASSES = {
   primary: 'bg-red-700 text-white hover:bg-red-800 active:bg-red-900',
   secondary: 'bg-slate-200 text-slate-900 hover:bg-slate-300 active:bg-slate-400',
   success: 'bg-emerald-700 text-white hover:bg-emerald-800 active:bg-emerald-900',
-  danger: 'bg-red-100 text-red-800 hover:bg-red-200 active:bg-red-300',
+  danger: 'bg-red-100 text-red-800 hover:bg-red-200 active:bg-red-300 dark:bg-red-950/60 dark:text-red-200 dark:hover:bg-red-900/60 dark:active:bg-red-900',
   ghost: 'bg-transparent text-slate-700 hover:bg-slate-100 active:bg-slate-200',
 } as const
 

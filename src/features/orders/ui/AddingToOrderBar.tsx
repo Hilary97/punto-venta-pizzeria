@@ -14,9 +14,9 @@ export function AddingToOrderBar({ order, disabled = false, onCancel }: AddingTo
   return (
     <section
       aria-label="Pedido en edición"
-      className="flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 border-amber-400 bg-amber-50 px-4 py-3"
+      className="flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 border-amber-400 bg-amber-50 px-4 py-3 dark:border-amber-600 dark:bg-amber-950/60"
     >
-      <p className="min-w-0 break-words text-amber-900">
+      <p className="min-w-0 break-words text-amber-900 dark:text-amber-100">
         <span className="font-bold">Agregando al pedido {orderLabel(order)}</span>
         <span className="block text-sm">
           ya tiene {itemCount} {itemCount === 1 ? 'producto' : 'productos'}

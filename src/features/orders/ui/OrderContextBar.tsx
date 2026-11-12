@@ -17,18 +17,18 @@ export function OrderContextBar({ label, onChange, variant = 'bar', disabled = f
       className={cn(
         'flex items-center gap-2',
         variant === 'bar'
-          ? 'border-b border-red-200 bg-red-50 px-3.5 py-2'
+          ? 'border-b border-red-200 bg-red-50 px-3.5 py-2 dark:border-red-900 dark:bg-red-950/60'
           : 'rounded-xl border border-slate-200 bg-white px-3 py-2',
       )}
     >
-      <p className={cn('min-w-0 flex-1 break-words text-sm font-bold', variant === 'bar' ? 'text-red-900' : 'text-slate-900')}>
+      <p className={cn('min-w-0 flex-1 break-words text-sm font-bold', variant === 'bar' ? 'text-red-900 dark:text-red-100' : 'text-slate-900')}>
         {label}
       </p>
       <button
         type="button"
         disabled={disabled}
         onClick={onChange}
-        className="min-h-11 shrink-0 rounded-lg border-2 border-red-700 bg-white px-3.5 text-sm font-bold text-red-700 hover:bg-red-50 disabled:opacity-50"
+        className="min-h-11 shrink-0 rounded-lg border-2 border-red-700 bg-white px-3.5 text-sm font-bold text-red-700 hover:bg-red-50 disabled:opacity-50 dark:border-red-400 dark:text-red-300 dark:hover:bg-red-950"
       >
         Cambiar
       </button>

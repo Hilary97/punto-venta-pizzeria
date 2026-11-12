@@ -93,8 +93,10 @@ export function MesaStep({
                   onClick={() => onTable(isSelected ? null : n)}
                   className={cn(
                     'relative flex min-h-[104px] min-w-0 flex-col justify-center gap-0.5 rounded-xl border-2 p-2 text-left transition-colors disabled:opacity-50',
-                    info ? 'border-amber-300 bg-amber-50' : 'border-emerald-300 bg-emerald-50',
-                    isSelected && 'border-red-700 ring-2 ring-red-700 ring-offset-1',
+                    info
+                      ? 'border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/60'
+                      : 'border-emerald-300 bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-950/60',
+                    isSelected && 'border-red-700 ring-2 ring-red-700 ring-offset-1 ring-offset-slate-50 dark:border-red-400 dark:ring-red-400',
                   )}
                 >
                   {isSelected && (
@@ -106,7 +108,7 @@ export function MesaStep({
                     </span>
                   )}
                   <strong className="text-lg leading-tight text-slate-900">{tableLabel(n)}</strong>{' '}
-                  <em className={cn('text-xs font-bold not-italic', info ? 'text-amber-800' : 'text-emerald-700')}>
+                  <em className={cn('text-xs font-bold not-italic', info ? 'text-amber-800 dark:text-amber-200' : 'text-emerald-700 dark:text-emerald-300')}>
                     {info ? 'Ocupada' : 'Libre'}
                   </em>
                   {info && (
@@ -128,7 +130,7 @@ export function MesaStep({
                 <Button
                   variant="secondary"
                   disabled={disabled}
-                  className="mt-2 min-h-12 w-full border-2 border-red-700 bg-white text-red-700 hover:bg-red-50"
+                  className="mt-2 min-h-12 w-full border-2 border-red-700 bg-white text-red-700 hover:bg-red-50 dark:border-red-400 dark:text-red-300 dark:hover:bg-red-950"
                   onClick={() => onAddToOrder(selected.order)}
                 >
                   Agregar a este pedido
@@ -153,7 +155,7 @@ export function MesaStep({
 
       <StepBar aboveBottomNav={aboveBottomNav}>
         {missing !== null && (
-          <p id={hintId} className="text-sm font-medium text-amber-800">
+          <p id={hintId} className="text-sm font-medium text-amber-800 dark:text-amber-300">
             {`Falta: ${missing}`}
           </p>
         )}

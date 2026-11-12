@@ -31,7 +31,7 @@ export function StepIndicator({ current, onGo, mesaLocked = false, disabled = fa
               aria-hidden="true"
               className={cn(
                 'grid size-5 shrink-0 place-items-center rounded-full text-xs',
-                isCurrent ? 'bg-white text-red-700' : isDone ? 'bg-emerald-700 text-white' : 'bg-slate-300 text-slate-900',
+                isCurrent ? 'bg-[#fff] text-red-700' : isDone ? 'bg-emerald-700 text-white' : 'bg-slate-300 text-slate-900',
               )}
             >
               {isDone ? '✓' : index + 1}
