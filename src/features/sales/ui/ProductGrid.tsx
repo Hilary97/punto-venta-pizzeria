@@ -28,7 +28,11 @@ export function ProductGrid({
 }: ProductGridProps) {
   const searchId = useId();
   const [query, setQuery] = useState("");
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string | "all">("all");
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  // Starts on the first category; falls back to it if the chosen one disappears.
+  const activeCategoryId =
+    categories.find((category) => category.id === selectedCategoryId)?.id ?? categories[0]?.id ?? null;
+  const searching = query.trim() !== "";
 
   const pillsRef = useRef<HTMLDivElement>(null);
   const [fade, setFade] = useState(false);
@@ -44,7 +48,7 @@ export function ProductGrid({
 
   const visibleProducts = products.filter(
     (product) =>
-      (selectedCategoryId === "all" || product.categoryId === selectedCategoryId) &&
+      (searching || activeCategoryId === null || product.categoryId === activeCategoryId) &&
       product.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()),
   );
 
@@ -66,13 +70,10 @@ export function ProductGrid({
         onScroll={updateFade}
         className="flex gap-2 overflow-x-auto pb-1"
       >
-        <CategoryPill selected={selectedCategoryId === "all"} onClick={() => setSelectedCategoryId("all")}>
-          Todos
-        </CategoryPill>
         {categories.map((category) => (
           <CategoryPill
             key={category.id}
-            selected={selectedCategoryId === category.id}
+            selected={activeCategoryId === category.id}
             onClick={() => setSelectedCategoryId(category.id)}
           >
             {category.name}
@@ -192,7 +193,7 @@ export function QuantityBadge({ quantity, className }: { quantity: number; class
   return (
     <span
       className={cn(
-        "pointer-events-none absolute -right-1 -top-2 grid h-[26px] min-w-[34px] place-items-center rounded-full border-2 border-white bg-red-700 px-1 text-sm font-extrabold text-white",
+        "pointer-events-none absolute -right-1 -top-2 grid h-[26px] min-w-[34px] place-items-center rounded-full border-2 border-white dark:border-slate-50 bg-red-700 px-1 text-sm font-extrabold text-white",
         className,
       )}
     >

@@ -117,18 +117,33 @@ describe('ProductGrid search and categories', () => {
     product({ id: 'k', name: 'Coca-Cola', categoryId: 'd' }),
   ]
 
-  it('shows every product under Todos and filters by category pill, with pills at least 44px tall', async () => {
+  it('has no Todos pill, starts on the first category and filters by category pill, with pills at least 44px tall', async () => {
     const user = userEvent.setup()
     render(<Harness products={products} />)
     const pills = screen.getByRole('group', { name: 'Categorías' })
+    expect(within(pills).queryByRole('button', { name: 'Todos' })).not.toBeInTheDocument()
     for (const pill of within(pills).getAllByRole('button')) expect(pill).toHaveClass('min-h-11')
+    expect(within(pills).getByRole('button', { name: 'Menú' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByRole('button', { name: 'Alitas' })).toBeVisible()
-    expect(screen.getByRole('button', { name: 'Coca-Cola' })).toBeVisible()
+    expect(screen.queryByRole('button', { name: 'Coca-Cola' })).not.toBeInTheDocument()
 
     await user.click(within(pills).getByRole('button', { name: 'Bebidas' }))
     expect(within(pills).getByRole('button', { name: 'Bebidas' })).toHaveAttribute('aria-pressed', 'true')
+    expect(within(pills).getByRole('button', { name: 'Menú' })).toHaveAttribute('aria-pressed', 'false')
     expect(screen.queryByRole('button', { name: 'Alitas' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Coca-Cola' })).toBeVisible()
+  })
+
+  it('searches every category while a query is present, then returns to the selected category', async () => {
+    const user = userEvent.setup()
+    render(<Harness products={products} />)
+    const search = screen.getByRole('searchbox', { name: 'Buscar producto por nombre' })
+    await user.type(search, 'coca')
+    expect(screen.getByRole('button', { name: 'Coca-Cola' })).toBeVisible()
+    expect(screen.queryByRole('button', { name: 'Alitas' })).not.toBeInTheDocument()
+    await user.clear(search)
+    expect(screen.queryByRole('button', { name: 'Coca-Cola' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Alitas' })).toBeVisible()
   })
 
   it('searches by name ignoring case and says when nothing matches', async () => {
