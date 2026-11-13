@@ -26,3 +26,4 @@ Branch: feat/popular-pizzas. The user applies the migration in Supabase (CLI lin
 - L3: User mid-task: "Podmos cambiar implemntar mejor agregar la  lista de pizzas en admin". Asked; user chose "Admin primero, completa con las más vendidas".
 - L4: Agent defaults for S6: at most 8 fixed pizzas; total places 4 (fixed beyond 4 are all shown).
 - L5: Verify PASS S1-S6, no blockers.
+- L6: User: "Si aplica las dos migraciones, y reviso los cambio aquí en local y ya despues te digo cuando mergeas a main". Applied 20261127120000 and 20261128120000 with `supabase db push --remote --yes`; dry run then reports up to date. Read-only grant check on production: popular_pizzas and pizza_quick_picks closed to anon/authenticated; admin_* and list_popular_pizzas authenticated only; device_list_popular_pizzas anon+authenticated. Merge to main waits for the user.
