@@ -17,7 +17,7 @@ Branch: feat/popular-pizzas. The user applies the migration in Supabase (CLI lin
 - T1 (S1, S2, S5) — migration `popular_pizzas` + RPCs `list_popular_pizzas()` (admin/cashier) and `device_list_popular_pizzas(secret)`, PGlite tests. Route: inline. Commit: `903710a` (done; PGlite RED 6/7 -> GREEN 7/7; db suite 407)
 - T2 (S2-S5) — OrdersSource.loadPopularPizzas for both sources, Productos tiles, UI tests. Route: inline. Commit: `b58fab1` (done; RED 2/3 -> GREEN; 486 tests). Slice boundary: commits 1-2 ~508 lines; T2b is slice 2.
 - T2b (S6) — fixed list: table + admin RPCs + merge into list RPCs, PGlite tests; Admin > Pizzas section, UI tests. Route: inline. Commit: `f43bbdc` (done; PGlite RED 7/7 -> GREEN 14/14; db suite 414; UI 358 green; full suite 1260, build OK; UI section RED not observed: the test failed on the missing module only)
-- T3 (S1-S6) — verify (high risk: new security definer RPCs exposed to anon devices). Route: gentle-ai-verify. Commit: n/a
+- T3 (S1-S6) — verify (high risk: new security definer RPCs exposed to anon devices). Route: gentle-ai-verify. Done: PASS S1-S6; 372 focused tests, tsc 0, oxlint 12 (baseline); 11 extra scratch probes passed (grants, device kinds, 30-day boundary, legacy duplicate, exactly 4 fixed). Advisories: client hides sold-out/stale tiles after the server cut to 4, so fewer tiles can show; grants must be checked on real Supabase after db push. Commit: n/a
 
 ## Log
 
@@ -25,3 +25,4 @@ Branch: feat/popular-pizzas. The user applies the migration in Supabase (CLI lin
 - L2: Defaults chosen by the agent (not asked): last 30 days, top 4, paid orders only. Adjustable.
 - L3: User mid-task: "Podmos cambiar implemntar mejor agregar la  lista de pizzas en admin". Asked; user chose "Admin primero, completa con las más vendidas".
 - L4: Agent defaults for S6: at most 8 fixed pizzas; total places 4 (fixed beyond 4 are all shown).
+- L5: Verify PASS S1-S6, no blockers.
