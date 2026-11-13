@@ -27,3 +27,4 @@ Branch: feat/popular-pizzas. The user applies the migration in Supabase (CLI lin
 - L4: Agent defaults for S6: at most 8 fixed pizzas; total places 4 (fixed beyond 4 are all shown).
 - L5: Verify PASS S1-S6, no blockers.
 - L6: User: "Si aplica las dos migraciones, y reviso los cambio aquí en local y ya despues te digo cuando mergeas a main". Applied 20261127120000 and 20261128120000 with `supabase db push --remote --yes`; dry run then reports up to date. Read-only grant check on production: popular_pizzas and pizza_quick_picks closed to anon/authenticated; admin_* and list_popular_pizzas authenticated only; device_list_popular_pizzas anon+authenticated. Merge to main waits for the user.
+- L7: User approved the softer lime tiles (e55103e) and said "Me gusta asi mergea a main". Merged into main as 5e8e11e (1260 tests green) and pushed; local branch deleted. Feature closed.
