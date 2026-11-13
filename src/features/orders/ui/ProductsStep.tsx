@@ -90,7 +90,7 @@ export function ProductsStep({
                 disabled={disabled}
                 onClick={pizza.onAdd}
                 aria-label={`Agregar ${pizza.name}`}
-                className="relative min-h-[68px] rounded-xl border border-cyan-200 bg-cyan-50 px-3 py-2 text-left text-[13px] font-semibold leading-snug text-cyan-950 shadow-sm hover:bg-cyan-100 disabled:opacity-50 dark:border-cyan-800 dark:bg-cyan-950/50 dark:text-cyan-100 dark:hover:bg-cyan-900/50"
+                className="relative min-h-[68px] rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-left text-[13px] font-semibold leading-snug text-sky-950 shadow-sm hover:bg-sky-100 disabled:opacity-50 dark:border-sky-800 dark:bg-sky-950/50 dark:text-sky-100 dark:hover:bg-sky-900/50"
               >
                 <span className="line-clamp-3">{pizza.name.replace(/^Pizza /, '')}</span>
                 {pizza.quantity > 0 && <QuantityBadge quantity={pizza.quantity} />}
