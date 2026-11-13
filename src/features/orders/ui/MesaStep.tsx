@@ -78,7 +78,7 @@ export function MesaStep({
           className="flex min-h-11 items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 hover:bg-slate-100 disabled:opacity-50"
         >
           Pedidos abiertos
-          <span className="grid min-w-6 place-items-center rounded-full bg-emerald-950 px-1.5 text-xs font-bold text-white">
+          <span className="grid min-w-6 place-items-center rounded-full bg-red-700 px-1.5 text-xs font-bold text-white">
             {openOrdersCount}
           </span>
         </button>
