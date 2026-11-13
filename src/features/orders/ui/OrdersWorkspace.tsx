@@ -8,7 +8,7 @@ import { Modal } from '../../../shared/ui/Modal'
 import { Textarea } from '../../../shared/ui/Textarea'
 import { Spinner } from '../../../shared/ui/Spinner'
 import { cn } from '../../../shared/ui/cn'
-import type { PizzaCatalog } from '../../pizza/domain/pizza'
+import { describePizza, isSizeSoldOut, validatePizzaConfig, type PizzaCatalog, type PizzaConfig } from '../../pizza/domain/pizza'
 import { PizzaBuilderModal, type BuiltPizza } from '../../pizza/ui/PizzaBuilderModal'
 import type { Category, Product } from '../../products/domain/product'
 import type { WaiterShift } from '../../waiters/domain/waiter'
@@ -78,6 +78,7 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
   const [categories, setCategories] = useState<Category[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [pizzaCatalog, setPizzaCatalog] = useState<PizzaCatalog | null>(null)
+  const [popularPizzas, setPopularPizzas] = useState<PizzaConfig[]>([])
   const [orders, setOrders] = useState<Order[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -158,6 +159,30 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
     }
     void load()
   }, [source])
+
+  // Quick pizzas are a convenience: a failure only hides them.
+  useEffect(() => {
+    let active = true
+    source
+      .loadPopularPizzas?.()
+      .then((configs) => {
+        if (active) setPopularPizzas(configs)
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [source])
+
+  const quickPizzas = useMemo(() => {
+    if (!pizzaCatalog) return []
+    return popularPizzas
+      .filter((config) => {
+        const size = pizzaCatalog.sizes.find((candidate) => candidate.code === config.size)
+        return size !== undefined && !isSizeSoldOut(size) && validatePizzaConfig(config, pizzaCatalog).length === 0
+      })
+      .map((config) => ({ key: JSON.stringify(config), config, name: describePizza(config, pizzaCatalog) }))
+  }, [popularPizzas, pizzaCatalog])
 
   /** Runs a server action behind the pending guard; returns whether it succeeded. */
   async function runGuarded(action: () => Promise<void>, onError?: (message: string) => void): Promise<boolean> {
@@ -454,6 +479,14 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
             canBuildPizza={hasPizzaBuilder}
             pizzaCount={pizzaQuantity(draft)}
             onBuildPizza={() => setIsBuilderOpen(true)}
+            quickPizzas={quickPizzas.map(({ key, name, config }) => ({
+              key,
+              name,
+              quantity: draft
+                .filter((line) => line.kind === 'pizza' && JSON.stringify(line.pizza) === key)
+                .reduce((sum, line) => sum + line.quantity, 0),
+              onAdd: () => handleAddPizza({ config, name, notes: '' }),
+            }))}
             itemCount={draftItemCount(draft)}
             onReview={() => setStep('revisar')}
             aboveBottomNav={aboveBottomNav}

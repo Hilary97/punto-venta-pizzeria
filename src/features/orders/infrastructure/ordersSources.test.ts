@@ -83,3 +83,27 @@ describe('creating orders', () => {
     expect(rpc).toHaveBeenLastCalledWith('create_order', expect.objectContaining({ p_service: 'dine_in' }))
   })
 })
+
+describe('popular pizzas', () => {
+  const stored = {
+    pizza: { size: 'grande', portions: [{ style_id: 's1', ingredient_ids: [], extra_ingredient_ids: [] }], extra_ids: ['x'] },
+    sold: 3,
+  }
+  const config = { size: 'grande', portions: [{ styleId: 's1', ingredientIds: [], extraIngredientIds: [] }], extraIds: ['x'] }
+
+  it('loads them with the device secret on a device and from the session otherwise', async () => {
+    rpc.mockResolvedValue({ data: [stored], error: null })
+    const device = createDeviceOrdersSource('secret', () => null)
+    expect(await device.loadPopularPizzas!()).toEqual([config])
+    expect(rpc).toHaveBeenLastCalledWith('device_list_popular_pizzas', { p_device_secret: 'secret' })
+
+    expect(await authenticatedOrdersSource.loadPopularPizzas!()).toEqual([config])
+    expect(rpc).toHaveBeenLastCalledWith('list_popular_pizzas')
+  })
+
+  it('fails when the rpc fails', async () => {
+    rpc.mockResolvedValue({ data: null, error: { message: 'Uno de los dispositivos no existe.' } })
+    await expect(createDeviceOrdersSource('secret', () => null).loadPopularPizzas!()).rejects.toThrow()
+    await expect(authenticatedOrdersSource.loadPopularPizzas!()).rejects.toThrow()
+  })
+})

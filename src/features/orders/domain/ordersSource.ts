@@ -1,5 +1,5 @@
 import type { Category, Product } from '../../products/domain/product'
-import type { PizzaCatalog } from '../../pizza/domain/pizza'
+import type { PizzaCatalog, PizzaConfig } from '../../pizza/domain/pizza'
 import type { SubscribeChanges } from '../../../shared/realtime/useChangeSignal'
 import type { Order, OrderItemPayload, OrderService } from './order'
 
@@ -23,6 +23,8 @@ export interface CreateOrderInput {
 /** Where the orders workspace reads and writes: a signed-in session or an authorized device. */
 export interface OrdersSource {
   loadCatalog(): Promise<OrdersCatalog>
+  /** Quick pizzas for the Productos step ("Más vendidas"); optional, failures are not shown. */
+  loadPopularPizzas?(): Promise<PizzaConfig[]>
   listOpenOrders(): Promise<Order[]>
   createOrder(input: CreateOrderInput): Promise<string>
   addOrderItems(orderId: string, items: OrderItemPayload[]): Promise<string>

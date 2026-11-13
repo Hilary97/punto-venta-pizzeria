@@ -93,6 +93,18 @@ export const pizzaConfigSchema = z
     }),
   )
 
+/** Quick pizzas ("Más vendidas") as returned by `list_popular_pizzas` / `device_list_popular_pizzas`. */
+export const popularPizzasSchema = z
+  .array(z.object({ pizza: pizzaConfigSchema }))
+  .transform((rows): PizzaConfig[] => rows.map((row) => row.pizza))
+
+/** Fixed quick pizzas first, then the best sellers of the last 30 days (signed-in admin or cashier). */
+export async function listPopularPizzas(): Promise<PizzaConfig[]> {
+  const { data, error } = await getSupabaseClient().rpc('list_popular_pizzas')
+  if (error) throw new Error('No se pudieron cargar las pizzas más vendidas.')
+  return popularPizzasSchema.parse(data)
+}
+
 /** Maps a pizza configuration to the snake_case shape the RPCs expect. */
 export function toRpcPizzaConfig(config: PizzaConfig) {
   return {

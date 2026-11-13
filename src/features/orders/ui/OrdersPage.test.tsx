@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { listPizzaCatalog } from '../../pizza/infrastructure/pizzaRepository'
+import { listPizzaCatalog, listPopularPizzas } from '../../pizza/infrastructure/pizzaRepository'
 import { listCategories, listProducts } from '../../products/infrastructure/productsRepository'
 import type { Order } from '../domain/order'
 import { addOrderItems, cancelOrder, createOrder, listOpenOrders, setOrderNotes } from '../infrastructure/ordersRepository'
@@ -15,6 +15,7 @@ vi.mock('../../kitchen/infrastructure/kitchenRepository', () => ({ subscribeKitc
 vi.mock('../../pizza/infrastructure/pizzaRepository', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../pizza/infrastructure/pizzaRepository')>()),
   listPizzaCatalog: vi.fn(),
+  listPopularPizzas: vi.fn(),
 }))
 vi.mock('../../products/infrastructure/productsRepository', () => ({ listCategories: vi.fn(), listProducts: vi.fn() }))
 vi.mock('../infrastructure/ordersRepository', async (importOriginal) => ({
@@ -57,6 +58,7 @@ function renderPage() {
 beforeEach(() => {
   vi.resetAllMocks()
   vi.mocked(listPizzaCatalog).mockResolvedValue({ sizes: [], styles: [], ingredients: [], extras: [] })
+  vi.mocked(listPopularPizzas).mockResolvedValue([])
   vi.mocked(listCategories).mockResolvedValue([{ id: 'pizza', name: 'Botanas', sortOrder: 0 }])
   vi.mocked(listProducts).mockResolvedValue([
     { id: 'p', categoryId: 'pizza', name: 'Pizza queso', priceCents: 15000, active: true, variants: [] },
@@ -1102,5 +1104,87 @@ describe('guided steps: Revisar step', () => {
       expect(screen.queryByRole('region', { name: /pedido en edición/i })).not.toBeInTheDocument()
       expect(addOrderItems).not.toHaveBeenCalled()
     })
+  })
+})
+
+describe('popular pizzas (Más vendidas)', () => {
+  const varasChica = { size: 'chica' as const, portions: [{ styleId: 'varas', ingredientIds: [], extraIngredientIds: [] }], extraIds: [] }
+  const mitadesGrande = {
+    size: 'grande' as const,
+    portions: [
+      { styleId: 'varas', ingredientIds: [], extraIngredientIds: [] },
+      { styleId: 'custom', ingredientIds: ['pep'], extraIngredientIds: [] },
+    ],
+    extraIds: ['queso'],
+  }
+
+  it('shows the best sellers above the grid and adds one with a single tap', async () => {
+    vi.mocked(listPizzaCatalog).mockResolvedValue(pizzaCatalogFixture)
+    vi.mocked(listPopularPizzas).mockResolvedValue([mitadesGrande, varasChica])
+    const user = userEvent.setup()
+    renderPage()
+    await startOrder(user, { table: 6 })
+
+    const section = await screen.findByRole('region', { name: 'Más vendidas' })
+    const tiles = within(section).getAllByRole('button')
+    expect(tiles.map((tile) => tile.getAttribute('aria-label'))).toEqual([
+      'Agregar Pizza Grande · Mitades: ½ Estilo Varas | ½ Arma tu combinación (Pepperoni) · Extras: Extra queso',
+      'Agregar Pizza Chica: Estilo Varas',
+    ])
+    expect(section.compareDocumentPosition(screen.getByRole('button', { name: 'Pizza queso' }))).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    )
+
+    const chica = tiles[1]!
+    await user.click(chica)
+    await user.click(chica)
+    expect(screen.queryByRole('dialog', { name: /armar pizza/i })).not.toBeInTheDocument()
+    expect(within(chica).getByText('×2')).toBeVisible()
+    expect(within(screen.getByRole('button', { name: /armar pizza/i })).getByText('×2')).toBeVisible()
+
+    await user.click(screen.getByRole('button', { name: /revisar pedido/i }))
+    await user.click(screen.getByRole('button', { name: /enviar a cocina/i }))
+    expect(createOrder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tableNumber: 6,
+        items: [
+          { type: 'pizza', pizza: varasChica, quantity: 1 },
+          { type: 'pizza', pizza: varasChica, quantity: 1 },
+        ],
+      }),
+    )
+  })
+
+  it('skips pizzas no longer in the catalog and sizes without dough', async () => {
+    vi.mocked(listPizzaCatalog).mockResolvedValue({
+      ...pizzaCatalogFixture,
+      sizes: pizzaCatalogFixture.sizes.map((size) => (size.code === 'grande' ? { ...size, doughLeft: 0 } : size)),
+    })
+    vi.mocked(listPopularPizzas).mockResolvedValue([
+      mitadesGrande,
+      { ...varasChica, portions: [{ styleId: 'gone', ingredientIds: [], extraIngredientIds: [] }] },
+      varasChica,
+    ])
+    const user = userEvent.setup()
+    renderPage()
+    await startOrder(user, { table: 6 })
+
+    const section = await screen.findByRole('region', { name: 'Más vendidas' })
+    expect(within(section).getAllByRole('button').map((tile) => tile.getAttribute('aria-label'))).toEqual([
+      'Agregar Pizza Chica: Estilo Varas',
+    ])
+  })
+
+  it('hides the section when nothing sold or when the list fails to load', async () => {
+    vi.mocked(listPizzaCatalog).mockResolvedValue(pizzaCatalogFixture)
+    vi.mocked(listPopularPizzas).mockRejectedValue(new Error('boom'))
+    const user = userEvent.setup()
+    renderPage()
+    await startOrder(user, { table: 6 })
+
+    expect(await screen.findByRole('button', { name: 'Pizza queso' })).toBeVisible()
+    expect(screen.getByRole('button', { name: /armar pizza/i })).toBeVisible()
+    expect(screen.queryByRole('region', { name: 'Más vendidas' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 })

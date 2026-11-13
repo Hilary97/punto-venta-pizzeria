@@ -4,6 +4,15 @@ import type { Category, Product } from '../../products/domain/product'
 import { ProductGrid, QuantityBadge } from '../../sales/ui/ProductGrid'
 import { StepBar } from './StepBar'
 
+export interface QuickPizzaTile {
+  key: string
+  /** Pizza description, as shown on the order. */
+  name: string
+  /** Units of this exact pizza already in the order. */
+  quantity: number
+  onAdd: () => void
+}
+
 interface ProductsStepProps {
   categories: Category[]
   products: Product[]
@@ -15,6 +24,8 @@ interface ProductsStepProps {
   canBuildPizza: boolean
   pizzaCount: number
   onBuildPizza: () => void
+  /** Fixed and best-selling pizzas, added with one tap ("Más vendidas"). */
+  quickPizzas?: QuickPizzaTile[]
   /** Total units in the order being composed. */
   itemCount: number
   onReview: () => void
@@ -32,6 +43,7 @@ export function ProductsStep({
   canBuildPizza,
   pizzaCount,
   onBuildPizza,
+  quickPizzas = [],
   itemCount,
   onReview,
   aboveBottomNav,
@@ -64,6 +76,28 @@ export function ProductsStep({
             {pizzaCount > 0 && <QuantityBadge quantity={pizzaCount} />}
           </button>
         </div>
+      )}
+      {canBuildPizza && quickPizzas.length > 0 && (
+        <section aria-labelledby="quick-pizzas-heading" className="flex flex-col gap-2">
+          <h3 id="quick-pizzas-heading" className="text-sm font-bold uppercase tracking-wide text-slate-600">
+            Más vendidas
+          </h3>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {quickPizzas.map((pizza) => (
+              <button
+                key={pizza.key}
+                type="button"
+                disabled={disabled}
+                onClick={pizza.onAdd}
+                aria-label={`Agregar ${pizza.name}`}
+                className="relative min-h-[68px] rounded-xl border border-[#9FE34B]/70 bg-[#9FE34B]/20 px-3 py-2 text-left text-[13px] font-semibold leading-snug text-lime-950 shadow-sm hover:bg-[#9FE34B]/35 disabled:opacity-50 dark:border-[#9FE34B]/50 dark:bg-[#9FE34B]/12 dark:text-lime-50 dark:hover:bg-[#9FE34B]/20"
+              >
+                <span className="line-clamp-3">{pizza.name.replace(/^Pizza /, '')}</span>
+                {pizza.quantity > 0 && <QuantityBadge quantity={pizza.quantity} />}
+              </button>
+            ))}
+          </div>
+        </section>
       )}
       <ProductGrid
         categories={categories}

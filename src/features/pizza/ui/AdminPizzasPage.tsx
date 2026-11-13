@@ -37,6 +37,7 @@ import { PizzaExtraIngredientPriceModal } from './PizzaExtraIngredientPriceModal
 import { PizzaIngredientFormModal } from './PizzaIngredientFormModal'
 import { PizzaSizeFormModal } from './PizzaSizeFormModal'
 import { PizzaStyleFormModal } from './PizzaStyleFormModal'
+import { QuickPizzasSection } from './QuickPizzasSection'
 import { nextSortOrder } from './pizzaAdminForm'
 
 type ModalState =
@@ -151,6 +152,8 @@ export function AdminPizzasPage() {
 
       {catalog && (
         <>
+          <QuickPizzasSection />
+
           <AdminSection id="pizza-sizes" title="Tamaños">
             <Table headers={['Tamaño', 'Se puede pedir', 'Acciones']}>
               {catalog.sizes.map((size) => (

@@ -24,6 +24,8 @@ interface PizzaBuilderModalProps {
   catalog: PizzaCatalog
   onAdd: (pizza: BuiltPizza) => void
   onClose: () => void
+  /** Admin quick pizzas: one pizza without quantity or note, added with "Fijar pizza". */
+  quickPick?: boolean
 }
 
 type Step = { kind: 'size' } | { kind: 'division' } | { kind: 'portion'; index: number }
@@ -63,7 +65,7 @@ function sameStep(a: Step, b: Step): boolean {
   return a.kind === b.kind && (a.kind !== 'portion' || (b.kind === 'portion' && a.index === b.index))
 }
 
-export function PizzaBuilderModal({ catalog, onAdd, onClose }: PizzaBuilderModalProps) {
+export function PizzaBuilderModal({ catalog, onAdd, onClose, quickPick = false }: PizzaBuilderModalProps) {
   const notesId = useId()
   const sizes = useMemo(() => [...catalog.sizes].sort((a, b) => a.sortOrder - b.sortOrder), [catalog.sizes])
   const styles = useMemo(() => sortBuilderStyles(catalog.styles), [catalog.styles])
@@ -298,7 +300,7 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose }: PizzaBuilderModal
               </fieldset>
             )}
 
-            {isLast && (
+            {isLast && !quickPick && (
               <Textarea
                 id={notesId}
                 label="Nota de la pizza (opcional)"
@@ -326,6 +328,7 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose }: PizzaBuilderModal
           )}
           {isLast ? (
             <div className="flex items-center gap-3">
+              {!quickPick && (
               <div role="group" aria-label="Cantidad de pizzas" className="flex w-36 flex-none items-center justify-between rounded-xl bg-slate-100 p-1">
                 <button
                   type="button"
@@ -347,8 +350,9 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose }: PizzaBuilderModal
                   +
                 </button>
               </div>
+              )}
               <Button size="lg" className="flex-1" disabled={noDough || errors.length > 0 || missingStyleHint !== null} onClick={addPizzas}>
-                Agregar pizza
+                {quickPick ? 'Fijar pizza' : 'Agregar pizza'}
               </Button>
             </div>
           ) : (
