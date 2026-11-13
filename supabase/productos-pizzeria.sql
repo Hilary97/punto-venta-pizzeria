@@ -5,9 +5,9 @@ insert into public.categories (name, sort_order) values
   ('Hamburguesas', 1),
   ('Botanas', 2),
   ('Bebidas', 3),
-  ('Extras', 4),
-  ('Pizzas', 6),
-  ('Ensaladas', 7)
+  ('Ensaladas', 6),
+  ('Extras', 8),
+  ('Pizzas', 9)
 on conflict (name) do update
 set sort_order = excluded.sort_order;
 
