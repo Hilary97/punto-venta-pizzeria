@@ -13,6 +13,8 @@ interface ProductGridProps {
   variantQuantity: (productId: string, variant: string) => number;
   /** Adds one unit; `variant` is `null` for products without variants. */
   onAddProduct: (product: Product, variant: string | null) => void;
+  /** Removes one unit; fired by holding a tile or variant chip that is in the order. */
+  onRemoveProduct?: (product: Product, variant: string | null) => void;
   disabled?: boolean;
   showPrices?: boolean;
 }
@@ -23,9 +25,11 @@ export function ProductGrid({
   productQuantity,
   variantQuantity,
   onAddProduct,
+  onRemoveProduct,
   disabled = false,
   showPrices = true,
 }: ProductGridProps) {
+  const press = useLongPress();
   const searchId = useId();
   const [query, setQuery] = useState("");
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
@@ -132,9 +136,12 @@ export function ProductGrid({
                               key={variant}
                               type="button"
                               disabled={disabled}
-                              onClick={() => onAddProduct(product, variant)}
+                              {...press(
+                                () => onAddProduct(product, variant),
+                                count > 0 && onRemoveProduct ? () => onRemoveProduct(product, variant) : undefined,
+                              )}
                               className={cn(
-                                "min-h-11 rounded-full border-2 px-3.5 text-sm font-semibold disabled:opacity-50",
+                                "min-h-11 select-none rounded-full border-2 px-3.5 text-sm font-semibold [-webkit-touch-callout:none] disabled:opacity-50",
                                 count > 0
                                   ? "border-red-700 bg-red-700 text-white"
                                   : "border-slate-300 bg-white text-slate-900",
@@ -152,8 +159,11 @@ export function ProductGrid({
                   <button
                     type="button"
                     disabled={disabled || soldOut}
-                    onClick={() => onAddProduct(product, null)}
-                    className="flex min-h-16 w-full min-w-0 flex-col items-start justify-center gap-1 break-words rounded-xl px-2.5 py-2 text-left text-sm font-bold leading-tight text-slate-900 transition-transform active:scale-95 disabled:text-slate-600"
+                    {...press(
+                      () => onAddProduct(product, null),
+                      total > 0 && onRemoveProduct ? () => onRemoveProduct(product, null) : undefined,
+                    )}
+                    className="flex min-h-16 w-full min-w-0 select-none flex-col items-start justify-center gap-1 break-words rounded-xl [-webkit-touch-callout:none] px-2.5 py-2 text-left text-sm font-bold leading-tight text-slate-900 transition-transform active:scale-95 disabled:text-slate-600"
                   >
                     <span>{product.name}</span>
                     {soldOut && <SoldOutBadge />}
@@ -170,6 +180,48 @@ export function ProductGrid({
       )}
     </div>
   );
+}
+
+const LONG_PRESS_MS = 500;
+
+/**
+ * Tap runs `onTap`; holding for LONG_PRESS_MS runs `onLongPress` instead and swallows the
+ * click that follows the release, so holding never adds. Without `onLongPress` a hold does nothing.
+ */
+function useLongPress() {
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fired = useRef(false);
+  useEffect(() => () => {
+    if (timer.current) clearTimeout(timer.current);
+  }, []);
+  const cancel = () => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = null;
+  };
+  return (onTap: () => void, onLongPress?: () => void) => ({
+    onPointerDown: () => {
+      cancel();
+      fired.current = false;
+      timer.current = setTimeout(() => {
+        timer.current = null;
+        fired.current = true;
+        if (!onLongPress) return;
+        onLongPress();
+        navigator.vibrate?.(30);
+      }, LONG_PRESS_MS);
+    },
+    onPointerUp: cancel,
+    onPointerLeave: cancel,
+    onPointerCancel: cancel,
+    onContextMenu: (event: { preventDefault: () => void }) => event.preventDefault(),
+    onClick: () => {
+      if (fired.current) {
+        fired.current = false;
+        return;
+      }
+      onTap();
+    },
+  });
 }
 
 function CategoryPill({ selected, onClick, children }: { selected: boolean; onClick: () => void; children: string }) {

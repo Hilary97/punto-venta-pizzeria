@@ -10,6 +10,7 @@ import {
   pizzaQuantity,
   productQuantity,
   removeDraftLine,
+  removeProductFromDraft,
   restoreDraftLine,
   setDraftLineNotes,
 } from './orderDraft'
@@ -181,5 +182,26 @@ describe('restoreDraftLine', () => {
   it('clamps the position to the end and ignores a line that is already back', () => {
     expect(restoreDraftLine([margarita], soda, 5)).toEqual([margarita, soda])
     expect(restoreDraftLine([margarita, soda], soda, 0)).toEqual([margarita, soda])
+  })
+})
+
+describe('removeProductFromDraft', () => {
+  it('takes one unit off the matching product and drops the line at zero', () => {
+    const two = [{ ...margarita, quantity: 2 }, soda]
+    const one = removeProductFromDraft(two, 'p1', null)
+    expect(one).toEqual([margarita, soda])
+    expect(removeProductFromDraft(one, 'p1', null)).toEqual([soda])
+  })
+
+  it('only touches the given variant and takes from the most recent line', () => {
+    const res: DraftLine = { ...margarita, lineId: 'a', productId: 'b1', variant: 'Res' }
+    const pollo: DraftLine = { ...margarita, lineId: 'b', productId: 'b1', variant: 'Pollo' }
+    const polloNote: DraftLine = { ...pollo, lineId: 'c', notes: 'sin cebolla' }
+    expect(removeProductFromDraft([res, pollo, polloNote], 'b1', 'Pollo').map((l) => l.lineId)).toEqual(['a', 'b'])
+  })
+
+  it('leaves the draft unchanged when the product is not in it', () => {
+    const draft = [margarita, pizzaLine]
+    expect(removeProductFromDraft(draft, 'zz', null)).toBe(draft)
   })
 })

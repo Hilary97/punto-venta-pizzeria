@@ -33,6 +33,7 @@ import {
   addPizzaToDraft,
   addToDraft,
   decrementDraftLine,
+  removeProductFromDraft,
   draftItemCount,
   draftToPayload,
   pizzaQuantity,
@@ -449,6 +450,7 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
             productQuantity={(productId) => productQuantity(draft, productId)}
             variantQuantity={(productId, variant) => productQuantity(draft, productId, variant)}
             onAddProduct={addProduct}
+            onRemoveProduct={(product, variant) => updateDraft((c) => removeProductFromDraft(c, product.id, variant))}
             canBuildPizza={hasPizzaBuilder}
             pizzaCount={pizzaQuantity(draft)}
             onBuildPizza={() => setIsBuilderOpen(true)}

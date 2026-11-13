@@ -10,6 +10,7 @@ interface ProductsStepProps {
   productQuantity: (productId: string) => number
   variantQuantity: (productId: string, variant: string) => number
   onAddProduct: (product: Product, variant: string | null) => void
+  onRemoveProduct?: (product: Product, variant: string | null) => void
   /** Whether the pizza builder can be offered (the pizza catalog has sizes). */
   canBuildPizza: boolean
   pizzaCount: number
@@ -27,6 +28,7 @@ export function ProductsStep({
   productQuantity,
   variantQuantity,
   onAddProduct,
+  onRemoveProduct,
   canBuildPizza,
   pizzaCount,
   onBuildPizza,
@@ -69,6 +71,7 @@ export function ProductsStep({
         productQuantity={productQuantity}
         variantQuantity={variantQuantity}
         onAddProduct={onAddProduct}
+        onRemoveProduct={onRemoveProduct}
         disabled={disabled}
         showPrices={false}
       />

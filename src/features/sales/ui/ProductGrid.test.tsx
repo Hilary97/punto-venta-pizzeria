@@ -1,7 +1,7 @@
-import { render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Category, Product } from '../../products/domain/product'
 import { ProductGrid } from './ProductGrid'
 
@@ -28,6 +28,7 @@ function Harness({ products, showPrices = false }: { products: Product[]; showPr
       productQuantity={(id) => Object.entries(counts).reduce((sum, [k, n]) => (k.startsWith(`${id}|`) ? sum + n : sum), 0)}
       variantQuantity={(id, variant) => counts[key(id, variant)] ?? 0}
       onAddProduct={(p, variant) => setCounts((c) => ({ ...c, [key(p.id, variant)]: (c[key(p.id, variant)] ?? 0) + 1 }))}
+      onRemoveProduct={(p, variant) => setCounts((c) => ({ ...c, [key(p.id, variant)]: Math.max(0, (c[key(p.id, variant)] ?? 0) - 1) }))}
       showPrices={showPrices}
     />
   )
@@ -154,5 +155,54 @@ describe('ProductGrid search and categories', () => {
     expect(screen.queryByRole('button', { name: 'Coca-Cola' })).not.toBeInTheDocument()
     await user.type(screen.getByRole('searchbox'), 'zzz')
     expect(screen.getByText('No hay productos que coincidan con la búsqueda y categoría.')).toBeVisible()
+  })
+})
+
+describe('ProductGrid long press', () => {
+  afterEach(() => vi.useRealTimers())
+
+  function longPress(el: HTMLElement) {
+    fireEvent.pointerDown(el)
+    act(() => vi.advanceTimersByTime(500))
+    fireEvent.pointerUp(el)
+    fireEvent.click(el)
+  }
+
+  it('removes one unit when a product tile is held, and unmarks it at zero', () => {
+    vi.useFakeTimers()
+    render(<Harness products={[product({ id: 'p', name: 'Cerveza' })]} />)
+    const tile = screen.getByRole('button', { name: 'Cerveza' })
+    fireEvent.click(tile)
+    fireEvent.click(tile)
+    expect(screen.getByText('×2')).toBeInTheDocument()
+
+    longPress(tile)
+    expect(screen.getByText('×1')).toBeInTheDocument()
+    longPress(tile)
+    expect(screen.queryByText(/×\d/)).not.toBeInTheDocument()
+    expect(tile.closest('li')).not.toHaveClass('border-red-700')
+  })
+
+  it('removes one unit of the held variant only', () => {
+    vi.useFakeTimers()
+    render(<Harness products={[product({ id: 'b', name: 'Monster', variants: ['Res', 'Pollo'] })]} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Res' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Pollo' }))
+    longPress(screen.getByRole('button', { name: /Pollo/ }))
+    expect(screen.getByRole('button', { name: /Res/ })).toHaveTextContent('×1')
+    expect(screen.getByRole('button', { name: 'Pollo' })).not.toHaveTextContent('×')
+  })
+
+  it('a short press still adds, and holding a tile not in the order does nothing', () => {
+    vi.useFakeTimers()
+    render(<Harness products={[product({ id: 'p', name: 'Agua' })]} />)
+    const tile = screen.getByRole('button', { name: 'Agua' })
+    longPress(tile)
+    expect(screen.queryByText(/×\d/)).not.toBeInTheDocument()
+    fireEvent.pointerDown(tile)
+    act(() => vi.advanceTimersByTime(200))
+    fireEvent.pointerUp(tile)
+    fireEvent.click(tile)
+    expect(screen.getByText('×1')).toBeInTheDocument()
   })
 })

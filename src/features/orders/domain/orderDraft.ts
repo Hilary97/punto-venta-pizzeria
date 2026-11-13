@@ -65,6 +65,15 @@ export function decrementDraftLine(draft: DraftLine[], lineId: string): DraftLin
     .filter((line) => line.quantity > 0)
 }
 
+/**
+ * Takes one unit of a product (and variant) off the draft, from its most recently added line.
+ * Returns the same draft when the product is not in it.
+ */
+export function removeProductFromDraft(draft: DraftLine[], productId: string, variant: string | null): DraftLine[] {
+  const line = draft.findLast((l) => l.kind === 'product' && l.productId === productId && l.variant === variant)
+  return line ? decrementDraftLine(draft, line.lineId) : draft
+}
+
 /** Removes a line from the draft entirely, regardless of quantity. */
 export function removeDraftLine(draft: DraftLine[], lineId: string): DraftLine[] {
   return draft.filter((line) => line.lineId !== lineId)
