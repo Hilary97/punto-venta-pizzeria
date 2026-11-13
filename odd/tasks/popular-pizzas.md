@@ -14,9 +14,9 @@ Branch: feat/popular-pizzas. The user applies the migration in Supabase (CLI lin
 
 ## Tasks
 
-- T1 (S1, S2, S5) — migration `popular_pizzas` + RPCs `list_popular_pizzas()` (admin/cashier) and `device_list_popular_pizzas(secret)`, PGlite tests. Route: inline. Commit: pending (GREEN 7/7 PGlite)
-- T2 (S2-S5) — OrdersSource.loadPopularPizzas for both sources, Productos tiles, UI tests. Route: inline. Commit: pending
-- T2b (S6) — fixed list: table + admin RPCs + merge into list RPCs, PGlite tests; Admin > Pizzas section, UI tests. Route: inline. Commit: pending
+- T1 (S1, S2, S5) — migration `popular_pizzas` + RPCs `list_popular_pizzas()` (admin/cashier) and `device_list_popular_pizzas(secret)`, PGlite tests. Route: inline. Commit: `903710a` (done; PGlite RED 6/7 -> GREEN 7/7; db suite 407)
+- T2 (S2-S5) — OrdersSource.loadPopularPizzas for both sources, Productos tiles, UI tests. Route: inline. Commit: `b58fab1` (done; RED 2/3 -> GREEN; 486 tests). Slice boundary: commits 1-2 ~508 lines; T2b is slice 2.
+- T2b (S6) — fixed list: table + admin RPCs + merge into list RPCs, PGlite tests; Admin > Pizzas section, UI tests. Route: inline. Commit: `f43bbdc` (done; PGlite RED 7/7 -> GREEN 14/14; db suite 414; UI 358 green; full suite 1260, build OK; UI section RED not observed: the test failed on the missing module only)
 - T3 (S1-S6) — verify (high risk: new security definer RPCs exposed to anon devices). Route: gentle-ai-verify. Commit: n/a
 
 ## Log
