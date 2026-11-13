@@ -1,6 +1,7 @@
 import { Button } from '../../../shared/ui/Button'
 import { cn } from '../../../shared/ui/cn'
 import type { Category, Product } from '../../products/domain/product'
+import { useLongPress } from '../../../shared/ui/useLongPress'
 import { ProductGrid, QuantityBadge } from '../../sales/ui/ProductGrid'
 import { StepBar } from './StepBar'
 
@@ -11,6 +12,8 @@ export interface QuickPizzaTile {
   /** Units of this exact pizza already in the order. */
   quantity: number
   onAdd: () => void
+  /** Holding the tile takes one of this pizza off the order. */
+  onRemove?: () => void
 }
 
 interface ProductsStepProps {
@@ -49,6 +52,7 @@ export function ProductsStep({
   aboveBottomNav,
   disabled = false,
 }: ProductsStepProps) {
+  const press = useLongPress()
   return (
     <section aria-labelledby="productos-heading" className="flex min-w-0 flex-col gap-4">
       <h2 id="productos-heading" tabIndex={-1} data-step-heading className="text-lg font-bold text-slate-900 focus:outline-none">
@@ -88,9 +92,9 @@ export function ProductsStep({
                 key={pizza.key}
                 type="button"
                 disabled={disabled}
-                onClick={pizza.onAdd}
+                {...press(pizza.onAdd, pizza.quantity > 0 ? pizza.onRemove : undefined)}
                 aria-label={`Agregar ${pizza.name}`}
-                className="relative min-h-[68px] rounded-xl border border-[#9FE34B]/70 bg-[#9FE34B]/20 px-3 py-2 text-left text-[13px] font-semibold leading-snug text-lime-950 shadow-sm hover:bg-[#9FE34B]/35 disabled:opacity-50 dark:border-[#9FE34B]/50 dark:bg-[#9FE34B]/12 dark:text-lime-50 dark:hover:bg-[#9FE34B]/20"
+                className="relative min-h-[68px] select-none rounded-xl [-webkit-touch-callout:none] border border-[#9FE34B]/70 bg-[#9FE34B]/20 px-3 py-2 text-left text-[13px] font-semibold leading-snug text-lime-950 shadow-sm hover:bg-[#9FE34B]/35 disabled:opacity-50 dark:border-[#9FE34B]/50 dark:bg-[#9FE34B]/12 dark:text-lime-50 dark:hover:bg-[#9FE34B]/20"
               >
                 <span className="line-clamp-3">{pizza.name.replace(/^Pizza /, '')}</span>
                 {pizza.quantity > 0 && <QuantityBadge quantity={pizza.quantity} />}

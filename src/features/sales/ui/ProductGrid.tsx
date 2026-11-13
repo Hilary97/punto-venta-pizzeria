@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { Input } from "../../../shared/ui/Input";
 import { cn } from "../../../shared/ui/cn";
+import { useLongPress } from "../../../shared/ui/useLongPress";
 import { MoneyText } from "../../../shared/ui/MoneyText";
 import { isSoldOut, type Category, type Product } from "../../products/domain/product";
 
@@ -180,48 +181,6 @@ export function ProductGrid({
       )}
     </div>
   );
-}
-
-const LONG_PRESS_MS = 500;
-
-/**
- * Tap runs `onTap`; holding for LONG_PRESS_MS runs `onLongPress` instead and swallows the
- * click that follows the release, so holding never adds. Without `onLongPress` a hold does nothing.
- */
-function useLongPress() {
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const fired = useRef(false);
-  useEffect(() => () => {
-    if (timer.current) clearTimeout(timer.current);
-  }, []);
-  const cancel = () => {
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = null;
-  };
-  return (onTap: () => void, onLongPress?: () => void) => ({
-    onPointerDown: () => {
-      cancel();
-      fired.current = false;
-      timer.current = setTimeout(() => {
-        timer.current = null;
-        fired.current = true;
-        if (!onLongPress) return;
-        onLongPress();
-        navigator.vibrate?.(30);
-      }, LONG_PRESS_MS);
-    },
-    onPointerUp: cancel,
-    onPointerLeave: cancel,
-    onPointerCancel: cancel,
-    onContextMenu: (event: { preventDefault: () => void }) => event.preventDefault(),
-    onClick: () => {
-      if (fired.current) {
-        fired.current = false;
-        return;
-      }
-      onTap();
-    },
-  });
 }
 
 function CategoryPill({ selected, onClick, children }: { selected: boolean; onClick: () => void; children: string }) {

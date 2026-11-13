@@ -10,6 +10,7 @@ import {
   pizzaQuantity,
   productQuantity,
   removeDraftLine,
+  removePizzaFromDraft,
   removeProductFromDraft,
   restoreDraftLine,
   setDraftLineNotes,
@@ -203,5 +204,24 @@ describe('removeProductFromDraft', () => {
   it('leaves the draft unchanged when the product is not in it', () => {
     const draft = [margarita, pizzaLine]
     expect(removeProductFromDraft(draft, 'zz', null)).toBe(draft)
+  })
+})
+
+describe('removePizzaFromDraft', () => {
+  const other: PizzaConfig = { ...config, size: 'chica' }
+
+  it('takes one unit off the most recent identical pizza and drops the line at zero', () => {
+    let draft = addPizzaToDraft([], { lineId: 'a', pizza: config, name: 'Grande', notes: '' })
+    draft = addPizzaToDraft(draft, { lineId: 'b', pizza: other, name: 'Chica', notes: '' })
+    draft = addPizzaToDraft(draft, { lineId: 'c', pizza: { ...config }, name: 'Grande', notes: 'bien cocida' })
+
+    const once = removePizzaFromDraft(draft, config)
+    expect(once.map((line) => line.lineId)).toEqual(['a', 'b'])
+    expect(removePizzaFromDraft(once, config).map((line) => line.lineId)).toEqual(['b'])
+  })
+
+  it('leaves the draft unchanged when that pizza is not in it', () => {
+    const draft = addPizzaToDraft([margarita], { lineId: 'b', pizza: other, name: 'Chica', notes: '' })
+    expect(removePizzaFromDraft(draft, config)).toBe(draft)
   })
 })

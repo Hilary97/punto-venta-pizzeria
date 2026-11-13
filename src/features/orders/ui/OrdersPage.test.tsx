@@ -1155,6 +1155,37 @@ describe('popular pizzas (Más vendidas)', () => {
     )
   })
 
+  it('holding a tile removes one of that pizza; holding one not in the order does nothing', async () => {
+    vi.mocked(listPizzaCatalog).mockResolvedValue(pizzaCatalogFixture)
+    vi.mocked(listPopularPizzas).mockResolvedValue([mitadesGrande, varasChica])
+    const user = userEvent.setup()
+    renderPage()
+    await startOrder(user, { table: 6 })
+    const section = await screen.findByRole('region', { name: 'Más vendidas' })
+    const [grande, chica] = within(section).getAllByRole('button') as [HTMLElement, HTMLElement]
+    await user.click(chica)
+    await user.click(chica)
+
+    vi.useFakeTimers()
+    try {
+      const hold = (el: HTMLElement) => {
+        fireEvent.pointerDown(el)
+        act(() => vi.advanceTimersByTime(500))
+        fireEvent.pointerUp(el)
+        fireEvent.click(el)
+      }
+      hold(chica)
+      expect(within(chica).getByText('×1')).toBeVisible()
+      hold(grande)
+      expect(within(grande).queryByText(/×/)).not.toBeInTheDocument()
+      hold(chica)
+      expect(within(chica).queryByText(/×/)).not.toBeInTheDocument()
+      expect(within(screen.getByRole('button', { name: /armar pizza/i })).queryByText(/×/)).not.toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('skips pizzas no longer in the catalog and sizes without dough', async () => {
     vi.mocked(listPizzaCatalog).mockResolvedValue({
       ...pizzaCatalogFixture,

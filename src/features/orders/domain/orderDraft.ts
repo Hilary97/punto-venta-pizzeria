@@ -74,6 +74,13 @@ export function removeProductFromDraft(draft: DraftLine[], productId: string, va
   return line ? decrementDraftLine(draft, line.lineId) : draft
 }
 
+/** Takes one unit off the most recent pizza line with the same configuration; unchanged when there is none. */
+export function removePizzaFromDraft(draft: DraftLine[], pizza: PizzaConfig): DraftLine[] {
+  const key = JSON.stringify(pizza)
+  const line = draft.findLast((l) => l.kind === 'pizza' && JSON.stringify(l.pizza) === key)
+  return line ? decrementDraftLine(draft, line.lineId) : draft
+}
+
 /** Removes a line from the draft entirely, regardless of quantity. */
 export function removeDraftLine(draft: DraftLine[], lineId: string): DraftLine[] {
   return draft.filter((line) => line.lineId !== lineId)

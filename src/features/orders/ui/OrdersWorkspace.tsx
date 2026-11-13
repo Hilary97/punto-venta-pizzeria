@@ -33,6 +33,7 @@ import {
   addPizzaToDraft,
   addToDraft,
   decrementDraftLine,
+  removePizzaFromDraft,
   removeProductFromDraft,
   draftItemCount,
   draftToPayload,
@@ -486,6 +487,7 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
                 .filter((line) => line.kind === 'pizza' && JSON.stringify(line.pizza) === key)
                 .reduce((sum, line) => sum + line.quantity, 0),
               onAdd: () => handleAddPizza({ config, name, notes: '' }),
+              onRemove: () => updateDraft((c) => removePizzaFromDraft(c, config)),
             }))}
             itemCount={draftItemCount(draft)}
             onReview={() => setStep('revisar')}
