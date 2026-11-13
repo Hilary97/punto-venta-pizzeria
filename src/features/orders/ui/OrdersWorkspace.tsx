@@ -163,7 +163,6 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
   // Quick pizzas are a convenience: a failure only hides them.
   useEffect(() => {
     let active = true
-    setPopularPizzas([])
     source
       .loadPopularPizzas?.()
       .then((configs) => {

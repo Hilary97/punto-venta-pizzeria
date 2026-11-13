@@ -17,6 +17,7 @@ import {
 } from '../infrastructure/pizzaAdminRepository'
 import { AdminPizzasPage } from './AdminPizzasPage'
 
+vi.mock('./QuickPizzasSection', () => ({ QuickPizzasSection: () => null }))
 vi.mock('../infrastructure/pizzaAdminRepository', () => ({
   listAdminPizzaCatalog: vi.fn(),
   createIngredient: vi.fn(),
