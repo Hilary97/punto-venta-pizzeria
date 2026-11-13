@@ -102,7 +102,7 @@ beforeEach(async () => {
     ).rows[0].id
   }
   burgerId = await product('Hamburguesas', 'grill', 101, 'Hamburguesa Sencilla')
-  sliceId = await product('Rebanadas', 'pizza', 102, 'Rebanada Pepperoni')
+  sliceId = await product('Calzones', 'pizza', 102, 'Calzone Pepperoni')
   drinkId = await product('Bebidas', null, 103, 'Refresco')
 
   const admin = await createProfile(db, { role: 'admin', fullName: 'Admin' })
@@ -137,7 +137,7 @@ describe('a scheduled order waiting to enter the queue', () => {
 
     const pizza = await kitchen(pizzaSecret)
     expect(pizza.map((t) => [t.id, t.waiting, t.token])).toEqual([[scheduled, true, null]])
-    expect(pizza[0].lines.map((l: Json) => l.product_name)).toEqual(['Rebanada Pepperoni'])
+    expect(pizza[0].lines.map((l: Json) => l.product_name)).toEqual(['Calzone Pepperoni'])
 
     // Listing never releases it nor gives it a token.
     expect(await row(scheduled)).toEqual({ token: null, queued_at: null })

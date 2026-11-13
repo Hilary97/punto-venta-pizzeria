@@ -166,6 +166,50 @@ describe('station assignment', () => {
     expect(byName('Refresco').delivered_at).toBeNull()
   })
 
+  it('sends slices without fries straight to delivery and slices with fries to the grill', async () => {
+    await asSuperuser(db)
+    const cat = await db.query<{ id: string }>(
+      `insert into public.categories (name, sort_order, kitchen_station) values ('Rebanadas-Pizza', 104, 'pizza') returning id`,
+    )
+    const prods = await db.query<{ id: string; name: string }>(
+      `insert into public.products (category_id, name, price_cents, active, variants) values
+         ($1, 'Rebanada Pepperoni', 3000, true, '{}'),
+         ($1, 'Rebanada Pepperoni con papas', 5000, true, '{}'),
+         ($1, 'Rebanada Hawaiana', 3000, true, '{Sola,Con papas,Sin papas}'),
+         ($1, 'Rebanada-Papa Francesa', 5000, true, '{}'),
+         ($1, 'Rebanada-Papa Gajo', 5000, true, '{}') returning id, name`,
+      [cat.rows[0].id],
+    )
+    const pid = (n: string) => prods.rows.find((p) => p.name === n)!.id
+    const id = await createOrder([
+      { product_id: pid('Rebanada Pepperoni'), quantity: 1 },
+      { product_id: pid('Rebanada Pepperoni con papas'), quantity: 1 },
+      { product_id: pid('Rebanada-Papa Francesa'), quantity: 1 },
+      { product_id: pid('Rebanada-Papa Gajo'), quantity: 1 },
+    ])
+    await addItems(id, [
+      { product_id: pid('Rebanada Hawaiana'), quantity: 1, variant: 'Sola' },
+      { product_id: pid('Rebanada Hawaiana'), quantity: 1, variant: 'Con papas' },
+      { product_id: pid('Rebanada Hawaiana'), quantity: 1, variant: 'Sin papas' },
+    ])
+
+    await asSuperuser(db)
+    const lines = await db.query<{ product_name: string; variant: string | null; station: string | null; ready: boolean }>(
+      `select product_name, variant, station, ready_at is not null as ready from public.order_items
+       where order_id = $1 order by product_name, variant`,
+      [id],
+    )
+    expect(lines.rows).toEqual([
+      { product_name: 'Rebanada Hawaiana', variant: 'Con papas', station: 'grill', ready: false },
+      { product_name: 'Rebanada Hawaiana', variant: 'Sin papas', station: null, ready: true },
+      { product_name: 'Rebanada Hawaiana', variant: 'Sola', station: null, ready: true },
+      { product_name: 'Rebanada Pepperoni', variant: null, station: null, ready: true },
+      { product_name: 'Rebanada Pepperoni con papas', variant: null, station: 'grill', ready: false },
+      { product_name: 'Rebanada-Papa Francesa', variant: null, station: 'grill', ready: false },
+      { product_name: 'Rebanada-Papa Gajo', variant: null, station: 'grill', ready: false },
+    ])
+  })
+
   it('rejects an invalid station value', async () => {
     await asSuperuser(db)
     await expect(db.query(`update public.categories set kitchen_station = 'bar' where name = 'Bebidas'`)).rejects.toThrow()
