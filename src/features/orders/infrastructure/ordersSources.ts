@@ -3,7 +3,7 @@ import { getSupabaseClient } from '../../../shared/supabase/client'
 import { subscribeKitchenChanges } from '../../kitchen/infrastructure/kitchenRepository'
 import { parseRpcResult } from '../../../shared/supabase/rpc'
 import { listCategories, listProducts } from '../../products/infrastructure/productsRepository'
-import { listPizzaCatalog, pizzaCatalogSchema } from '../../pizza/infrastructure/pizzaRepository'
+import { listPizzaCatalog, listPopularPizzas, pizzaCatalogSchema, popularPizzasSchema } from '../../pizza/infrastructure/pizzaRepository'
 import type { OrdersCatalog, OrdersSource } from '../domain/ordersSource'
 import {
   addOrderItems,
@@ -27,6 +27,7 @@ export const authenticatedOrdersSource: OrdersSource = {
     ])
     return { categories, products, pizza }
   },
+  loadPopularPizzas: listPopularPizzas,
   listOpenOrders,
   createOrder,
   addOrderItems,
@@ -97,6 +98,13 @@ export function createDeviceOrdersSource(
         })),
         pizza: result.pizza,
       }
+    },
+
+    async loadPopularPizzas() {
+      const { data, error } = await getSupabaseClient().rpc('device_list_popular_pizzas', {
+        p_device_secret: secret,
+      })
+      return parseRpcResult(popularPizzasSchema, data, error, 'No se pudieron cargar las pizzas más vendidas.')
     },
 
     async listOpenOrders() {
