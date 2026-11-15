@@ -84,13 +84,10 @@ describe('QuickPizzasSection', () => {
     render(<QuickPizzasSection />)
     await user.click(await screen.findByRole('button', { name: 'Agregar pizza rápida' }))
     const dialog = screen.getByRole('dialog', { name: /armar pizza/i })
-    for (let i = 0; i < 6 && !within(dialog).queryByRole('button', { name: 'Fijar pizza' }); i++) {
-      const card = within(dialog).queryByRole('button', { name: /Estilo Varas/ })
-      if (card && card.getAttribute('aria-pressed') !== 'true') await user.click(card)
-      await user.click(within(dialog).getByRole('button', { name: /^Siguiente/ }))
-    }
-    const card = within(dialog).queryByRole('button', { name: /Estilo Varas/ })
-    if (card && card.getAttribute('aria-pressed') !== 'true') await user.click(card)
+    // Size → style (no ingredients to choose): "Fijar pizza" is ready without any "Siguiente".
+    await user.click(within(dialog).getByRole('button', { name: 'Chica' }))
+    expect(within(dialog).queryByRole('button', { name: /^Siguiente/ })).not.toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: /Estilo Varas/ }))
     expect(within(dialog).queryByRole('group', { name: 'Cantidad de pizzas' })).not.toBeInTheDocument()
     expect(within(dialog).queryByLabelText('Nota de la pizza (opcional)')).not.toBeInTheDocument()
     await user.click(within(dialog).getByRole('button', { name: 'Fijar pizza' }))
@@ -107,13 +104,10 @@ describe('QuickPizzasSection', () => {
     render(<QuickPizzasSection />)
     await user.click(await screen.findByRole('button', { name: 'Agregar pizza rápida' }))
     const dialog = screen.getByRole('dialog', { name: /armar pizza/i })
-    for (let i = 0; i < 6 && !within(dialog).queryByRole('button', { name: 'Fijar pizza' }); i++) {
-      const card = within(dialog).queryByRole('button', { name: /Estilo Varas/ })
-      if (card && card.getAttribute('aria-pressed') !== 'true') await user.click(card)
-      await user.click(within(dialog).getByRole('button', { name: /^Siguiente/ }))
-    }
-    const card = within(dialog).queryByRole('button', { name: /Estilo Varas/ })
-    if (card && card.getAttribute('aria-pressed') !== 'true') await user.click(card)
+    // Size → style (no ingredients to choose): "Fijar pizza" is ready without any "Siguiente".
+    await user.click(within(dialog).getByRole('button', { name: 'Chica' }))
+    expect(within(dialog).queryByRole('button', { name: /^Siguiente/ })).not.toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: /Estilo Varas/ }))
     await user.click(within(dialog).getByRole('button', { name: 'Fijar pizza' }))
     expect(await screen.findByText('Esa pizza ya está en la lista.')).toBeVisible()
   })

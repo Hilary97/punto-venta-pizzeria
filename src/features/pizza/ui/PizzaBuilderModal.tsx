@@ -1,4 +1,4 @@
-import { useId, useMemo, useState } from 'react'
+import { useId, useMemo, useRef, useState } from 'react'
 import { Button } from '../../../shared/ui/Button'
 import { byName } from '../../../shared/sortByName'
 import { cn } from '../../../shared/ui/cn'
@@ -7,7 +7,7 @@ import { Textarea } from '../../../shared/ui/Textarea'
 import { MAX_ITEM_NOTES_LENGTH } from '../../orders/domain/order'
 import { describePizza, isSizeSoldOut, portionLabel, validatePizzaConfig, validatePortion } from '../domain/pizza'
 import type { PizzaCatalog, PizzaConfig, PizzaPortion, PizzaSize, PizzaSizeCode, PizzaStyle } from '../domain/pizza'
-import { buildConfig, hasStyle, initialPortions, resizePortions, sortBuilderStyles, togglePizzaExtra } from '../domain/pizzaBuilder'
+import { buildConfig, hasChileVariants, hasStyle, initialPortions, resizePortions, sortBuilderStyles, togglePizzaExtra } from '../domain/pizzaBuilder'
 import { PizzaDiagram } from './PizzaDiagram'
 import { PortionEditor } from './PortionEditor'
 import { StyleCards } from './StyleCards'
@@ -28,7 +28,7 @@ interface PizzaBuilderModalProps {
   quickPick?: boolean
 }
 
-type Step = { kind: 'size' } | { kind: 'division' } | { kind: 'portion'; index: number }
+type Step = { kind: 'size' } | { kind: 'portion'; index: number }
 
 const MAX_QUANTITY = 20
 
@@ -65,6 +65,11 @@ function sameStep(a: Step, b: Step): boolean {
   return a.kind === b.kind && (a.kind !== 'portion' || (b.kind === 'portion' && a.index === b.index))
 }
 
+/** A style with nothing to choose (no included ingredients, no chiles): picking it completes its portion. */
+function hasNoChoices(style: PizzaStyle | undefined): boolean {
+  return style !== undefined && style.includedIngredients === 0 && !hasChileVariants(style)
+}
+
 export function PizzaBuilderModal({ catalog, onAdd, onClose, quickPick = false }: PizzaBuilderModalProps) {
   const notesId = useId()
   const sizes = useMemo(() => [...catalog.sizes].sort((a, b) => a.sortOrder - b.sortOrder), [catalog.sizes])
@@ -80,6 +85,8 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose, quickPick = false }
   const [step, setStep] = useState<Step>({ kind: 'size' })
   /** Portions whose style was picked: their style list shows collapsed. */
   const [collapsed, setCollapsed] = useState<number[]>([])
+  /** Style id of the latest card tap, set by the card's change handler and read by its pick handler. */
+  const pickedStyleId = useRef<string | undefined>(undefined)
 
   if (sizes.length === 0) return null
 
@@ -95,7 +102,6 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose, quickPick = false }
 
   const flow: Step[] = [
     { kind: 'size' },
-    ...(hasDivision ? [{ kind: 'division' } as const] : []),
     ...portions.map((_, index) => ({ kind: 'portion', index }) as const),
   ]
   const position = Math.max(0, flow.findIndex((candidate) => sameStep(candidate, step)))
@@ -108,16 +114,19 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose, quickPick = false }
   function stepName(target: Step | undefined): string {
     if (!target) return ''
     if (target.kind === 'size') return 'Tamaño'
-    if (target.kind === 'division') return 'División'
     return portionStepName(count, target.index)
   }
 
   function selectSize(code: PizzaSizeCode) {
     const next = sizes.find((candidate) => candidate.code === code)
     if (!next) return
-    setSizeCode(code)
-    setCollapsed([])
-    setPortions((existing) => resizePortions(existing, next))
+    // Tapping the size already selected keeps everything chosen and just moves on.
+    if (code !== size?.code) {
+      setSizeCode(code)
+      setCollapsed([])
+      setPortions((existing) => resizePortions(existing, next))
+    }
+    setStep({ kind: 'portion', index: 0 })
   }
 
   function selectDivision(next: number) {
@@ -131,6 +140,14 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose, quickPick = false }
 
   function updatePortion(index: number, portion: PizzaPortion) {
     setPortions((existing) => existing.map((candidate, i) => (i === index ? portion : candidate)))
+  }
+
+  /** After a style card tap: a style with nothing to choose moves to the next portion (the last one stays). */
+  function pickStyle(index: number) {
+    const styleId = pickedStyleId.current ?? portions[index]?.styleId
+    pickedStyleId.current = undefined
+    setCollapsed((existing) => (existing.includes(index) ? existing : [...existing, index]))
+    if (index < count - 1 && hasNoChoices(styles.find((candidate) => candidate.id === styleId))) setStep({ kind: 'portion', index: index + 1 })
   }
 
   function goTo(target: Step | undefined) {
@@ -158,11 +175,6 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose, quickPick = false }
 
   const headerItems = [
     { label: 'Tamaño', value: size?.name ?? '', state: current.kind === 'size' ? 'cur' : 'done' },
-    {
-      label: 'División',
-      value: portionLabel(count),
-      state: current.kind === 'division' ? 'cur' : current.kind === 'size' ? 'todo' : 'done',
-    },
     ...portions.map((portion, index) => ({
       label: portionStepName(count, index),
       value: shortStyle(styleOf(portion)),
@@ -236,22 +248,6 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose, quickPick = false }
           </fieldset>
         )}
 
-        {current.kind === 'division' && size && (
-          <fieldset className="flex flex-col gap-2">
-            <legend className="mb-2 text-sm font-medium text-slate-700">División</legend>
-            <div className="flex flex-wrap gap-2">
-              {size.allowedPortions.map((option) => (
-                <ToggleChip
-                  key={option}
-                  label={portionLabel(option)}
-                  pressed={count === option}
-                  onToggle={() => selectDivision(option)}
-                />
-              ))}
-            </div>
-          </fieldset>
-        )}
-
         {current.kind === 'portion' && (
           <>
             <div className="flex items-center gap-3">
@@ -261,13 +257,31 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose, quickPick = false }
                 Elige el estilo
               </p>
             </div>
+            {current.index === 0 && hasDivision && size && (
+              <fieldset className="flex flex-col gap-2">
+                <legend className="mb-2 text-sm font-medium text-slate-700">División</legend>
+                <div className="flex flex-wrap gap-2">
+                  {size.allowedPortions.map((option) => (
+                    <ToggleChip
+                      key={option}
+                      label={portionLabel(option)}
+                      pressed={count === option}
+                      onToggle={() => selectDivision(option)}
+                    />
+                  ))}
+                </div>
+              </fieldset>
+            )}
             <StyleCards
               title={portionTitle(count, current.index)}
               portion={activePortion}
               styles={styles}
-              onChange={(portion) => updatePortion(current.index, portion)}
+              onChange={(portion) => {
+                pickedStyleId.current = portion.styleId
+                updatePortion(current.index, portion)
+              }}
               collapsed={collapsed.includes(current.index)}
-              onPick={() => setCollapsed((existing) => (existing.includes(current.index) ? existing : [...existing, current.index]))}
+              onPick={() => pickStyle(current.index)}
               onReopen={() => setCollapsed((existing) => existing.filter((index) => index !== current.index))}
             />
 
@@ -355,11 +369,11 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose, quickPick = false }
                 {quickPick ? 'Fijar pizza' : 'Agregar pizza'}
               </Button>
             </div>
-          ) : (
+          ) : current.kind === 'portion' ? (
             <Button size="lg" disabled={noDough || portionError !== null} onClick={() => goTo(following)}>
               {`Siguiente: ${stepName(following)} →`}
             </Button>
-          )}
+          ) : null}
         </div>
       </div>
     </Modal>

@@ -1,0 +1,21 @@
+# Pizza builder auto-advance (option A)
+
+Faster pizza building without "Siguiente" taps: picking a size or a style moves on by itself, and Entera is the default division.
+Branch: main (user commits on request). Builder: src/features/pizza/ui/PizzaBuilderModal.tsx (also used by Admin > Pizzas rápidas "Fijar pizza").
+
+## Specs
+
+- S1: User: "me gustaría aplicar una mejora en armar piza necesito que sea mas rapido armar una pizzas evitar los pasos como le hariamos" — chosen option A: "Se mantienen los pasos que los meseros ya conocen, pero sin botones \"Siguiente\". Tocar un tamaño pasa solo a División, y tocar Entera o Mitades pasa solo a los estilos." / "\"Entera\" queda preseleccionada, así que se puede ir directo al estilo." / "Si el estilo elegido no lleva ingredientes a elección, \"Agregar pizza\" queda listo enseguida." / "Una pizza entera baja a unos 4 toques (abrir, tamaño, estilo, Agregar)."
+- S2: Size step: tapping an available size (also the already selected one) selects it and goes straight to the first portion step; the size step has no "Siguiente" button. Sold-out sizes stay disabled and do not advance.
+- S3: Division: the builder starts as Entera (1 portion) and the separate División step leaves the flow and the step header. When the size allows more than one division, the first portion step shows a compact division selector (Entera / Mitades / …, labelled "División") above the styles; changing it keeps the styles already chosen (current selectDivision behaviour) and adds or removes portion steps. Changing to another size that does not allow the current division falls back as resizePortions does today.
+- S4: Style: picking a style that has no ingredients to choose (PortionEditor "Este estilo no incluye ingredientes a elección") on a portion that is not the last moves to the next portion at once. On the last portion "Agregar pizza" is enabled right away. A style with ingredients to choose stays on its step; there the "Siguiente: …" button to the next portion remains.
+- S5: "← Atrás" keeps working (first portion → Tamaño). Extras, quantity, notes and "Agregar pizza"/"Fijar pizza" stay on the last portion step as today. An entera pizza with a style without ingredient choices takes: open builder, size, style, "Agregar pizza".
+
+## Tasks
+
+- T1 (S1-S5) — implement in PizzaBuilderModal, update tests that clicked "Siguiente" through size/division, add one test per rule S2-S5 (incl. tap count of S5, mitades flow, admin Fijar pizza still works). Route: gentle-ai-worker (context backstop). Done: RED 18/19 (1 preserve) -> GREEN 19/19; 1321 tests, tsc 0, oxlint 12, build OK. Open: Mexicana (chile choice) does not auto-advance; styles without included ingredients advance even though charged extras are on that step. Commit: pending (user).
+
+## Log
+
+- L1: "me gustaría aplicar una mejora en armar piza necesito que sea mas rapido armar una pizzas evitar los pasos como le hariamos"
+- L2: Proposal A/B/C given; user: "si vamos con la opcion a para empezar". Parent decision (open detail in A): division selector moves onto the first portion step so Entera needs no step; the División step is removed from the flow.
