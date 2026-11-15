@@ -573,6 +573,7 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
               const product = products.find((candidate) => candidate.id === productId)
               return product ? (noteShortcuts.categories[product.categoryId] ?? []) : []
             }}
+            pizzaNoteShortcuts={noteShortcuts.pizza}
             pickupTime={pickupTime}
             onPickupTime={setPickupTime}
             missing={missingForReview}

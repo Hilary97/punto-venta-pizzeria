@@ -46,6 +46,8 @@ interface ReviewStepProps {
   noteShortcuts?: string[]
   /** Shortcuts of the product's category, as chips under a product line's note. Pizza lines have their own. */
   productNoteShortcuts?: (productId: string) => string[]
+  /** Admin-managed pizza note shortcuts, as chips under a pizza line's note. */
+  pizzaNoteShortcuts?: string[]
   pickupTime: string
   onPickupTime: (time: string) => void
   missing: MissingPiece[]
@@ -87,6 +89,7 @@ export function ReviewStep({
   onOrderNotes,
   noteShortcuts = [],
   productNoteShortcuts,
+  pizzaNoteShortcuts = [],
   pickupTime,
   onPickupTime,
   missing,
@@ -144,6 +147,8 @@ export function ReviewStep({
             const { title, groups } = pizzaLabelLayout(label)
             const hasNote = line.notes.trim() !== ''
             const isEditing = editingNoteId === line.lineId
+            const lineShortcuts =
+              line.kind === 'product' ? (productNoteShortcuts?.(line.productId) ?? []) : pizzaNoteShortcuts
             return (
               <li key={line.lineId} className="rounded-xl border border-slate-200 bg-white p-2.5">
                 <div className="min-w-0 break-words">
@@ -174,11 +179,11 @@ export function ReviewStep({
                     </Button>
                   </div>
                 )}
-                {isEditing && !isSubmitting && line.kind === 'product' && productNoteShortcuts && (
+                {isEditing && !isSubmitting && lineShortcuts.length > 0 && (
                   <div className="mt-1.5">
                     <NoteShortcutChips
                       label={`nota de ${label}`}
-                      shortcuts={productNoteShortcuts(line.productId)}
+                      shortcuts={lineShortcuts}
                       note={line.notes}
                       maxLength={MAX_ITEM_NOTES_LENGTH}
                       onChange={(notes) => onLineNotes(line.lineId, notes)}

@@ -1748,7 +1748,7 @@ describe('category note chips (verify probes)', () => {
     expect(note).toHaveValue('x'.repeat(184))
   })
 
-  it('VU3 pizza lines get no category chips in Revisar', async () => {
+  it('VU3 pizza lines get the pizza shortcuts in Revisar, never category chips', async () => {
     vi.mocked(listPizzaCatalog).mockResolvedValue(pizzaCatalogFixture)
     vi.mocked(listNoteShortcuts).mockResolvedValue({ pizza: ['Sin cebolla'], order: [], categories: { 'cat-b': ['Sin pepinillos'], 'cat-d': ['Sin hielo'], pizza: ['X'] } })
     const user = userEvent.setup()
@@ -1758,8 +1758,14 @@ describe('category note chips (verify probes)', () => {
     await finishPizza(user)
     await user.click(screen.getByRole('button', { name: /revisar pedido/i }))
     await user.click(screen.getByRole('button', { name: 'Agregar nota a Pizza Chica: Estilo Varas' }))
-    expect(screen.queryByRole('group', { name: /^Atajos de nota de Pizza/ })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Sin cebolla' })).not.toBeInTheDocument()
+    const group = screen.getByRole('group', { name: 'Atajos de nota de Pizza Chica: Estilo Varas' })
+    expect(within(group).getAllByRole('button').map((b) => b.textContent)).toEqual(['Sin cebolla'])
+    await user.click(within(group).getByRole('button', { name: 'Sin cebolla' }))
+    expect(screen.getByRole('textbox', { name: 'Nota para Pizza Chica: Estilo Varas' })).toHaveValue('Sin cebolla')
+    await user.click(screen.getByRole('button', { name: 'Listo' }))
+    await user.click(screen.getByRole('button', { name: /enviar a cocina/i }))
+    const items = (vi.mocked(createOrder).mock.calls[0]![0] as any).items
+    expect(items.map((i: any) => i.notes)).toEqual(['Sin cebolla'])
   })
 
   it('hides the line category chips while the order is being sent, like the order note chips', async () => {

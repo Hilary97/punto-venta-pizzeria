@@ -20,7 +20,7 @@ const MAX_LABEL_LENGTH = 40
 const COPY: Record<NoteShortcutScope | 'category', { title: string; hint: string; empty: string; placeholder: string }> = {
   pizza: {
     title: 'Atajos de notas de pizza',
-    hint: 'El mesero los toca en "Armar pizza" para llenar la nota de cada porción y la nota de la pizza. Hasta 12 atajos.',
+    hint: 'El mesero los toca en "Armar pizza" para llenar la nota de cada porción y la nota de la pizza, y bajo la nota de la pizza al revisar el pedido. Hasta 12 atajos.',
     empty: 'Todavía no agregaste ningún atajo: el mesero escribe las notas a mano.',
     placeholder: 'Ej. Sin cebolla',
   },
