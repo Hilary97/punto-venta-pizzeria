@@ -20,3 +20,4 @@ Branch: feat/category-note-shortcuts, stacked on feat/pizza-portion-notes (PR #1
 - L1: "Muy bien vamos agregar atajos  para las notas de hambuerguesa tambien"
 - L2: Answers: "¿Los atajos son solo para hamburguesas o para cualquier categoría de productos?" — "Por categoría (Recomendado)"; "¿Lo sumo al PR #11 que estás revisando o va en un PR aparte?" — "PR aparte (Recomendado)". Parent decision: the admin section lives in Admin > Productos, where categories are managed.
 - L3: Verify T2 PASS; advisory (chips enabled while sending) fixed. Migration 20261203120000 NOT applied to production yet.
+- L4: User: "si aplica la migracion" — 20261203120000_category_note_shortcuts.sql applied to production (dry-run first); grants and RLS checked there; the 5 existing pizza/order shortcuts kept, none with a category.
