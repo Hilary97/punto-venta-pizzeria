@@ -3,6 +3,7 @@ import { Button } from "../../../shared/ui/Button";
 import { Input } from "../../../shared/ui/Input";
 import { cn } from "../../../shared/ui/cn";
 import {
+  customerNameLabel,
   MAX_CUSTOMER_NAME_LENGTH,
   TABLE_NUMBERS,
   tableLabel,
@@ -24,7 +25,10 @@ interface MesaStepProps {
   openOrdersCount: number;
   onOpenOrders: () => void;
   onAddToOrder: (order: Order) => void;
-  /** First thing still missing, already worded (e.g. `nombre del cliente`); `null` when the step is valid. */
+  /**
+   * First thing still missing, already worded (e.g. `nombre del cliente`); `null` when the step is valid.
+   * It is only a hint: the waiter can go on and complete it in Revisar.
+   */
   missing: string | null;
   onNext: () => void;
   aboveBottomNav: boolean;
@@ -52,10 +56,9 @@ export function MesaStep({
   const isTakeaway = service === "takeaway";
   const selected =
     tableNumber === null ? undefined : occupancy.get(tableNumber);
-  const blocked = missing !== null || selected !== undefined;
-  const nameLabel = isTakeaway
-    ? "Nombre del cliente (obligatorio para llevar)"
-    : "Nombre del cliente (opcional en mesa · obligatorio para llevar)";
+  // An occupied table is reached through "Agregar a este pedido", never as a new order.
+  const blocked = selected !== undefined;
+  const nameLabel = customerNameLabel(service);
 
   return (
     <section
@@ -187,12 +190,13 @@ export function MesaStep({
 
       <StepBar aboveBottomNav={aboveBottomNav}>
         {missing !== null && (
-          <p
+          <div
             id={hintId}
             className="text-sm font-medium text-amber-800 dark:text-amber-300"
           >
-            {`Falta: ${missing}`}
-          </p>
+            <p>{`Falta: ${missing}`}</p>
+            <p className="font-normal">Puedes completarlo al revisar.</p>
+          </div>
         )}
         <Button
           size="lg"

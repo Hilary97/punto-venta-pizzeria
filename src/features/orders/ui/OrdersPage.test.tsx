@@ -562,20 +562,22 @@ describe('guided steps: step indicator and Mesa step', () => {
     expect(screen.queryByRole('heading', { name: '¿Dónde es el pedido?' })).not.toBeInTheDocument()
   })
 
-  it('enables Siguiente only with a service and a table or a valid name, and says what is missing', async () => {
+  it('keeps Siguiente enabled while service, table or name are missing, and says what is missing', async () => {
     const user = userEvent.setup()
     renderPage()
     const next = await screen.findByRole('button', { name: /siguiente: productos/i })
-    expect(next).toBeDisabled()
+    expect(next).toBeEnabled()
     expect(screen.getByText('Falta: elegir Aquí o Para llevar')).toBeVisible()
+    expect(screen.getByText('Puedes completarlo al revisar.')).toBeVisible()
     await user.click(screen.getByRole('button', { name: 'Aquí' }))
-    expect(next).toBeDisabled()
+    expect(next).toBeEnabled()
     expect(screen.getByText('Falta: mesa o nombre del cliente')).toBeVisible()
     await user.type(screen.getByLabelText(/nombre del cliente/i), '   ')
-    expect(next).toBeDisabled()
+    expect(next).toBeEnabled()
     await user.click(tableTile(5))
     expect(next).toBeEnabled()
     expect(screen.queryByText(/^Falta:/)).not.toBeInTheDocument()
+    expect(screen.queryByText('Puedes completarlo al revisar.')).not.toBeInTheDocument()
     await user.click(tableTile(5))
     await user.type(screen.getByLabelText(/nombre del cliente/i), ' Juan ')
     expect(next).toBeEnabled()
@@ -590,7 +592,7 @@ describe('guided steps: step indicator and Mesa step', () => {
     await user.click(screen.getByRole('button', { name: 'Para llevar' }))
     expect(screen.queryByRole('group', { name: 'Mesa' })).not.toBeInTheDocument()
     const next = screen.getByRole('button', { name: /siguiente: productos/i })
-    expect(next).toBeDisabled()
+    expect(next).toBeEnabled()
     expect(screen.getByText('Falta: nombre del cliente')).toBeVisible()
     expect(screen.getByLabelText(/nombre del cliente \(obligatorio para llevar\)/i)).toBeVisible()
     await user.type(screen.getByLabelText(/nombre del cliente/i), 'Luis')
@@ -1025,7 +1027,7 @@ describe('guided steps: Revisar step', () => {
     expect(screen.getByLabelText(/nombre del cliente/i)).toHaveValue('')
     expect(screen.getByRole('button', { name: 'Aquí' })).toHaveAttribute('aria-pressed', 'false')
     expect(tableTile(4)).toHaveAttribute('aria-pressed', 'false')
-    expect(screen.getByRole('button', { name: /siguiente: productos/i })).toBeDisabled()
+    expect(screen.getByText('Falta: elegir Aquí o Para llevar')).toBeVisible()
   })
 
   it('shows an error banner and keeps the draft when sending fails', async () => {
@@ -1061,6 +1063,74 @@ describe('guided steps: Revisar step', () => {
     await reachReview(user, { table: 5 })
     await user.click(screen.getByRole('button', { name: /enviar a cocina/i }))
     expect(createOrder).toHaveBeenCalledWith(expect.objectContaining({ tableNumber: 5, customerName: null, service: 'dine_in' }))
+  })
+
+  describe('completing the order at the end', () => {
+    async function skipToReview(user: ReturnType<typeof userEvent.setup>) {
+      await user.click(await screen.findByRole('button', { name: /siguiente: productos/i }))
+      await user.click(await screen.findByRole('button', { name: 'Pizza queso' }))
+      await user.click(screen.getByRole('button', { name: /revisar pedido/i }))
+    }
+
+    it('reaches Productos and Revisar without choosing anything, blocking only the send', async () => {
+      const user = userEvent.setup()
+      renderPage()
+      await skipToReview(user)
+      expect(stepItem('Revisar')).toHaveAttribute('aria-current', 'step')
+      const checklist = screen.getByRole('list', { name: 'Lista de verificación' })
+      expect(within(checklist).getByText('Falta: elegir Aquí o Para llevar')).toBeVisible()
+      expect(within(checklist).getByText('Falta: mesa o nombre del cliente')).toBeVisible()
+      expect(screen.getByRole('button', { name: /enviar a cocina/i })).toBeDisabled()
+      const complete = screen.getByRole('region', { name: 'Completar pedido' })
+      expect(within(complete).getByRole('group', { name: 'Tipo de pedido' })).toBeVisible()
+      expect(within(complete).getByLabelText(/nombre del cliente/i)).toHaveValue('')
+    })
+
+    it('marks a takeaway order and its customer name in Revisar and sends it', async () => {
+      const user = userEvent.setup()
+      renderPage()
+      await skipToReview(user)
+      const complete = screen.getByRole('region', { name: 'Completar pedido' })
+      await user.click(within(complete).getByRole('button', { name: 'Para llevar' }))
+      expect(within(complete).queryByLabelText('Mesa')).not.toBeInTheDocument()
+      expect(within(complete).getByLabelText(/nombre del cliente \(obligatorio para llevar\)/i)).toBeVisible()
+      expect(screen.getByRole('button', { name: /enviar a cocina/i })).toBeDisabled()
+      await user.type(within(complete).getByLabelText(/nombre del cliente/i), 'Luis')
+      expect(within(complete).getByLabelText(/nombre del cliente/i)).toHaveValue('Luis')
+      expect(screen.getByRole('region', { name: 'Contexto del pedido' })).toHaveTextContent('Para llevar · Luis')
+      await user.click(screen.getByRole('button', { name: /enviar a cocina/i }))
+      expect(createOrder).toHaveBeenCalledWith({
+        tableNumber: null,
+        customerName: 'Luis',
+        items: [{ type: 'product', productId: 'p', quantity: 1 }],
+        notes: null,
+        scheduledFor: null,
+        service: 'takeaway',
+      })
+    })
+
+    it('chooses Aquí and a free table in Revisar, without offering occupied tables, and sends it', async () => {
+      vi.mocked(listOpenOrders).mockResolvedValue([openOrder])
+      const user = userEvent.setup()
+      renderPage()
+      await skipToReview(user)
+      const complete = screen.getByRole('region', { name: 'Completar pedido' })
+      await user.click(within(complete).getByRole('button', { name: 'Aquí' }))
+      const table = within(complete).getByLabelText('Mesa')
+      const options = within(table).getAllByRole('option').map((option) => option.textContent)
+      expect(options).toContain('M-5')
+      expect(options).not.toContain('M-3')
+      await user.selectOptions(table, 'M-5')
+      await user.click(screen.getByRole('button', { name: /enviar a cocina/i }))
+      expect(createOrder).toHaveBeenCalledWith(expect.objectContaining({ tableNumber: 5, customerName: null, service: 'dine_in' }))
+    })
+
+    it('does not show Completar pedido when step 1 was already complete', async () => {
+      const user = userEvent.setup()
+      renderPage()
+      await reachReview(user)
+      expect(screen.queryByRole('region', { name: 'Completar pedido' })).not.toBeInTheDocument()
+    })
   })
 
   it('places the send bar above the bottom nav', async () => {

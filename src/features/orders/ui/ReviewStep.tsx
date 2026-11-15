@@ -7,16 +7,21 @@ import { cn } from '../../../shared/ui/cn'
 import { pizzaLabelLayout } from '../../pizza/domain/pizza'
 import { PizzaLabelGroups } from '../../pizza/ui/PizzaLabelGroups'
 import {
+  customerNameLabel,
+  MAX_CUSTOMER_NAME_LENGTH,
   MAX_ITEM_NOTES_LENGTH,
   MAX_ORDER_NOTES_LENGTH,
   MISSING_LABEL,
   productLineLabel,
+  tableLabel,
   type MissingPiece,
   type Order,
+  type OrderService,
 } from '../domain/order'
 import type { DraftLine } from '../domain/orderDraft'
 import { AddingToOrderBar } from './AddingToOrderBar'
 import { OrderContextBar } from './OrderContextBar'
+import { ServiceSelector } from './ServiceSelector'
 import { StepBar } from './StepBar'
 
 /** How long the "Quitaste … · Deshacer" snackbar stays. */
@@ -39,10 +44,23 @@ interface ReviewStepProps {
   pickupTime: string
   onPickupTime: (time: string) => void
   missing: MissingPiece[]
+  /** Service, table and name, completed here when step 1 was skipped. */
+  identity: ReviewIdentity
   error: string | null
   isSubmitting: boolean
   onSubmit: (event: FormEvent) => void
   aboveBottomNav: boolean
+}
+
+export interface ReviewIdentity {
+  service: OrderService | null
+  onService: (service: OrderService | null) => void
+  tableNumber: number | null
+  onTable: (tableNumber: number | null) => void
+  customerName: string
+  onCustomerName: (name: string) => void
+  /** Tables without an open order, the only ones a new order can take. */
+  freeTables: number[]
 }
 
 function lineLabel(line: DraftLine): string {
@@ -65,12 +83,14 @@ export function ReviewStep({
   pickupTime,
   onPickupTime,
   missing,
+  identity,
   error,
   isSubmitting,
   onSubmit,
   aboveBottomNav,
 }: ReviewStepProps) {
   const pickupId = useId()
+  const completeId = useId()
   const headingRef = useRef<HTMLHeadingElement>(null)
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
   const [removed, setRemoved] = useState<{ line: DraftLine; index: number } | null>(null)
@@ -96,6 +116,8 @@ export function ReviewStep({
 
   const itemsOk = !missing.includes('products')
   const identityOk = !missing.some((piece) => piece !== 'products')
+  // Decided on arrival so the fields stay put while the waiter types the name.
+  const [showIdentity] = useState(() => !addingTo && !identityOk)
 
   return (
     <form onSubmit={onSubmit} className={cn('flex min-w-0 flex-col gap-4', removed && 'pb-16')}>
@@ -192,6 +214,48 @@ export function ReviewStep({
             )
           })}
         </ul>
+      )}
+
+      {showIdentity && (
+        <section
+          aria-labelledby={`${completeId}-title`}
+          className="flex flex-col gap-3 rounded-xl border-2 border-amber-300 bg-amber-50 p-3 dark:border-amber-700 dark:bg-amber-950/60"
+        >
+          <h3 id={`${completeId}-title`} className="text-base font-bold text-slate-900">
+            Completar pedido
+          </h3>
+          <ServiceSelector selected={identity.service} onSelect={identity.onService} disabled={isSubmitting} />
+          {identity.service !== 'takeaway' && (
+            <div className="flex flex-col gap-1">
+              <label htmlFor={`${completeId}-table`} className="text-sm font-medium text-slate-700">
+                Mesa
+              </label>
+              <select
+                id={`${completeId}-table`}
+                value={identity.tableNumber ?? ''}
+                disabled={isSubmitting}
+                onChange={(e) => identity.onTable(e.target.value === '' ? null : Number(e.target.value))}
+                className="min-h-12 w-full rounded-lg border border-slate-300 bg-white px-3 text-base text-slate-900"
+              >
+                <option value="">Sin mesa</option>
+                {identity.freeTables.map((n) => (
+                  <option key={n} value={n}>
+                    {tableLabel(n)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          <Input
+            id={`${completeId}-name`}
+            label={customerNameLabel(identity.service)}
+            value={identity.customerName}
+            maxLength={MAX_CUSTOMER_NAME_LENGTH}
+            disabled={isSubmitting}
+            autoComplete="off"
+            onChange={(e) => identity.onCustomerName(e.target.value)}
+          />
+        </section>
       )}
 
       {!addingTo && (

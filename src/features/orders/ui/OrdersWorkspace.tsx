@@ -512,6 +512,15 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
             pickupTime={pickupTime}
             onPickupTime={setPickupTime}
             missing={missingForReview}
+            identity={{
+              service,
+              onService: handleService,
+              tableNumber,
+              onTable: setTableNumber,
+              customerName,
+              onCustomerName: setCustomerName,
+              freeTables: TABLE_NUMBERS.filter((n) => !occupancy.has(n)),
+            }}
             error={actionError}
             isSubmitting={isSubmitting}
             onSubmit={handleSubmit}

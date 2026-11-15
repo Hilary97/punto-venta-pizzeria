@@ -160,6 +160,13 @@ export function normalizeNotes(raw: string | null | undefined): string | null {
   return trimmed === '' ? null : trimmed
 }
 
+/** Label of the customer name field: required on takeaway orders, optional at a table. */
+export function customerNameLabel(service: OrderService | null): string {
+  return service === 'takeaway'
+    ? 'Nombre del cliente (obligatorio para llevar)'
+    : 'Nombre del cliente (opcional en mesa · obligatorio para llevar)'
+}
+
 /** A piece an order still lacks before it can be sent. */
 export type MissingPiece = 'service' | 'table-or-name' | 'name' | 'products'
 
