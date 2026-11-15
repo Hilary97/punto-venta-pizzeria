@@ -1,9 +1,13 @@
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { PizzaCatalog, PizzaSize } from '../domain/pizza'
 import { pizzaCatalogFixture } from './pizzaCatalogFixture'
-import { PizzaBuilderModal } from './PizzaBuilderModal'
+import { AUTO_ADVANCE_MS, PizzaBuilderModal } from './PizzaBuilderModal'
+
+afterEach(() => {
+  vi.useRealTimers()
+})
 
 function withDough(chica: number | null, grande: number | null): PizzaCatalog {
   const [first, second] = pizzaCatalogFixture.sizes as [PizzaSize, PizzaSize]
@@ -16,11 +20,32 @@ function chicaWhole(catalog: PizzaCatalog = pizzaCatalogFixture): PizzaCatalog {
   return { ...catalog, sizes: [{ ...first, allowedPortions: [1] }, ...rest] }
 }
 
-function renderBuilder(catalog: PizzaCatalog = pizzaCatalogFixture) {
+/** Lets a pending auto-advance (size or style tap) run. */
+function flushAdvance() {
+  return act(() => {
+    vi.advanceTimersByTime(AUTO_ADVANCE_MS)
+  })
+}
+
+/** Fake timers plus two clickers: `tap` clicks without waiting for the auto-advance; `user.click` also lets the pause pass. */
+function advancingUser() {
+  vi.useFakeTimers({ shouldAdvanceTime: true })
+  const tap = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+  const user = {
+    ...tap,
+    click: async (element: Element) => {
+      await tap.click(element)
+      await flushAdvance()
+    },
+  }
+  return { tap, user }
+}
+
+function renderBuilder(catalog: PizzaCatalog = pizzaCatalogFixture, quickPick = false) {
+  const { tap, user } = advancingUser()
   const onAdd = vi.fn()
   const onClose = vi.fn()
-  render(<PizzaBuilderModal catalog={catalog} onAdd={onAdd} onClose={onClose} />)
-  const user = userEvent.setup()
+  const view = render(<PizzaBuilderModal catalog={catalog} onAdd={onAdd} onClose={onClose} quickPick={quickPick} />)
   const next = () => user.click(screen.getByRole('button', { name: /^Siguiente/ }))
   const back = () => user.click(screen.getByRole('button', { name: /^←/ }))
   const add = () => user.click(screen.getByRole('button', { name: 'Agregar pizza' }))
@@ -33,11 +58,12 @@ function renderBuilder(catalog: PizzaCatalog = pizzaCatalogFixture) {
     if (cards.some((c) => c.getAttribute('aria-pressed') === 'true')) return
     await user.click(cards.find((c) => /Estilo Varas/.test(c.textContent ?? '')) ?? (cards[0] as HTMLElement))
   }
-  /** Taps the selected size, then picks a style per portion (using Siguiente when a style has ingredients) until the last portion. */
+  /** Taps the selected (or first available) size, then picks a style per portion (using Siguiente when a style has ingredients) until the last portion. */
   async function toIngredients() {
     const sizeGroup = screen.queryByRole('group', { name: 'Tamaño' })
     if (sizeGroup) {
-      const selected = within(sizeGroup).getAllByRole('button').find((c) => c.getAttribute('aria-pressed') === 'true')
+      const buttons = within(sizeGroup).getAllByRole('button')
+      const selected = buttons.find((c) => c.getAttribute('aria-pressed') === 'true') ?? buttons.find((c) => !(c as HTMLButtonElement).disabled)
       await user.click(selected as HTMLElement)
     }
     while (!screen.queryByRole('button', { name: 'Agregar pizza' })) {
@@ -47,7 +73,7 @@ function renderBuilder(catalog: PizzaCatalog = pizzaCatalogFixture) {
     }
     await pickStyle()
   }
-  return { onAdd, onClose, user, next, back, add, card, toIngredients, pickStyle }
+  return { onAdd, onClose, user, tap, view, next, back, add, card, toIngredients, pickStyle }
 }
 
 const MEXICANA = { id: 'mex', name: 'Estilo Mexicana', description: '', kind: 'special', includedIngredients: 0, sortOrder: 3 } as const
@@ -58,7 +84,7 @@ describe('PizzaBuilderModal steps', () => {
     const { user, back, card, pickStyle } = renderBuilder()
     const steps = screen.getByRole('list', { name: 'Pasos de la pizza' })
     expect(screen.getByRole('group', { name: 'Tamaño' })).toBeVisible()
-    expect(screen.queryByRole('button', { name: 'Agregar pizza' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Agregar pizza' })).toBeDisabled()
     expect(screen.getByRole('button', { name: '← Cancelar pizza' })).toBeVisible()
 
     await user.click(card('Grande'))
@@ -555,10 +581,11 @@ describe('PizzaBuilderModal pizza dough', () => {
     expect(within(grande).getByText('Agotado')).toBeVisible()
     expect(grande).toBeDisabled()
     await user.click(grande)
-    expect(card(/Chica/)).toHaveAttribute('aria-pressed', 'true')
+    expect(card(/Chica/)).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('group', { name: 'Tamaño' })).toBeVisible()
   })
 
-  it('starts on the first available size when the first one is sold out', async () => {
+  it('lets the available size be picked when the first one is sold out', async () => {
     const { onAdd, add, toIngredients, card } = renderBuilder(withDough(0, 5))
     expect(card(/Chica/)).toBeDisabled()
     await toIngredients()
@@ -647,7 +674,9 @@ describe('PizzaBuilderModal auto-advance', () => {
     })
 
     it('also advances when the already selected size is tapped, keeping the choice', async () => {
-      const { user, card } = renderBuilder()
+      const { user, back, card } = renderBuilder()
+      await user.click(card('Chica'))
+      await back()
       expect(card('Chica')).toHaveAttribute('aria-pressed', 'true')
       await user.click(card('Chica'))
       expect(screen.getByRole('group', { name: 'Estilo de la Pizza entera' })).toBeVisible()
@@ -838,16 +867,16 @@ describe('PizzaBuilderModal auto-advance', () => {
     })
 
     it('adds an entera pizza with a style without ingredient choices in 3 taps after opening the builder', async () => {
-      const { onAdd, onClose, card } = renderBuilder()
+      const { onAdd, onClose, user, card } = renderBuilder()
       let taps = 0
       const count = () => {
         taps += 1
       }
       document.addEventListener('click', count)
       try {
-        await userEvent.setup().click(card('Grande'))
-        await userEvent.setup().click(card(/Estilo Varas/))
-        await userEvent.setup().click(screen.getByRole('button', { name: 'Agregar pizza' }))
+        await user.click(card('Grande'))
+        await user.click(card(/Estilo Varas/))
+        await user.click(screen.getByRole('button', { name: 'Agregar pizza' }))
       } finally {
         document.removeEventListener('click', count)
       }
@@ -864,7 +893,7 @@ describe('PizzaBuilderModal auto-advance', () => {
     it('fixes a quick pizza (Fijar pizza) with the same flow', async () => {
       const onAdd = vi.fn()
       render(<PizzaBuilderModal catalog={pizzaCatalogFixture} onAdd={onAdd} onClose={vi.fn()} quickPick />)
-      const user = userEvent.setup()
+      const { user } = advancingUser()
       await user.click(screen.getByRole('button', { name: 'Grande' }))
       await user.click(screen.getByRole('button', { name: /Estilo Varas/ }))
       expect(screen.queryByRole('group', { name: 'Cantidad de pizzas' })).not.toBeInTheDocument()
@@ -953,7 +982,7 @@ describe('PizzaBuilderModal portion notes', () => {
   it('does not offer them when pinning a quick pizza', async () => {
     const onAdd = vi.fn()
     render(<PizzaBuilderModal catalog={pizzaCatalogFixture} onAdd={onAdd} onClose={vi.fn()} quickPick />)
-    const user = userEvent.setup()
+    const { user } = advancingUser()
     await user.click(screen.getByRole('button', { name: 'Grande' }))
     await user.click(screen.getByRole('button', { name: 'Mitades' }))
     for (let i = 0; i < 2; i++) {
@@ -971,7 +1000,7 @@ describe('PizzaBuilderModal note shortcuts', () => {
   async function toLast(options: { shortcuts?: string[]; halves?: boolean } = {}) {
     const onAdd = vi.fn()
     render(<PizzaBuilderModal catalog={pizzaCatalogFixture} onAdd={onAdd} onClose={vi.fn()} noteShortcuts={options.shortcuts ?? shortcuts} />)
-    const user = userEvent.setup()
+    const { user } = advancingUser()
     await user.click(screen.getByRole('button', { name: 'Grande' }))
     if (options.halves !== false) await user.click(screen.getByRole('button', { name: 'Mitades' }))
     const count = options.halves === false ? 1 : 2
@@ -1046,7 +1075,7 @@ describe('PizzaBuilderModal note shortcuts', () => {
 
   it('shows no chips when pinning a quick pizza', async () => {
     render(<PizzaBuilderModal catalog={pizzaCatalogFixture} onAdd={vi.fn()} onClose={vi.fn()} quickPick noteShortcuts={shortcuts} />)
-    const user = userEvent.setup()
+    const { user } = advancingUser()
     await user.click(screen.getByRole('button', { name: 'Grande' }))
     await user.click(screen.getByRole('button', { name: 'Mitades' }))
     for (let i = 0; i < 2; i++) {
@@ -1054,5 +1083,145 @@ describe('PizzaBuilderModal note shortcuts', () => {
       await user.click(within(group).getAllByRole('button').find((c) => /Estilo Varas/.test(c.textContent ?? '')) as HTMLElement)
     }
     expect(screen.queryByRole('group', { name: /^Atajos de/ })).not.toBeInTheDocument()
+  })
+})
+
+describe('PizzaBuilderModal no default size and visible auto-advance (S6, S7)', () => {
+  const sizeButtons = () => within(screen.getByRole('group', { name: 'Tamaño' })).getAllByRole('button')
+
+  it('opens with no size selected and asks to choose one (S6)', () => {
+    const { onAdd } = renderBuilder()
+    for (const button of sizeButtons()) expect(button).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('list', { name: 'Pasos de la pizza' })).toHaveTextContent(/^Tamaño\s*Pizza/)
+    expect(screen.getByRole('list', { name: 'Pasos de la pizza' })).not.toHaveTextContent(/Chica|Grande/)
+    expect(screen.getByRole('status', { name: 'Resumen de la pizza' })).toHaveTextContent('Elige el tamaño')
+    expect(screen.getByRole('button', { name: 'Agregar pizza' })).toBeDisabled()
+    expect(onAdd).not.toHaveBeenCalled()
+  })
+
+  it('keeps Fijar pizza disabled until a size is chosen (S6, quick pick)', () => {
+    renderBuilder(pizzaCatalogFixture, true)
+    expect(screen.getByRole('status', { name: 'Resumen de la pizza' })).toHaveTextContent('Elige el tamaño')
+    expect(screen.getByRole('button', { name: 'Fijar pizza' })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: 'Agregar pizza' })).not.toBeInTheDocument()
+  })
+
+  it('shows the chosen size marked when coming back to Tamaño (S6)', async () => {
+    const { user, back, card } = renderBuilder()
+    await user.click(card('Grande'))
+    await back()
+    expect(card('Grande')).toHaveAttribute('aria-pressed', 'true')
+    expect(card('Chica')).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('status', { name: 'Resumen de la pizza' })).toHaveTextContent('Pizza Grande')
+  })
+
+  it('unselects a chosen size that sold out instead of replacing it (S6)', async () => {
+    const { user, card, view } = renderBuilder()
+    await user.click(card('Chica'))
+    expect(screen.getByRole('group', { name: 'Estilo de la Pizza entera' })).toBeVisible()
+    view.rerender(<PizzaBuilderModal catalog={withDough(0, 5)} onAdd={vi.fn()} onClose={vi.fn()} />)
+    expect(screen.getByRole('group', { name: 'Tamaño' })).toBeVisible()
+    for (const button of sizeButtons()) expect(button).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('status', { name: 'Resumen de la pizza' })).toHaveTextContent('Elige el tamaño')
+  })
+
+  it('marks the tapped size first and moves to the first portion after the pause (S7)', async () => {
+    const { tap, card } = renderBuilder()
+    await tap.click(card('Grande'))
+    expect(card('Grande')).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('group', { name: 'Tamaño' })).toBeVisible()
+    expect(screen.queryByRole('group', { name: /^Estilo de la / })).not.toBeInTheDocument()
+    act(() => {
+      vi.advanceTimersByTime(AUTO_ADVANCE_MS - 100)
+    })
+    expect(screen.getByRole('group', { name: 'Tamaño' })).toBeVisible()
+    await flushAdvance()
+    expect(screen.queryByRole('group', { name: 'Tamaño' })).not.toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Estilo de la Pizza entera' })).toBeVisible()
+  })
+
+  it('marks a no-choice style first and moves to the next portion after the pause (S7)', async () => {
+    const { user, tap, card } = renderBuilder()
+    await user.click(card('Grande'))
+    await user.click(card('Mitades'))
+    await tap.click(card(/Estilo Varas/))
+    expect(card(/Estilo Varas/)).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('group', { name: 'Estilo de la Mitad 1' })).toBeVisible()
+    expect(screen.queryByRole('group', { name: 'Estilo de la Mitad 2' })).not.toBeInTheDocument()
+    await flushAdvance()
+    expect(screen.getByRole('group', { name: 'Estilo de la Mitad 2' })).toBeVisible()
+  })
+
+  it('a second size tap during the pause replaces the target and advances once (S7)', async () => {
+    const { tap, card } = renderBuilder()
+    await tap.click(card('Grande'))
+    act(() => {
+      vi.advanceTimersByTime(150)
+    })
+    await tap.click(card('Chica'))
+    act(() => {
+      vi.advanceTimersByTime(AUTO_ADVANCE_MS - 100)
+    })
+    expect(screen.getByRole('group', { name: 'Tamaño' })).toBeVisible()
+    expect(card('Chica')).toHaveAttribute('aria-pressed', 'true')
+    act(() => {
+      vi.advanceTimersByTime(100)
+    })
+    expect(screen.getByRole('group', { name: 'Estilo de la Pizza entera' })).toBeVisible()
+    expect(screen.getByRole('status', { name: 'Resumen de la pizza' })).toHaveTextContent('Pizza Chica')
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('going back cancels a pending advance (S7)', async () => {
+    const { user, tap, card } = renderBuilder()
+    await user.click(card('Grande'))
+    await user.click(card('Mitades'))
+    await tap.click(card(/Estilo Varas/))
+    await tap.click(screen.getByRole('button', { name: '← Tamaño' }))
+    await flushAdvance()
+    expect(screen.getByRole('group', { name: 'Tamaño' })).toBeVisible()
+    expect(screen.queryByRole('group', { name: /^Estilo de la / })).not.toBeInTheDocument()
+  })
+
+  it('closing cancels a pending advance (S7)', async () => {
+    const { tap, card, onClose } = renderBuilder()
+    await tap.click(card('Grande'))
+    await tap.click(screen.getByRole('button', { name: '← Cancelar pizza' }))
+    expect(onClose).toHaveBeenCalledTimes(1)
+    expect(vi.getTimerCount()).toBe(0)
+    await flushAdvance()
+    expect(screen.getByRole('group', { name: 'Tamaño' })).toBeVisible()
+  })
+
+  it('unmounting clears the pending advance without state updates (S7)', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    const { tap, card, view } = renderBuilder()
+    await tap.click(card('Grande'))
+    expect(vi.getTimerCount()).toBeGreaterThan(0)
+    view.unmount()
+    expect(vi.getTimerCount()).toBe(0)
+    await flushAdvance()
+    expect(error).not.toHaveBeenCalled()
+    error.mockRestore()
+  })
+
+  it('changing the division never changes the step and keeps Entera as default (S7)', async () => {
+    const { user, tap, card } = renderBuilder()
+    await user.click(card('Grande'))
+    expect(card('Entera')).toHaveAttribute('aria-pressed', 'true')
+    await tap.click(card('Mitades'))
+    await flushAdvance()
+    expect(card('Mitades')).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('group', { name: 'Estilo de la Mitad 1' })).toBeVisible()
+    expect(screen.getByRole('group', { name: 'División' })).toBeVisible()
+  })
+
+  it('fixes a quick pizza after the auto-advance (S7, Fijar pizza)', async () => {
+    const { user, onAdd, card } = renderBuilder(chicaWhole(), true)
+    await user.click(card('Chica'))
+    await user.click(card(/Estilo Varas/))
+    await user.click(screen.getByRole('button', { name: 'Fijar pizza' }))
+    expect(onAdd).toHaveBeenCalledTimes(1)
+    expect(onAdd.mock.calls[0]?.[0].config.size).toBe('chica')
   })
 })

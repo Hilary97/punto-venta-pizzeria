@@ -1,4 +1,4 @@
-import { useId, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Button } from '../../../shared/ui/Button'
 import { byName } from '../../../shared/sortByName'
 import { cn } from '../../../shared/ui/cn'
@@ -35,6 +35,9 @@ interface PizzaBuilderModalProps {
 type Step = { kind: 'size' } | { kind: 'portion'; index: number }
 
 const MAX_QUANTITY = 20
+
+/** Pause between a tap that moves on by itself and the move, so the waiter sees what was pressed. */
+export const AUTO_ADVANCE_MS = 300
 
 function portionTitle(count: number, index: number): string {
   if (count === 1) return 'Pizza entera'
@@ -81,7 +84,8 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose, quickPick = false, 
   const ingredients = useMemo(() => [...catalog.ingredients].sort(byName), [catalog.ingredients])
   const extras = useMemo(() => [...catalog.extras].sort(byName), [catalog.extras])
 
-  const [sizeCode, setSizeCode] = useState<PizzaSizeCode>(sizes[0]?.code ?? 'chica')
+  /** No size is marked on open, so the waiter notices the tap. */
+  const [sizeCode, setSizeCode] = useState<PizzaSizeCode | null>(null)
   const [portions, setPortions] = useState<PizzaPortion[]>(() => initialPortions(1))
   const [extraIds, setExtraIds] = useState<string[]>([])
   const [notes, setNotes] = useState('')
@@ -91,26 +95,45 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose, quickPick = false, 
   const [collapsed, setCollapsed] = useState<number[]>([])
   /** Style id of the latest card tap, set by the card's change handler and read by its pick handler. */
   const pickedStyleId = useRef<string | undefined>(undefined)
+  /** The one pending automatic advance; a new tap replaces it and leaving cancels it. */
+  const advanceTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+
+  function cancelAdvance() {
+    if (advanceTimer.current === undefined) return
+    clearTimeout(advanceTimer.current)
+    advanceTimer.current = undefined
+  }
+
+  function scheduleAdvance(target: Step) {
+    cancelAdvance()
+    advanceTimer.current = setTimeout(() => {
+      advanceTimer.current = undefined
+      setStep(target)
+    }, AUTO_ADVANCE_MS)
+  }
+
+  useEffect(() => cancelAdvance, [])
 
   if (sizes.length === 0) return null
 
   // A sold-out size is never the current one, even if it was selected before the catalog refreshed.
   const available = sizes.filter((candidate) => !isSizeSoldOut(candidate))
-  const size = available.find((candidate) => candidate.code === sizeCode) ?? available[0]
-  const noDough = size === undefined
+  const size = available.find((candidate) => candidate.code === sizeCode)
+  const noDough = available.length === 0
   const hasDivision = (size?.allowedPortions.length ?? 0) > 1
 
-  const config = buildConfig(size?.code ?? sizeCode, portions, extraIds)
-  const errors = noDough ? [] : validatePizzaConfig(config, catalog)
-  const description = noDough ? '' : describePizza(config, catalog)
+  const config = buildConfig(size?.code ?? sizeCode ?? 'chica', portions, extraIds)
+  const errors = size ? validatePizzaConfig(config, catalog) : []
+  const description = size ? describePizza(config, catalog) : ''
 
   const flow: Step[] = [
     { kind: 'size' },
     ...portions.map((_, index) => ({ kind: 'portion', index }) as const),
   ]
   const position = Math.max(0, flow.findIndex((candidate) => sameStep(candidate, step)))
-  const current = flow[position] as Step
-  const previous = flow[position - 1]
+  // Without a (still available) size only the size step makes sense.
+  const current = (size ? flow[position] : flow[0]) as Step
+  const previous = size ? flow[position - 1] : undefined
   const following = flow[position + 1]
   const count = portions.length
   const isLast = current.kind === 'portion' && current.index === count - 1
@@ -130,7 +153,7 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose, quickPick = false, 
       setCollapsed([])
       setPortions((existing) => resizePortions(existing, next))
     }
-    setStep({ kind: 'portion', index: 0 })
+    scheduleAdvance({ kind: 'portion', index: 0 })
   }
 
   function selectDivision(next: number) {
@@ -150,20 +173,27 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose, quickPick = false, 
   function pickStyle(index: number) {
     const styleId = pickedStyleId.current ?? portions[index]?.styleId
     pickedStyleId.current = undefined
+    cancelAdvance()
     setCollapsed((existing) => (existing.includes(index) ? existing : [...existing, index]))
-    if (index < count - 1 && hasNoChoices(styles.find((candidate) => candidate.id === styleId))) setStep({ kind: 'portion', index: index + 1 })
+    if (index < count - 1 && hasNoChoices(styles.find((candidate) => candidate.id === styleId))) scheduleAdvance({ kind: 'portion', index: index + 1 })
   }
 
   function goTo(target: Step | undefined) {
     if (!target) return
+    cancelAdvance()
     setStep(target)
+  }
+
+  function closeBuilder() {
+    cancelAdvance()
+    onClose()
   }
 
   function addPizzas() {
     if (noDough || errors.length > 0) return
     const pizza: BuiltPizza = { config, name: description, notes }
     for (let i = 0; i < quantity; i++) onAdd(pizza)
-    onClose()
+    closeBuilder()
   }
 
   const styleOf = (portion: PizzaPortion | undefined) => styles.find((candidate) => candidate.id === portion?.styleId)
@@ -198,7 +228,7 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose, quickPick = false, 
     count === 1 ? 'Pizza entera' : `Pizza dividida en ${portionLabel(count)}; ${portionTitle(count, portionIndex)} seleccionada`
 
   return (
-    <Modal title="Armar pizza" onClose={onClose} wide>
+    <Modal title="Armar pizza" onClose={closeBuilder} wide>
       <div className="flex min-w-0 flex-col gap-4">
         <div className="flex items-center">
           {previous ? (
@@ -206,7 +236,7 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose, quickPick = false, 
               {`← ${stepName(previous)}`}
             </Button>
           ) : (
-            <Button variant="ghost" size="md" onClick={onClose}>
+            <Button variant="ghost" size="md" onClick={closeBuilder}>
               ← Cancelar pizza
             </Button>
           )}
@@ -372,8 +402,14 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose, quickPick = false, 
         <div className="sticky -bottom-6 -mx-6 -mb-6 flex flex-col gap-2 border-t border-slate-300 bg-white px-6 pb-4 pt-3 shadow-[0_-6px_16px_rgba(15,23,42,0.08)]">
           {!noDough && (
             <div role="status" aria-label="Resumen de la pizza" aria-live="polite" className="text-sm text-slate-500">
-              <b className="break-words text-slate-900">{`Pizza ${size?.name ?? ''}`}</b>
-              {summary ? ` · ${summary}` : ''}
+              {size ? (
+                <>
+                  <b className="break-words text-slate-900">{`Pizza ${size.name}`}</b>
+                  {summary ? ` · ${summary}` : ''}
+                </>
+              ) : (
+                <b className="text-slate-900">Elige el tamaño</b>
+              )}
               {current.kind === 'portion' && stepErrors.length > 0 && (
                 <ul className="list-disc pl-5 text-amber-700 dark:text-amber-300">
                   {stepErrors.map((error) => (
@@ -415,6 +451,10 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose, quickPick = false, 
           ) : current.kind === 'portion' ? (
             <Button size="lg" disabled={noDough || portionError !== null} onClick={() => goTo(following)}>
               {`Siguiente: ${stepName(following)} →`}
+            </Button>
+          ) : !size ? (
+            <Button size="lg" disabled>
+              {quickPick ? 'Fijar pizza' : 'Agregar pizza'}
             </Button>
           ) : null}
         </div>

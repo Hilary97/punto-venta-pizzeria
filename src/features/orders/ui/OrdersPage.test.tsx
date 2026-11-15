@@ -341,7 +341,7 @@ async function finishPizza(user: ReturnType<typeof userEvent.setup>) {
   // Tapping the (preselected) size goes to the style; Estilo Varas has no ingredients to choose, so "Agregar pizza" is ready.
   await user.click(within(dialog).getByRole('button', { name: 'Chica' }))
   expect(within(dialog).queryByRole('button', { name: /^Siguiente/ })).not.toBeInTheDocument()
-  await user.click(within(dialog).getByRole('button', { name: /Estilo Varas/ }))
+  await user.click(await within(dialog).findByRole('button', { name: /Estilo Varas/ }))
   await user.click(within(dialog).getByRole('button', { name: 'Agregar pizza' }))
 }
 
@@ -775,7 +775,7 @@ describe('guided steps: Productos step', () => {
     await user.click(await screen.findByRole('button', { name: /armar pizza/i }))
     const dialog = screen.getByRole('dialog', { name: /armar pizza/i })
     await user.click(within(dialog).getByRole('button', { name: 'Chica' }))
-    await user.click(within(dialog).getByRole('button', { name: /Estilo Varas/ }))
+    await user.click(await within(dialog).findByRole('button', { name: /Estilo Varas/ }))
     await user.click(within(within(dialog).getByRole('group', { name: 'Atajos de notas de la pizza' })).getByRole('button', { name: 'Sin cebolla' }))
     expect(within(dialog).getByLabelText(/nota de la pizza/i)).toHaveValue('Sin cebolla')
   })
@@ -789,7 +789,7 @@ describe('guided steps: Productos step', () => {
     await user.click(await screen.findByRole('button', { name: /armar pizza/i }))
     const dialog = screen.getByRole('dialog', { name: /armar pizza/i })
     await user.click(within(dialog).getByRole('button', { name: 'Chica' }))
-    await user.click(within(dialog).getByRole('button', { name: /Estilo Varas/ }))
+    await user.click(await within(dialog).findByRole('button', { name: /Estilo Varas/ }))
     expect(within(dialog).queryByRole('group', { name: /^Atajos de/ })).not.toBeInTheDocument()
     await user.type(within(dialog).getByLabelText(/nota de la pizza/i), 'libre')
     await user.click(within(dialog).getByRole('button', { name: 'Agregar pizza' }))
