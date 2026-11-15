@@ -94,6 +94,19 @@ export interface PizzaPortion {
   extraIngredientIds: string[]
   /** Estilo Mexicana only: one or two different chiles; absent means the 3 chiles. */
   chiles?: ChileVariant[]
+  /** Optional note for this portion of a split pizza, e.g. `sin piña en la orilla`. Trimmed before it is sent; blank means none. */
+  note?: string
+}
+
+/** Longest portion note the server accepts, after trimming. */
+export const MAX_PORTION_NOTE_LENGTH = 80
+
+export const PORTION_NOTE_TOO_LONG = `La nota de cada porción admite hasta ${MAX_PORTION_NOTE_LENGTH} caracteres.`
+
+/** The trimmed note of a portion, or `undefined` when it is absent or blank. */
+export function portionNote(portion: Pick<PizzaPortion, 'note'>): string | undefined {
+  const note = portion.note?.trim()
+  return note ? note : undefined
 }
 
 export interface PizzaConfig {
@@ -158,6 +171,8 @@ export function validatePortion(portion: PizzaPortion, catalog: PizzaCatalog): s
     if (chiles.length > 2) return 'Elige uno o dos chiles, o los 3 chiles.'
   }
 
+  if ((portionNote(portion)?.length ?? 0) > MAX_PORTION_NOTE_LENGTH) return PORTION_NOTE_TOO_LONG
+
   // Included ingredients are optional on a special style; a custom style needs at least one.
   const chosen = portion.ingredientIds.length
   if (style.kind === 'custom' && chosen === 0) return `Elige al menos un ingrediente para ${style.name}.`
@@ -192,6 +207,7 @@ function hasDuplicates(ids: string[]): boolean {
  * A doubled extra ingredient is listed once as `Extra <name>`: `Pizza Chica: Estilo Varas + Extra Jalapeños`.
  * A doubled included ingredient (also one of the extras) reads `Extra <name>` inside the included list.
  * Estilo Mexicana ends its included list with its chiles: `(Solo jalapeño)`, `(Morrón y jalapeño)`, or `(3 chiles)` by default.
+ * A portion note follows its portion: `½ Estilo Varas — sin piña en la orilla`.
  */
 export function describePizza(config: PizzaConfig, catalog: PizzaCatalog): string {
   const sizeName = catalog.sizes.find((size) => size.code === config.size)?.name ?? config.size
@@ -216,6 +232,10 @@ export function describePizza(config: PizzaConfig, catalog: PizzaCatalog): strin
     }
     const extras = extraIngredientNames(remaining, catalog)
     if (extras.length > 0) text += ` + ${extras.join(', ')}`
+
+    // A "|" in the note would read as a portion separator.
+    const note = portionNote(portion)
+    if (note) text += ` — ${note.replaceAll('|', '/')}`
 
     return count > 1 ? `${PORTION_FRACTIONS[count] ?? ''} ${text}` : text
   })
@@ -243,7 +263,7 @@ function byNameOrder(rows: { id: string; name: string; sortOrder: number }[], id
 /** How a card shows a line label: its title plus, for built pizzas, one group per style or portion with its ingredients. */
 export interface PizzaLabelLayout {
   title: string
-  groups: { name: string; items: string[] }[]
+  groups: { name: string; items: string[]; note?: string }[]
 }
 
 /**
@@ -266,11 +286,15 @@ export function pizzaLabelLayout(label: string): PizzaLabelLayout {
   return { title: label.slice(0, header), groups }
 }
 
-/** `½ A (X, Y) + Z, W` → `½ A` with [X, Y, Z, W]. */
-function portionGroup(text: string): { name: string; items: string[] } {
+/** `½ A (X, Y) + Z, W — nota` → `½ A` with [X, Y, Z, W] and the note. */
+function portionGroup(full: string): { name: string; items: string[]; note?: string } {
+  const noteAt = full.indexOf(' — ')
+  const text = noteAt === -1 ? full : full.slice(0, noteAt)
+  const note = noteAt === -1 ? undefined : full.slice(noteAt + 3)
+  const noteField = note ? { note } : {}
   const [style = '', ...added] = text.split(' + ')
   const items = added.flatMap((names) => names.split(', '))
   const open = style.lastIndexOf(' (')
-  if (open === -1 || !style.endsWith(')')) return { name: style, items }
-  return { name: style.slice(0, open), items: [...style.slice(open + 2, -1).split(', '), ...items] }
+  if (open === -1 || !style.endsWith(')')) return { name: style, items, ...noteField }
+  return { name: style.slice(0, open), items: [...style.slice(open + 2, -1).split(', '), ...items], ...noteField }
 }

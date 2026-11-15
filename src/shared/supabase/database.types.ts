@@ -463,6 +463,12 @@ export interface Database {
       admin_add_quick_pizza: { Args: { p_config: unknown }; Returns: unknown }
       admin_delete_quick_pizza: { Args: { p_id: string }; Returns: unknown }
       admin_move_quick_pizza: { Args: { p_id: string; p_direction: number }; Returns: unknown }
+      admin_list_note_shortcuts: { Args: { p_scope: string }; Returns: unknown }
+      admin_add_note_shortcut: { Args: { p_scope: string; p_label: string }; Returns: unknown }
+      admin_delete_note_shortcut: { Args: { p_id: string }; Returns: unknown }
+      admin_move_note_shortcut: { Args: { p_id: string; p_direction: number }; Returns: unknown }
+      list_note_shortcuts: { Args: Record<PropertyKey, never>; Returns: unknown }
+      device_list_note_shortcuts: { Args: { p_device_secret: string }; Returns: unknown }
       admin_set_pizza_dough: { Args: { p_size_code: string; p_prepared: number }; Returns: unknown }
       admin_list_pizza_dough: { Args: Record<PropertyKey, never>; Returns: unknown }
       admin_save_pizza_style: {

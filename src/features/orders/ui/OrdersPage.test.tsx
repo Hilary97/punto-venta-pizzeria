@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { listPizzaCatalog } from '../../pizza/infrastructure/pizzaRepository'
 import { listPopularPicks } from '../infrastructure/popularPicksRepository'
+import { listNoteShortcuts } from '../infrastructure/noteShortcutsRepository'
 import { listCategories, listProducts } from '../../products/infrastructure/productsRepository'
 import type { Order } from '../domain/order'
 import type { PopularPick } from '../domain/ordersSource'
@@ -22,6 +23,10 @@ vi.mock('../../pizza/infrastructure/pizzaRepository', async (importOriginal) => 
 vi.mock('../infrastructure/popularPicksRepository', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../infrastructure/popularPicksRepository')>()),
   listPopularPicks: vi.fn(),
+}))
+vi.mock('../infrastructure/noteShortcutsRepository', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../infrastructure/noteShortcutsRepository')>()),
+  listNoteShortcuts: vi.fn(),
 }))
 vi.mock('../../products/infrastructure/productsRepository', () => ({ listCategories: vi.fn(), listProducts: vi.fn() }))
 vi.mock('../infrastructure/ordersRepository', async (importOriginal) => ({
@@ -65,6 +70,7 @@ beforeEach(() => {
   vi.resetAllMocks()
   vi.mocked(listPizzaCatalog).mockResolvedValue({ sizes: [], styles: [], ingredients: [], extras: [] })
   vi.mocked(listPopularPicks).mockResolvedValue([])
+  vi.mocked(listNoteShortcuts).mockResolvedValue({ pizza: [], order: [] })
   vi.mocked(listCategories).mockResolvedValue([{ id: 'pizza', name: 'Botanas', sortOrder: 0 }])
   vi.mocked(listProducts).mockResolvedValue([
     { id: 'p', categoryId: 'pizza', name: 'Pizza queso', priceCents: 15000, active: true, variants: [] },
@@ -758,6 +764,36 @@ describe('guided steps: Productos step', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(within(armar).getByText('×1')).toBeVisible()
     expect(screen.getByRole('button', { name: /revisar pedido/i })).toHaveTextContent('1 producto')
+  })
+
+  it('passes the admin note shortcuts to the builder as chips', async () => {
+    vi.mocked(listPizzaCatalog).mockResolvedValue(pizzaCatalogFixture)
+    vi.mocked(listNoteShortcuts).mockResolvedValue({ pizza: ['Sin cebolla'], order: ['Cubiertos'] })
+    const user = userEvent.setup()
+    renderPage()
+    await startOrder(user, { table: 4 })
+    await user.click(await screen.findByRole('button', { name: /armar pizza/i }))
+    const dialog = screen.getByRole('dialog', { name: /armar pizza/i })
+    await user.click(within(dialog).getByRole('button', { name: 'Chica' }))
+    await user.click(within(dialog).getByRole('button', { name: /Estilo Varas/ }))
+    await user.click(within(within(dialog).getByRole('group', { name: 'Atajos de notas de la pizza' })).getByRole('button', { name: 'Sin cebolla' }))
+    expect(within(dialog).getByLabelText(/nota de la pizza/i)).toHaveValue('Sin cebolla')
+  })
+
+  it('still builds a pizza with free text when the shortcuts fail to load', async () => {
+    vi.mocked(listPizzaCatalog).mockResolvedValue(pizzaCatalogFixture)
+    vi.mocked(listNoteShortcuts).mockRejectedValue(new Error('boom'))
+    const user = userEvent.setup()
+    renderPage()
+    await startOrder(user, { table: 4 })
+    await user.click(await screen.findByRole('button', { name: /armar pizza/i }))
+    const dialog = screen.getByRole('dialog', { name: /armar pizza/i })
+    await user.click(within(dialog).getByRole('button', { name: 'Chica' }))
+    await user.click(within(dialog).getByRole('button', { name: /Estilo Varas/ }))
+    expect(within(dialog).queryByRole('group', { name: /^Atajos de/ })).not.toBeInTheDocument()
+    await user.type(within(dialog).getByLabelText(/nota de la pizza/i), 'libre')
+    await user.click(within(dialog).getByRole('button', { name: 'Agregar pizza' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
   it('keeps adding to an open order: context names it and products can be added', async () => {
@@ -1458,5 +1494,123 @@ describe('Más vendidas products (verify probes)', () => {
     hold(big)
     expect(within(small).getByText('×1')).toBeVisible()
     expect(within(big).queryByText(/×/)).not.toBeInTheDocument()
+  })
+})
+
+describe('order note shortcuts', () => {
+  const lists = { pizza: ['Sin cebolla'], order: ['Pagan con $500', 'Cubiertos'] }
+
+  async function reviewGroup(user: ReturnType<typeof userEvent.setup>) {
+    await reachReview(user)
+    return screen.findByRole('group', { name: 'Atajos de nota del pedido' })
+  }
+
+  it('Revisar: tapping appends with ", ", tapping again removes, free text stays', async () => {
+    vi.mocked(listNoteShortcuts).mockResolvedValue(lists)
+    const user = userEvent.setup()
+    renderPage()
+    const group = await reviewGroup(user)
+    const note = screen.getByLabelText('Nota del pedido (opcional)')
+    expect(within(group).getAllByRole('button').map((b) => b.textContent)).toEqual(['Pagan con $500', 'Cubiertos'])
+    await user.type(note, 'mesa tranquila')
+    await user.click(within(group).getByRole('button', { name: 'Cubiertos' }))
+    expect(note).toHaveValue('mesa tranquila, Cubiertos')
+    expect(within(group).getByRole('button', { name: 'Cubiertos' })).toHaveAttribute('aria-pressed', 'true')
+    await user.click(within(group).getByRole('button', { name: 'Pagan con $500' }))
+    expect(note).toHaveValue('mesa tranquila, Cubiertos, Pagan con $500')
+    await user.click(within(group).getByRole('button', { name: 'Cubiertos' }))
+    expect(note).toHaveValue('mesa tranquila, Pagan con $500')
+    await user.type(note, ' y más')
+    expect(note).toHaveValue('mesa tranquila, Pagan con $500 y más')
+  })
+
+  it('Revisar: a shortcut sends with the order and the pizza labels do not appear', async () => {
+    vi.mocked(listNoteShortcuts).mockResolvedValue(lists)
+    const user = userEvent.setup()
+    renderPage()
+    const group = await reviewGroup(user)
+    expect(within(group).queryByRole('button', { name: 'Sin cebolla' })).not.toBeInTheDocument()
+    await user.click(within(group).getByRole('button', { name: 'Cubiertos' }))
+    await user.click(screen.getByRole('button', { name: /enviar a cocina/i }))
+    expect(createOrder).toHaveBeenCalledWith(expect.objectContaining({ notes: 'Cubiertos' }))
+  })
+
+  it('Revisar: disables a shortcut that would not fit in 300 characters, but still removes pressed ones', async () => {
+    vi.mocked(listNoteShortcuts).mockResolvedValue(lists)
+    const user = userEvent.setup()
+    renderPage()
+    const group = await reviewGroup(user)
+    const note = screen.getByLabelText('Nota del pedido (opcional)')
+    fireEvent.change(note, { target: { value: 'x'.repeat(295) } })
+    expect(within(group).getByRole('button', { name: 'Cubiertos' })).toBeDisabled()
+    await user.click(within(group).getByRole('button', { name: 'Cubiertos' }))
+    expect(note).toHaveValue('x'.repeat(295))
+    fireEvent.change(note, { target: { value: 'x'.repeat(280) + ', Cubiertos' } })
+    expect(within(group).getByRole('button', { name: 'Cubiertos' })).toBeEnabled()
+  })
+
+  it('Revisar: no chips when the order list is empty or loading fails; the note stays free text', async () => {
+    vi.mocked(listNoteShortcuts).mockResolvedValue({ pizza: ['Sin cebolla'], order: [] })
+    const user = userEvent.setup()
+    const first = renderPage()
+    await reachReview(user)
+    expect(screen.queryByRole('group', { name: /^Atajos de/ })).not.toBeInTheDocument()
+    first.unmount()
+
+    vi.mocked(listNoteShortcuts).mockRejectedValue(new Error('boom'))
+    renderPage()
+    await reachReview(user)
+    expect(screen.queryByRole('group', { name: /^Atajos de/ })).not.toBeInTheDocument()
+    await user.type(screen.getByLabelText('Nota del pedido (opcional)'), 'libre')
+    expect(screen.getByLabelText('Nota del pedido (opcional)')).toHaveValue('libre')
+  })
+
+  it('modal: chips under the field append, remove and save with the order note', async () => {
+    vi.mocked(listNoteShortcuts).mockResolvedValue(lists)
+    vi.mocked(listOpenOrders).mockResolvedValue([{ ...openOrder, notes: 'vieja' }])
+    const user = userEvent.setup()
+    renderPage()
+    await openOrdersSheet(user)
+    await user.click(screen.getByRole('button', { name: /editar nota/i }))
+    const dialog = screen.getByRole('dialog', { name: /nota del pedido/i })
+    const field = within(dialog).getByLabelText('Nota del pedido')
+    const group = within(dialog).getByRole('group', { name: 'Atajos de nota del pedido' })
+    expect(within(group).getAllByRole('button').map((b) => b.textContent)).toEqual(['Pagan con $500', 'Cubiertos'])
+    await user.click(within(group).getByRole('button', { name: 'Cubiertos' }))
+    expect(field).toHaveValue('vieja, Cubiertos')
+    await user.click(within(group).getByRole('button', { name: 'Pagan con $500' }))
+    await user.click(within(group).getByRole('button', { name: 'Cubiertos' }))
+    expect(field).toHaveValue('vieja, Pagan con $500')
+    await user.type(field, ' ya')
+    await user.click(within(dialog).getByRole('button', { name: /guardar nota/i }))
+    expect(setOrderNotes).toHaveBeenCalledWith('order-1', 'vieja, Pagan con $500 ya')
+  })
+
+  it('modal: limit disables chips; no chips when empty or load fails', async () => {
+    vi.mocked(listNoteShortcuts).mockResolvedValue(lists)
+    vi.mocked(listOpenOrders).mockResolvedValue([{ ...openOrder, notes: 'x'.repeat(295) }])
+    const user = userEvent.setup()
+    const first = renderPage()
+    await openOrdersSheet(user)
+    await user.click(screen.getByRole('button', { name: /editar nota/i }))
+    let dialog = screen.getByRole('dialog', { name: /nota del pedido/i })
+    expect(within(dialog).getByRole('button', { name: 'Cubiertos' })).toBeDisabled()
+    first.unmount()
+
+    vi.mocked(listNoteShortcuts).mockResolvedValue({ pizza: [], order: [] })
+    const second = renderPage()
+    await openOrdersSheet(user)
+    await user.click(screen.getByRole('button', { name: /editar nota/i }))
+    dialog = screen.getByRole('dialog', { name: /nota del pedido/i })
+    expect(within(dialog).queryByRole('group')).not.toBeInTheDocument()
+    second.unmount()
+
+    vi.mocked(listNoteShortcuts).mockRejectedValue(new Error('boom'))
+    renderPage()
+    await openOrdersSheet(user)
+    await user.click(screen.getByRole('button', { name: /editar nota/i }))
+    dialog = screen.getByRole('dialog', { name: /nota del pedido/i })
+    expect(within(dialog).queryByRole('group')).not.toBeInTheDocument()
+    expect(within(dialog).getByLabelText('Nota del pedido')).toBeEnabled()
   })
 })

@@ -2,14 +2,17 @@ import { describe, expect, it } from 'vitest'
 import type { PizzaPortion, PizzaSize, PizzaStyle } from './pizza'
 import {
   buildConfig,
+  canAppendNoteShortcut,
   clearChiles,
   hasChileVariants,
+  hasNoteShortcut,
   ingredientLevel,
   initialPortions,
   NO_STYLE,
   resizePortions,
   setIngredientLevel,
   setPortionStyle,
+  toggleNoteShortcut,
   sortBuilderStyles,
   toggleChile,
   toggleExtra,
@@ -222,5 +225,40 @@ describe('setIngredientLevel', () => {
   it('adds a charged extra once the included slots are full', () => {
     const full: PizzaPortion = { ...empty, ingredientIds: ['a', 'b'] }
     expect(setIngredientLevel(full, 'c', 'normal', custom)).toEqual({ ...full, extraIngredientIds: ['c'] })
+  })
+})
+
+describe('note shortcuts', () => {
+  it('detects a label as a whole entry of the note', () => {
+    expect(hasNoteShortcut('Sin cebolla, bien cocida', 'Bien cocida')).toBe(false)
+    expect(hasNoteShortcut('Sin cebolla, Bien cocida', 'Bien cocida')).toBe(true)
+    expect(hasNoteShortcut('Sin cebolla, Bien cocida', 'Sin cebolla')).toBe(true)
+    expect(hasNoteShortcut('Sin cebolla extra', 'Sin cebolla')).toBe(false)
+    expect(hasNoteShortcut('', 'Sin cebolla')).toBe(false)
+  })
+
+  it('appends with ", " and removes again, keeping free text', () => {
+    expect(toggleNoteShortcut('', 'Sin cebolla', 80)).toBe('Sin cebolla')
+    expect(toggleNoteShortcut('  ', 'Sin cebolla', 80)).toBe('Sin cebolla')
+    expect(toggleNoteShortcut('poca sal ', 'Sin cebolla', 80)).toBe('poca sal, Sin cebolla')
+    expect(toggleNoteShortcut('Sin cebolla', 'Sin cebolla', 80)).toBe('')
+    expect(toggleNoteShortcut('a, Sin cebolla, b', 'Sin cebolla', 80)).toBe('a, b')
+    expect(toggleNoteShortcut('a, Sin cebolla', 'Sin cebolla', 80)).toBe('a')
+    expect(toggleNoteShortcut('Sin cebolla, b', 'Sin cebolla', 80)).toBe('b')
+  })
+
+  it('does not append when the note would pass the limit, but still removes', () => {
+    expect(toggleNoteShortcut('12345', 'abcde', 12)).toBe('12345, abcde')
+    expect(toggleNoteShortcut('12345', 'abcde', 11)).toBe('12345')
+    expect(toggleNoteShortcut('', 'abcde', 5)).toBe('abcde')
+    expect(canAppendNoteShortcut('12345', 'abcde', 11)).toBe(false)
+    expect(canAppendNoteShortcut('12345', 'abcde', 12)).toBe(true)
+  })
+
+  it('matches whole entries only and limits on the joined length', () => {
+    expect(toggleNoteShortcut('Sin sal fina', 'Sin sal', 300)).toBe('Sin sal fina, Sin sal')
+    expect(toggleNoteShortcut('A, Cubiertos, B', 'Cubiertos', 300)).toBe('A, B')
+    expect(canAppendNoteShortcut('x'.repeat(289), 'Cubiertos', 300)).toBe(true)
+    expect(canAppendNoteShortcut('x'.repeat(290), 'Cubiertos', 300)).toBe(false)
   })
 })

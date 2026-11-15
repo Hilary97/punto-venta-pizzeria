@@ -114,3 +114,26 @@ describe('popular picks', () => {
     await expect(authenticatedOrdersSource.loadPopularPicks!()).rejects.toThrow()
   })
 })
+
+describe('note shortcuts', () => {
+  const both = { pizza: ['Sin cebolla', 'Bien cocida'], order: ['Cubiertos'] }
+
+  it('loads both lists with the device secret on a device and from the session otherwise', async () => {
+    rpc.mockResolvedValue({ data: both, error: null })
+    expect(await createDeviceOrdersSource('secret', () => null).loadNoteShortcuts!()).toEqual(both)
+    expect(rpc).toHaveBeenLastCalledWith('device_list_note_shortcuts', { p_device_secret: 'secret' })
+
+    expect(await authenticatedOrdersSource.loadNoteShortcuts!()).toEqual(both)
+    expect(rpc).toHaveBeenLastCalledWith('list_note_shortcuts')
+  })
+
+  it('fails when the rpc fails or returns something else', async () => {
+    rpc.mockResolvedValue({ data: null, error: { message: 'No tienes permiso' } })
+    await expect(createDeviceOrdersSource('secret', () => null).loadNoteShortcuts!()).rejects.toThrow()
+    await expect(authenticatedOrdersSource.loadNoteShortcuts!()).rejects.toThrow()
+    rpc.mockResolvedValue({ data: ['Sin cebolla'], error: null })
+    await expect(authenticatedOrdersSource.loadNoteShortcuts!()).rejects.toThrow()
+    rpc.mockResolvedValue({ data: { pizza: [1], order: [] }, error: null })
+    await expect(authenticatedOrdersSource.loadNoteShortcuts!()).rejects.toThrow()
+  })
+})

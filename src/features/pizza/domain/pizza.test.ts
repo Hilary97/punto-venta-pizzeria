@@ -327,3 +327,47 @@ describe('Estilo Mexicana chiles', () => {
     expect(describePizza(config([portion({ styleId: 'varas' })]), withMexicana)).toBe('Pizza Grande: Estilo Varas')
   })
 })
+
+describe('portion notes', () => {
+  const halves = (a: Partial<PizzaPortion>, b: Partial<PizzaPortion> = {}): PizzaConfig => ({
+    size: 'grande',
+    portions: [portion({ styleId: 'varas', ...a }), portion({ styleId: 'chuys', ...b })],
+    extraIds: [],
+  })
+
+  it('describes each note right after its portion, like the SQL describe_pizza', () => {
+    expect(describePizza(halves({ note: 'sin piña en la orilla' }), catalog)).toBe(
+      "Pizza Grande · Mitades: ½ Estilo Varas — sin piña en la orilla | ½ Estilo Chuy's",
+    )
+    expect(describePizza(halves({ note: 'a | b' }, { note: 'bien cocida' }), catalog)).toBe(
+      "Pizza Grande · Mitades: ½ Estilo Varas — a / b | ½ Estilo Chuy's — bien cocida",
+    )
+  })
+
+  it('describes a pizza without notes as before', () => {
+    expect(describePizza(halves({ note: '   ' }), catalog)).toBe("Pizza Grande · Mitades: ½ Estilo Varas | ½ Estilo Chuy's")
+  })
+
+  it('accepts 80 characters and rejects 81 with the server message, trimming first', () => {
+    expect(validatePizzaConfig(halves({ note: 'a'.repeat(80) }), catalog)).toEqual([])
+    expect(validatePizzaConfig(halves({ note: ` ${'a'.repeat(80)} ` }), catalog)).toEqual([])
+    expect(validatePizzaConfig(halves({}, { note: 'a'.repeat(81) }), catalog)).toEqual(['La nota de cada porción admite hasta 80 caracteres.'])
+  })
+
+  it('lays the note out under its portion without touching the name or the ingredients', () => {
+    expect(
+      pizzaLabelLayout("Pizza Grande · Mitades: ½ Estilo Varas (Jamón) + Piña — sin piña en la orilla | ½ Estilo Chuy's — bien cocida · Extras: Extra queso"),
+    ).toEqual({
+      title: 'Pizza Grande · Mitades',
+      groups: [
+        { name: '½ Estilo Varas', items: ['Jamón', 'Piña'], note: 'sin piña en la orilla' },
+        { name: "½ Estilo Chuy's", items: [], note: 'bien cocida' },
+        { name: 'Extras', items: ['Extra queso'] },
+      ],
+    })
+    expect(pizzaLabelLayout('Pizza Chica: Estilo Varas — bien cocida')).toEqual({
+      title: 'Pizza Chica',
+      groups: [{ name: 'Estilo Varas', items: [], note: 'bien cocida' }],
+    })
+  })
+})

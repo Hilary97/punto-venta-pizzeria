@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { getSupabaseClient } from '../../../shared/supabase/client'
-import type { ChileVariant, PizzaCatalog, PizzaConfig } from '../domain/pizza'
+import { portionNote, type ChileVariant, type PizzaCatalog, type PizzaConfig } from '../domain/pizza'
 
 const pizzaSizeCodeSchema = z.enum(['chica', 'mediana', 'grande'])
 
@@ -72,6 +72,7 @@ export const pizzaConfigSchema = z
         ingredient_ids: z.array(z.string()).default([]),
         extra_ingredient_ids: z.array(z.string()).default([]),
         chiles: z.array(chileSchema).optional(),
+        note: z.string().optional(),
         /** Legacy: a single chile, before a portion could take two. */
         chile: chileSchema.optional(),
         /** Legacy: extras used to be per portion; they now belong to the whole pizza. */
@@ -88,6 +89,7 @@ export const pizzaConfigSchema = z
         ingredientIds: portion.ingredient_ids,
         extraIngredientIds: portion.extra_ingredient_ids,
         ...chilesOf(portion.chiles ?? (portion.chile ? [portion.chile] : [])),
+        ...(portion.note ? { note: portion.note } : {}),
       })),
       extraIds: [...new Set([...raw.extra_ids, ...raw.portions.flatMap((portion) => portion.extra_ids)])],
     }),
@@ -102,6 +104,7 @@ export function toRpcPizzaConfig(config: PizzaConfig) {
       ingredient_ids: portion.ingredientIds,
       extra_ingredient_ids: portion.extraIngredientIds,
       ...(portion.chiles && portion.chiles.length > 0 ? { chiles: portion.chiles } : {}),
+      ...(portionNote(portion) ? { note: portionNote(portion) } : {}),
     })),
     extra_ids: config.extraIds,
   }

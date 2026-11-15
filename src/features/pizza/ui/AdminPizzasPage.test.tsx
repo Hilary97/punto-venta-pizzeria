@@ -17,7 +17,8 @@ import {
 } from '../infrastructure/pizzaAdminRepository'
 import { AdminPizzasPage } from './AdminPizzasPage'
 
-vi.mock('./QuickPizzasSection', () => ({ QuickPizzasSection: () => null }))
+vi.mock('./QuickPizzasSection', () => ({ QuickPizzasSection: () => <p>Sección pizzas rápidas</p> }))
+vi.mock('./NoteShortcutsSection', () => ({ NoteShortcutsSection: ({ scope }: { scope: string }) => <p>Sección atajos {scope}</p> }))
 vi.mock('../infrastructure/pizzaAdminRepository', () => ({
   listAdminPizzaCatalog: vi.fn(),
   createIngredient: vi.fn(),
@@ -475,5 +476,16 @@ describe('AdminPizzasPage extras', () => {
     expect(setExtraActive).toHaveBeenCalledWith('cheese', false)
     await user.click(within(rowOf(section('Extras'), 'Orilla rellena')).getByRole('button', { name: 'Activar' }))
     expect(setExtraActive).toHaveBeenCalledWith('crust', true)
+  })
+
+  it('renders the pizza and order note shortcut sections right after the quick pizzas', async () => {
+    vi.mocked(listAdminPizzaCatalog).mockResolvedValue(catalog)
+    render(<AdminPizzasPage />)
+    const quick = await screen.findByText('Sección pizzas rápidas')
+    const pizza = screen.getByText('Sección atajos pizza')
+    const order = screen.getByText('Sección atajos order')
+    expect(quick.compareDocumentPosition(pizza) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(pizza.compareDocumentPosition(order) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Tamaños' }).compareDocumentPosition(order) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy()
   })
 })

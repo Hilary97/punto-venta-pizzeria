@@ -5,6 +5,7 @@ import { Input } from '../../../shared/ui/Input'
 import { Textarea } from '../../../shared/ui/Textarea'
 import { cn } from '../../../shared/ui/cn'
 import { pizzaLabelLayout } from '../../pizza/domain/pizza'
+import { NoteShortcutChips } from '../../pizza/ui/NoteShortcutChips'
 import { PizzaLabelGroups } from '../../pizza/ui/PizzaLabelGroups'
 import {
   customerNameLabel,
@@ -41,6 +42,8 @@ interface ReviewStepProps {
   onLineNotes: (lineId: string, notes: string) => void
   orderNotes: string
   onOrderNotes: (notes: string) => void
+  /** Admin-managed order note shortcuts, as chips under the order note. */
+  noteShortcuts?: string[]
   pickupTime: string
   onPickupTime: (time: string) => void
   missing: MissingPiece[]
@@ -80,6 +83,7 @@ export function ReviewStep({
   onLineNotes,
   orderNotes,
   onOrderNotes,
+  noteShortcuts = [],
   pickupTime,
   onPickupTime,
   missing,
@@ -260,15 +264,26 @@ export function ReviewStep({
 
       {!addingTo && (
         <>
-          <label className="flex flex-col gap-1 text-sm font-medium text-slate-700">
-            Nota del pedido (opcional)
-            <Textarea
-              value={orderNotes}
-              maxLength={MAX_ORDER_NOTES_LENGTH}
-              disabled={isSubmitting}
-              onChange={(e) => onOrderNotes(e.target.value)}
-            />
-          </label>
+          <div className="flex flex-col gap-1.5">
+            <label className="flex flex-col gap-1 text-sm font-medium text-slate-700">
+              Nota del pedido (opcional)
+              <Textarea
+                value={orderNotes}
+                maxLength={MAX_ORDER_NOTES_LENGTH}
+                disabled={isSubmitting}
+                onChange={(e) => onOrderNotes(e.target.value)}
+              />
+            </label>
+            {!isSubmitting && (
+              <NoteShortcutChips
+                label="nota del pedido"
+                shortcuts={noteShortcuts}
+                note={orderNotes}
+                maxLength={MAX_ORDER_NOTES_LENGTH}
+                onChange={onOrderNotes}
+              />
+            )}
+          </div>
           <Input
             id={pickupId}
             type="time"

@@ -77,6 +77,29 @@ describe('KitchenBoard', () => {
     expect(pizza.textContent).not.toMatch(/[|+]/)
   })
 
+  it('shows each portion note under its portion, in the note style', async () => {
+    const lines: KitchenOrder['lines'] = [
+      {
+        id: 'l1',
+        productName: "Pizza Grande · Mitades: ½ Estilo Varas — sin piña en la orilla | ½ Estilo Chuy's",
+        quantity: 1,
+        type: 'pizza',
+        pizza: null,
+        notes: null,
+        variant: null,
+      },
+    ]
+    render(<KitchenBoard source={makeSource([[order({ lines })]])} stationLabel="Pizzas" />)
+    const pizza = (await screen.findByText('1 × Pizza Grande · Mitades')).closest('li')!
+    const varas = within(pizza).getByText('½ Estilo Varas').closest('li')!
+    const note = within(varas).getByText('sin piña en la orilla')
+    expect(note).toBeVisible()
+    expect(note.className).toContain('bg-amber-100')
+    expect(note.className).toContain('dark:bg-amber-900')
+    expect(within(pizza).getByText("½ Estilo Chuy's").closest('li')).not.toHaveTextContent('sin piña')
+    expect(pizza.textContent).not.toContain('—')
+  })
+
   it('hides the default ingredients of each style until its name is tapped, for whole and split pizzas', async () => {
     const lines: KitchenOrder['lines'] = [
       {

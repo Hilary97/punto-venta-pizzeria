@@ -1,5 +1,5 @@
 import { byName } from '../../../shared/sortByName'
-import { hasChileVariants, sortChiles, styleKey } from './pizza'
+import { hasChileVariants, portionNote, sortChiles, styleKey } from './pizza'
 import type { ChileVariant, PizzaConfig, PizzaPortion, PizzaSize, PizzaSizeCode, PizzaStyle } from './pizza'
 
 export { hasChileVariants }
@@ -113,8 +113,20 @@ export function togglePizzaExtra(extraIds: string[], extraId: string): string[] 
   return [...extraIds, extraId]
 }
 
+/**
+ * The pizza to add: a portion note is trimmed and dropped when blank, and a whole pizza keeps none
+ * (its only note is the pizza note).
+ */
 export function buildConfig(size: PizzaSizeCode, portions: PizzaPortion[], extraIds: string[]): PizzaConfig {
-  return { size, portions, extraIds }
+  return {
+    size,
+    portions: portions.map((portion) => {
+      const { note: _note, ...rest } = portion
+      const note = portionNote(portion)
+      return note && portions.length > 1 ? { ...rest, note } : rest
+    }),
+    extraIds,
+  }
 }
 
 /** How a chosen ingredient is made: once, twice (the double is a charged extra) or not at all. */
@@ -163,4 +175,35 @@ export function setIngredientLevel(
     }
   }
   return { ...portion, extraIngredientIds: [...others, ...times(level === 'doble' ? 2 : 1)] }
+}
+
+const NOTE_SEPARATOR = ', '
+
+/** The note as `, a, b, ` so a label is found only as a whole entry. */
+function wrapNote(note: string): string {
+  return `${NOTE_SEPARATOR}${note.trim()}${NOTE_SEPARATOR}`
+}
+
+/** Whether the note already holds the shortcut label as one of its entries. */
+export function hasNoteShortcut(note: string, label: string): boolean {
+  return wrapNote(note).includes(`${NOTE_SEPARATOR}${label}${NOTE_SEPARATOR}`)
+}
+
+function appendNoteShortcut(note: string, label: string): string {
+  const trimmed = note.trim()
+  return trimmed === '' ? label : `${trimmed}${NOTE_SEPARATOR}${label}`
+}
+
+/** Whether tapping the shortcut would keep the note within `maxLength`. */
+export function canAppendNoteShortcut(note: string, label: string, maxLength: number): boolean {
+  return appendNoteShortcut(note, label).length <= maxLength
+}
+
+/** Tapping a shortcut: appends its label (", "-joined) to the note, or removes it when already there. */
+export function toggleNoteShortcut(note: string, label: string, maxLength: number): string {
+  if (hasNoteShortcut(note, label)) {
+    const without = wrapNote(note).replace(`${NOTE_SEPARATOR}${label}${NOTE_SEPARATOR}`, NOTE_SEPARATOR)
+    return without.slice(NOTE_SEPARATOR.length, without.length - NOTE_SEPARATOR.length).trim()
+  }
+  return canAppendNoteShortcut(note, label, maxLength) ? appendNoteShortcut(note, label) : note
 }

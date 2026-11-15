@@ -37,6 +37,7 @@ import { PizzaExtraIngredientPriceModal } from './PizzaExtraIngredientPriceModal
 import { PizzaIngredientFormModal } from './PizzaIngredientFormModal'
 import { PizzaSizeFormModal } from './PizzaSizeFormModal'
 import { PizzaStyleFormModal } from './PizzaStyleFormModal'
+import { NoteShortcutsSection } from './NoteShortcutsSection'
 import { QuickPizzasSection } from './QuickPizzasSection'
 import { nextSortOrder } from './pizzaAdminForm'
 
@@ -153,6 +154,8 @@ export function AdminPizzasPage() {
       {catalog && (
         <>
           <QuickPizzasSection />
+          <NoteShortcutsSection scope="pizza" />
+          <NoteShortcutsSection scope="order" />
 
           <AdminSection id="pizza-sizes" title="Tamaños">
             <Table headers={['Tamaño', 'Se puede pedir', 'Acciones']}>
