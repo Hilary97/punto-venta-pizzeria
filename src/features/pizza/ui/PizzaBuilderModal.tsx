@@ -37,7 +37,7 @@ type Step = { kind: 'size' } | { kind: 'portion'; index: number }
 const MAX_QUANTITY = 20
 
 /** Pause between a tap that moves on by itself and the move, so the waiter sees what was pressed. */
-export const AUTO_ADVANCE_MS = 300
+export const AUTO_ADVANCE_MS = 200
 
 function portionTitle(count: number, index: number): string {
   if (count === 1) return 'Pizza entera'

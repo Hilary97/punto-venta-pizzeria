@@ -80,6 +80,10 @@ const MEXICANA = { id: 'mex', name: 'Estilo Mexicana', description: '', kind: 's
 const CUSTOM_ONLY: PizzaCatalog = { ...pizzaCatalogFixture, styles: pizzaCatalogFixture.styles.filter((s) => s.id === 'custom') }
 
 describe('PizzaBuilderModal steps', () => {
+  it('waits 200 ms after a tap before moving on by itself', () => {
+    expect(AUTO_ADVANCE_MS).toBe(200)
+  })
+
   it('goes Tamaño → one step per portion (division chosen on the first) with a header of completed choices', async () => {
     const { user, back, card, pickStyle } = renderBuilder()
     const steps = screen.getByRole('list', { name: 'Pasos de la pizza' })
