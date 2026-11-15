@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { toUserMessage } from '../../../shared/errors'
 import { ThemeToggle } from '../../../shared/theme/ThemeToggle'
@@ -38,6 +38,35 @@ function revokedGuard(onRevoked: () => void) {
         throw error
       }
     }
+}
+
+/** Matches the server and client messages for a missing or expired waiter shift. */
+function isShiftError(error: unknown): boolean {
+  const message = toUserMessage(error)
+  return message.includes('turno') || message.includes('PIN')
+}
+
+/** Delivery board whose calls drop the shift (back to the waiter list) once the server rejects it. */
+function DeliveryTab({ source, onShiftExpired }: { source: DeliverySource; onShiftExpired: () => void }) {
+  // Kept in a ref so a new callback does not rebuild the source and restart the board.
+  const onExpiredRef = useRef(onShiftExpired)
+  useEffect(() => {
+    onExpiredRef.current = onShiftExpired
+  }, [onShiftExpired])
+  const guarded = useMemo<DeliverySource>(() => {
+    function guard<A extends unknown[], R>(call: (...args: A) => Promise<R>) {
+      return async (...args: A): Promise<R> => {
+        try {
+          return await call(...args)
+        } catch (error) {
+          if (isShiftError(error)) onExpiredRef.current()
+          throw error
+        }
+      }
+    }
+    return { ...source, listReadyOrders: guard(source.listReadyOrders), markDelivered: guard(source.markDelivered) }
+  }, [source])
+  return <DeliveryBoard source={guarded} />
 }
 
 /** Full-screen orders app for an authorized device: waiter gate and workspace, no app navigation. */
@@ -140,7 +169,13 @@ export function DeviceOrdersApp({ device }: { device: AuthorizedDevice }) {
                   onShiftExpired={onShiftExpired}
                 />
               ) : (
-                <DeliveryBoard source={deliverySource} />
+                <DeliveryTab
+                  source={deliverySource}
+                  onShiftExpired={() => {
+                    setView('orders')
+                    onShiftExpired()
+                  }}
+                />
               )}
             </div>
           )}

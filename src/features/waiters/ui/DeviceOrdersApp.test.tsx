@@ -219,6 +219,57 @@ describe('DeviceOrdersApp', () => {
     await waitFor(() => expect(subscribe).toHaveBeenCalledTimes(1))
   })
 
+  it('returns to the waiter list when the delivery board says the shift expired', async () => {
+    vi.mocked(createDeviceDeliverySource).mockReturnValue({
+      listReadyOrders: vi.fn().mockRejectedValue(new Error('Tu turno expiró. Ingresa tu PIN de nuevo.')),
+      markDelivered: vi.fn(),
+    })
+    const user = userEvent.setup()
+    renderApp()
+    await loginWithPin(user)
+    await user.click(await screen.findByRole('tab', { name: /entrega/i }))
+    expect(await screen.findByText('¿Quién está tomando pedidos?')).toBeVisible()
+    expect(localStorage.getItem(SHIFT_STORAGE_KEY)).toBeNull()
+    expect(localStorage.getItem(DEVICE_STORAGE_KEY)).not.toBeNull()
+  })
+
+  it('returns to the waiter list when marking delivered fails with an expired shift', async () => {
+    vi.mocked(createDeviceDeliverySource).mockReturnValue({
+      listReadyOrders: vi.fn().mockResolvedValue([
+        {
+          id: 'r1',
+          tableNumber: 7,
+          customerName: null,
+          waiterName: 'Carlos',
+          notes: null,
+          createdAt: '2026-01-01T15:05:00Z',
+          lines: [{ id: 'l1', productName: 'Coca', quantity: 1, type: 'product', pizza: null, notes: null, variant: null }],
+        },
+      ]),
+      markDelivered: vi.fn().mockRejectedValue(new Error('Tu turno expiró. Ingresa tu PIN de nuevo.')),
+    })
+    const user = userEvent.setup()
+    renderApp()
+    await loginWithPin(user)
+    await user.click(await screen.findByRole('tab', { name: /entrega/i }))
+    await user.click(await screen.findByRole('button', { name: /entregado/i }))
+    expect(await screen.findByText('¿Quién está tomando pedidos?')).toBeVisible()
+    expect(localStorage.getItem(SHIFT_STORAGE_KEY)).toBeNull()
+  })
+
+  it('opens Pedidos for the next waiter after the shift expired on Entrega', async () => {
+    vi.mocked(createDeviceDeliverySource).mockReturnValue({
+      listReadyOrders: vi.fn().mockRejectedValueOnce(new Error('Tu turno expiró. Ingresa tu PIN de nuevo.')).mockResolvedValue([]),
+      markDelivered: vi.fn(),
+    })
+    const user = userEvent.setup()
+    renderApp()
+    await loginWithPin(user)
+    await user.click(await screen.findByRole('tab', { name: /entrega/i }))
+    await loginWithPin(user)
+    expect(await screen.findByRole('tab', { name: 'Pedidos' })).toHaveAttribute('aria-selected', 'true')
+  })
+
   it('detects a revoked device from delivery calls', async () => {
     vi.mocked(createDeviceDeliverySource).mockReturnValue({
       listReadyOrders: vi.fn().mockRejectedValue(new Error('Este dispositivo no está autorizado.')),
