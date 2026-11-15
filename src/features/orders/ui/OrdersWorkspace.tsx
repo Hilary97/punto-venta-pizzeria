@@ -12,6 +12,7 @@ import { describePizza, isSizeSoldOut, validatePizzaConfig, type PizzaCatalog, t
 import { PizzaBuilderModal, type BuiltPizza } from '../../pizza/ui/PizzaBuilderModal'
 import { NoteShortcutChips } from '../../pizza/ui/NoteShortcutChips'
 import { isSoldOut, type Category, type Product } from '../../products/domain/product'
+import { isShiftError } from '../../waiters/domain/deviceErrors'
 import type { WaiterShift } from '../../waiters/domain/waiter'
 import {
   MISSING_LABEL,
@@ -108,12 +109,6 @@ function usableQuickPicks(picks: PopularPick[], products: Product[], pizzaCatalo
     })
   }
   return usable
-}
-
-/** Matches the server messages for a missing or expired waiter shift. */
-function isShiftError(error: unknown): boolean {
-  const message = toUserMessage(error)
-  return message.includes('turno') || message.includes('PIN')
 }
 
 export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onShiftExpired, aboveBottomNav = false }: OrdersWorkspaceProps) {

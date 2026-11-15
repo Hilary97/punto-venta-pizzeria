@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { Link } from 'react-router'
-import { toUserMessage } from '../../../shared/errors'
 import { ThemeToggle } from '../../../shared/theme/ThemeToggle'
 import type { DeliverySource } from '../../kitchen/domain/kitchen'
 import { createDeviceDeliverySource } from '../../kitchen/infrastructure/kitchenRepository'
@@ -9,9 +8,11 @@ import type { OrdersSource } from '../../orders/domain/ordersSource'
 import { createDeviceOrdersSource } from '../../orders/infrastructure/ordersSources'
 import { OrdersWorkspace } from '../../orders/ui/OrdersWorkspace'
 import type { AuthorizedDevice } from '../domain/device'
+import { isRevokedDeviceError, isShiftError, reportingErrors } from '../domain/deviceErrors'
 import { clearDevice } from '../domain/deviceStorage'
 import { clearShift, loadShift } from '../domain/shiftStorage'
 import { cn } from '../../../shared/ui/cn'
+import { RevokedDeviceScreen } from './RevokedDeviceScreen'
 import { createDeviceShiftApi, WaiterShiftGate, type ShiftApi } from './WaiterShiftGate'
 
 type DeviceView = 'orders' | 'delivery'
@@ -21,51 +22,26 @@ const TABS: { value: DeviceView; label: string }[] = [
   { value: 'delivery', label: 'Entrega' },
 ]
 
-const REVOKED_MARKER = 'no está autorizado'
-
-function isRevokedError(error: unknown): boolean {
-  return toUserMessage(error).includes(REVOKED_MARKER)
-}
-
-/** Wraps an async call so a revoked-device error from the server is reported before it is rethrown. */
-function revokedGuard(onRevoked: () => void) {
-  return <A extends unknown[], R>(call: (...args: A) => Promise<R>) =>
-    async (...args: A): Promise<R> => {
-      try {
-        return await call(...args)
-      } catch (error) {
-        if (isRevokedError(error)) onRevoked()
-        throw error
-      }
-    }
-}
-
-/** Matches the server and client messages for a missing or expired waiter shift. */
-function isShiftError(error: unknown): boolean {
-  const message = toUserMessage(error)
-  return message.includes('turno') || message.includes('PIN')
-}
-
-/** Delivery board whose calls drop the shift (back to the waiter list) once the server rejects it. */
-function DeliveryTab({ source, onShiftExpired }: { source: DeliverySource; onShiftExpired: () => void }) {
-  // Kept in a ref so a new callback does not rebuild the source and restart the board.
-  const onExpiredRef = useRef(onShiftExpired)
-  useEffect(() => {
-    onExpiredRef.current = onShiftExpired
-  }, [onShiftExpired])
+/**
+ * Delivery board whose calls drop the shift (back to the waiter list) once the server rejects it.
+ * Both callbacks must be stable, or the source is rebuilt and the board restarts.
+ */
+function DeliveryTab({
+  source,
+  onShiftExpired,
+  onLeave,
+}: {
+  source: DeliverySource
+  onShiftExpired: () => void
+  onLeave: () => void
+}) {
   const guarded = useMemo<DeliverySource>(() => {
-    function guard<A extends unknown[], R>(call: (...args: A) => Promise<R>) {
-      return async (...args: A): Promise<R> => {
-        try {
-          return await call(...args)
-        } catch (error) {
-          if (isShiftError(error)) onExpiredRef.current()
-          throw error
-        }
-      }
-    }
+    const guard = reportingErrors(isShiftError, () => {
+      onLeave()
+      onShiftExpired()
+    })
     return { ...source, listReadyOrders: guard(source.listReadyOrders), markDelivered: guard(source.markDelivered) }
-  }, [source])
+  }, [source, onShiftExpired, onLeave])
   return <DeliveryBoard source={guarded} />
 }
 
@@ -73,6 +49,9 @@ function DeliveryTab({ source, onShiftExpired }: { source: DeliverySource; onShi
 export function DeviceOrdersApp({ device }: { device: AuthorizedDevice }) {
   const [revoked, setRevoked] = useState(false)
   const [view, setView] = useState<DeviceView>('orders')
+
+  // The next waiter starts on Pedidos after a shift expires on Entrega.
+  const showOrders = useCallback(() => setView('orders'), [])
 
   const handleRevoked = useCallback(() => {
     clearDevice()
@@ -82,7 +61,7 @@ export function DeviceOrdersApp({ device }: { device: AuthorizedDevice }) {
 
   const api = useMemo<ShiftApi>(() => {
     const base = createDeviceShiftApi(device.secret)
-    const guard = revokedGuard(handleRevoked)
+    const guard = reportingErrors(isRevokedDeviceError, handleRevoked)
     return {
       listWaiters: guard(base.listWaiters),
       startShift: guard(base.startShift),
@@ -93,7 +72,7 @@ export function DeviceOrdersApp({ device }: { device: AuthorizedDevice }) {
 
   const source = useMemo<OrdersSource>(() => {
     const base = createDeviceOrdersSource(device.secret, () => loadShift()?.token ?? null)
-    const guard = revokedGuard(handleRevoked)
+    const guard = reportingErrors(isRevokedDeviceError, handleRevoked)
     return {
       loadCatalog: guard(base.loadCatalog),
       listOpenOrders: guard(base.listOpenOrders),
@@ -107,7 +86,7 @@ export function DeviceOrdersApp({ device }: { device: AuthorizedDevice }) {
 
   const deliverySource = useMemo<DeliverySource>(() => {
     const base = createDeviceDeliverySource(device.secret, () => loadShift()?.token ?? null)
-    const guard = revokedGuard(handleRevoked)
+    const guard = reportingErrors(isRevokedDeviceError, handleRevoked)
     return {
       listReadyOrders: guard(base.listReadyOrders),
       markDelivered: guard(base.markDelivered),
@@ -115,18 +94,7 @@ export function DeviceOrdersApp({ device }: { device: AuthorizedDevice }) {
     }
   }, [device.secret, handleRevoked])
 
-  if (revoked) {
-    return (
-      <div className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-slate-50 p-6 text-center">
-        <p className="max-w-md text-lg text-slate-800">
-          Este dispositivo ya no está autorizado para pedidos. Pide a un administrador que lo autorice de nuevo.
-        </p>
-        <Link to="/login" className="rounded-lg bg-red-700 px-4 py-2 font-semibold text-white">
-          Iniciar sesión
-        </Link>
-      </div>
-    )
-  }
+  if (revoked) return <RevokedDeviceScreen area="pedidos" />
 
   return (
     <div className="flex min-h-dvh flex-col bg-slate-50">
@@ -169,13 +137,7 @@ export function DeviceOrdersApp({ device }: { device: AuthorizedDevice }) {
                   onShiftExpired={onShiftExpired}
                 />
               ) : (
-                <DeliveryTab
-                  source={deliverySource}
-                  onShiftExpired={() => {
-                    setView('orders')
-                    onShiftExpired()
-                  }}
-                />
+                <DeliveryTab source={deliverySource} onShiftExpired={onShiftExpired} onLeave={showOrders} />
               )}
             </div>
           )}

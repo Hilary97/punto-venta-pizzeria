@@ -1,14 +1,13 @@
 import { useCallback, useMemo, useState } from 'react'
 import { Link } from 'react-router'
-import { toUserMessage } from '../../../shared/errors'
 import type { AuthorizedDevice } from '../../waiters/domain/device'
+import { isRevokedDeviceError, reportingErrors } from '../../waiters/domain/deviceErrors'
 import { clearDevice } from '../../waiters/domain/deviceStorage'
 import { clearShift } from '../../waiters/domain/shiftStorage'
 import { deviceKindStation, STATION_LABELS, type KitchenSource } from '../domain/kitchen'
 import { createDeviceKitchenSource } from '../infrastructure/kitchenRepository'
+import { RevokedDeviceScreen } from '../../waiters/ui/RevokedDeviceScreen'
 import { KitchenBoard } from './KitchenBoard'
-
-const REVOKED_MARKER = 'no está autorizado'
 
 /** Full-screen kitchen app for an authorized kitchen device: no session, no app navigation. */
 export function KitchenDeviceApp({ device }: { device: AuthorizedDevice }) {
@@ -23,31 +22,11 @@ export function KitchenDeviceApp({ device }: { device: AuthorizedDevice }) {
 
   const source = useMemo<KitchenSource>(() => {
     const base = createDeviceKitchenSource(device.secret)
-    function guard<A extends unknown[], R>(call: (...args: A) => Promise<R>) {
-      return async (...args: A): Promise<R> => {
-        try {
-          return await call(...args)
-        } catch (error) {
-          if (toUserMessage(error).includes(REVOKED_MARKER)) handleRevoked()
-          throw error
-        }
-      }
-    }
+    const guard = reportingErrors(isRevokedDeviceError, handleRevoked)
     return { listOrders: guard(base.listOrders), markReady: guard(base.markReady), subscribe: base.subscribe }
   }, [device.secret, handleRevoked])
 
-  if (revoked) {
-    return (
-      <div className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-slate-50 p-6 text-center">
-        <p className="max-w-md text-lg text-slate-800">
-          Este dispositivo ya no está autorizado para cocina. Pide a un administrador que lo autorice de nuevo.
-        </p>
-        <Link to="/login" className="rounded-lg bg-red-700 px-4 py-2 font-semibold text-white">
-          Iniciar sesión
-        </Link>
-      </div>
-    )
-  }
+  if (revoked) return <RevokedDeviceScreen area="cocina" />
 
   const stationLabel = station ? STATION_LABELS[station] : ''
 
