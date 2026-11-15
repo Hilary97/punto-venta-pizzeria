@@ -10,6 +10,7 @@ import { Spinner } from '../../../shared/ui/Spinner'
 import { cn } from '../../../shared/ui/cn'
 import { describePizza, isSizeSoldOut, validatePizzaConfig, type PizzaCatalog, type PizzaConfig } from '../../pizza/domain/pizza'
 import { PizzaBuilderModal, type BuiltPizza } from '../../pizza/ui/PizzaBuilderModal'
+import { NoteShortcutChips } from '../../pizza/ui/NoteShortcutChips'
 import { isSoldOut, type Category, type Product } from '../../products/domain/product'
 import type { WaiterShift } from '../../waiters/domain/waiter'
 import {
@@ -121,6 +122,7 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
   const [products, setProducts] = useState<Product[]>([])
   const [pizzaCatalog, setPizzaCatalog] = useState<PizzaCatalog | null>(null)
   const [popularPicks, setPopularPicks] = useState<PopularPick[]>([])
+  const [noteShortcuts, setNoteShortcuts] = useState<{ pizza: string[]; order: string[] }>({ pizza: [], order: [] })
   const [orders, setOrders] = useState<Order[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -209,6 +211,20 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
       .loadPopularPicks?.()
       .then((picks) => {
         if (active) setPopularPicks(picks)
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [source])
+
+  // Note shortcuts are a convenience too: without them the notes stay free text.
+  useEffect(() => {
+    let active = true
+    source
+      .loadNoteShortcuts?.()
+      .then((lists) => {
+        if (active) setNoteShortcuts(lists)
       })
       .catch(() => {})
     return () => {
@@ -553,6 +569,7 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
             onLineNotes={(id, notes) => updateDraft((c) => setDraftLineNotes(c, id, notes))}
             orderNotes={orderNotes}
             onOrderNotes={setOrderNotes}
+            noteShortcuts={noteShortcuts.order}
             pickupTime={pickupTime}
             onPickupTime={setPickupTime}
             missing={missingForReview}
@@ -587,7 +604,7 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
       )}
 
       {isBuilderOpen && pizzaCatalog && (
-        <PizzaBuilderModal catalog={pizzaCatalog} onAdd={handleAddPizza} onClose={() => setIsBuilderOpen(false)} />
+        <PizzaBuilderModal catalog={pizzaCatalog} noteShortcuts={noteShortcuts.pizza} onAdd={handleAddPizza} onClose={() => setIsBuilderOpen(false)} />
       )}
 
       {notesOrder && (
@@ -598,6 +615,13 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
               value={notesText}
               maxLength={MAX_ORDER_NOTES_LENGTH}
               onChange={(event) => setNotesText(event.target.value)}
+            />
+            <NoteShortcutChips
+              label="nota del pedido"
+              shortcuts={noteShortcuts.order}
+              note={notesText}
+              maxLength={MAX_ORDER_NOTES_LENGTH}
+              onChange={setNotesText}
             />
             {notesError && <ErrorBanner message={notesError} />}
             <Button disabled={isSubmitting} onClick={() => void handleSaveNotes()}>

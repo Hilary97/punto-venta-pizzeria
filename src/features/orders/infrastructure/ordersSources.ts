@@ -5,6 +5,7 @@ import { parseRpcResult } from '../../../shared/supabase/rpc'
 import { listCategories, listProducts } from '../../products/infrastructure/productsRepository'
 import { listPizzaCatalog, pizzaCatalogSchema } from '../../pizza/infrastructure/pizzaRepository'
 import { listPopularPicks, POPULAR_PICKS_ERROR, popularPicksSchema } from './popularPicksRepository'
+import { listNoteShortcuts, NOTE_SHORTCUTS_ERROR, noteShortcutsSchema } from './noteShortcutsRepository'
 import type { OrdersCatalog, OrdersSource } from '../domain/ordersSource'
 import {
   addOrderItems,
@@ -29,6 +30,7 @@ export const authenticatedOrdersSource: OrdersSource = {
     return { categories, products, pizza }
   },
   loadPopularPicks: listPopularPicks,
+  loadNoteShortcuts: listNoteShortcuts,
   listOpenOrders,
   createOrder,
   addOrderItems,
@@ -106,6 +108,13 @@ export function createDeviceOrdersSource(
         p_device_secret: secret,
       })
       return parseRpcResult(popularPicksSchema, data, error, POPULAR_PICKS_ERROR)
+    },
+
+    async loadNoteShortcuts() {
+      const { data, error } = await getSupabaseClient().rpc('device_list_note_shortcuts', {
+        p_device_secret: secret,
+      })
+      return parseRpcResult(noteShortcutsSchema, data, error, NOTE_SHORTCUTS_ERROR)
     },
 
     async listOpenOrders() {
