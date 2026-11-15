@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useId, useMemo, useRef, useState } from 'react'
 import { Button } from '../../../shared/ui/Button'
 import { byName } from '../../../shared/sortByName'
 import { cn } from '../../../shared/ui/cn'
@@ -36,8 +36,11 @@ type Step = { kind: 'size' } | { kind: 'portion'; index: number }
 
 const MAX_QUANTITY = 20
 
-/** Pause between a tap that moves on by itself and the move, so the waiter sees what was pressed. */
-export const AUTO_ADVANCE_MS = 200
+/** After a tap that moves on by itself, taps on the new step are ignored this long, so a quick double tap never picks by accident. */
+export const GHOST_TAP_GUARD_MS = 150
+
+/** Monotonic clock for the ghost-tap guard; only read from tap handlers. */
+const now = () => performance.now()
 
 function portionTitle(count: number, index: number): string {
   if (count === 1) return 'Pizza entera'
@@ -95,24 +98,20 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose, quickPick = false, 
   const [collapsed, setCollapsed] = useState<number[]>([])
   /** Style id of the latest card tap, set by the card's change handler and read by its pick handler. */
   const pickedStyleId = useRef<string | undefined>(undefined)
-  /** The one pending automatic advance; a new tap replaces it and leaving cancels it. */
-  const advanceTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  /** Until when (performance.now) taps on the step reached by an automatic advance are ignored. */
+  const guardUntil = useRef(0)
 
-  function cancelAdvance() {
-    if (advanceTimer.current === undefined) return
-    clearTimeout(advanceTimer.current)
-    advanceTimer.current = undefined
+  function advance(target: Step) {
+    guardUntil.current = now() + GHOST_TAP_GUARD_MS
+    setStep(target)
   }
 
-  function scheduleAdvance(target: Step) {
-    cancelAdvance()
-    advanceTimer.current = setTimeout(() => {
-      advanceTimer.current = undefined
-      setStep(target)
-    }, AUTO_ADVANCE_MS)
+  /** Swallows a tap that lands on the new step right after an automatic advance (the second half of a double tap). */
+  function ignoreGhostTap(event: { preventDefault(): void; stopPropagation(): void }) {
+    if (now() >= guardUntil.current) return
+    event.preventDefault()
+    event.stopPropagation()
   }
-
-  useEffect(() => cancelAdvance, [])
 
   if (sizes.length === 0) return null
 
@@ -153,7 +152,7 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose, quickPick = false, 
       setCollapsed([])
       setPortions((existing) => resizePortions(existing, next))
     }
-    scheduleAdvance({ kind: 'portion', index: 0 })
+    advance({ kind: 'portion', index: 0 })
   }
 
   function selectDivision(next: number) {
@@ -173,19 +172,16 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose, quickPick = false, 
   function pickStyle(index: number) {
     const styleId = pickedStyleId.current ?? portions[index]?.styleId
     pickedStyleId.current = undefined
-    cancelAdvance()
     setCollapsed((existing) => (existing.includes(index) ? existing : [...existing, index]))
-    if (index < count - 1 && hasNoChoices(styles.find((candidate) => candidate.id === styleId))) scheduleAdvance({ kind: 'portion', index: index + 1 })
+    if (index < count - 1 && hasNoChoices(styles.find((candidate) => candidate.id === styleId))) advance({ kind: 'portion', index: index + 1 })
   }
 
   function goTo(target: Step | undefined) {
     if (!target) return
-    cancelAdvance()
     setStep(target)
   }
 
   function closeBuilder() {
-    cancelAdvance()
     onClose()
   }
 
@@ -229,7 +225,8 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose, quickPick = false, 
 
   return (
     <Modal title="Armar pizza" onClose={closeBuilder} wide>
-      <div className="flex min-w-0 flex-col gap-4">
+      {/* touch-manipulation: no double-tap zoom or tap delay on phones, so taps register at once. */}
+      <div className="flex min-w-0 touch-manipulation flex-col gap-4">
         <div className="flex items-center">
           {previous ? (
             <Button variant="ghost" size="md" onClick={() => goTo(previous)}>
@@ -283,7 +280,7 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose, quickPick = false, 
         )}
 
         {current.kind === 'portion' && (
-          <>
+          <div className="contents" onClickCapture={ignoreGhostTap}>
             <div className="flex items-center gap-3">
               <PizzaDiagram count={count} index={current.index} label={diagramLabel} />
               <p className="text-sm text-slate-500">
@@ -396,7 +393,7 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose, quickPick = false, 
                 />
               </div>
             )}
-          </>
+          </div>
         )}
 
         <div className="sticky -bottom-6 -mx-6 -mb-6 flex flex-col gap-2 border-t border-slate-300 bg-white px-6 pb-4 pt-3 shadow-[0_-6px_16px_rgba(15,23,42,0.08)]">

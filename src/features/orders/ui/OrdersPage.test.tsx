@@ -11,8 +11,12 @@ import type { PopularPick } from '../domain/ordersSource'
 import type { PizzaConfig } from '../../pizza/domain/pizza'
 import { addOrderItems, cancelOrder, createOrder, listOpenOrders, setOrderNotes } from '../infrastructure/ordersRepository'
 import { pizzaCatalogFixture } from '../../pizza/ui/pizzaCatalogFixture'
+import { GHOST_TAP_GUARD_MS } from '../../pizza/ui/PizzaBuilderModal'
 import { subscribeKitchenChanges } from '../../kitchen/infrastructure/kitchenRepository'
 import { OrdersPage } from './OrdersPage'
+
+/** Real wait for the builder's ghost-tap guard after a size tap moves on by itself. */
+const waitGhostTapGuard = () => act(() => new Promise((resolve) => setTimeout(resolve, GHOST_TAP_GUARD_MS)))
 
 vi.mock('../../kitchen/infrastructure/kitchenRepository', () => ({ subscribeKitchenChanges: vi.fn() }))
 
@@ -340,6 +344,7 @@ async function finishPizza(user: ReturnType<typeof userEvent.setup>) {
   const dialog = screen.getByRole('dialog', { name: /armar pizza/i })
   // Tapping the (preselected) size goes to the style; Estilo Varas has no ingredients to choose, so "Agregar pizza" is ready.
   await user.click(within(dialog).getByRole('button', { name: 'Chica' }))
+  await waitGhostTapGuard()
   expect(within(dialog).queryByRole('button', { name: /^Siguiente/ })).not.toBeInTheDocument()
   await user.click(await within(dialog).findByRole('button', { name: /Estilo Varas/ }))
   await user.click(within(dialog).getByRole('button', { name: 'Agregar pizza' }))
@@ -775,6 +780,7 @@ describe('guided steps: Productos step', () => {
     await user.click(await screen.findByRole('button', { name: /armar pizza/i }))
     const dialog = screen.getByRole('dialog', { name: /armar pizza/i })
     await user.click(within(dialog).getByRole('button', { name: 'Chica' }))
+    await waitGhostTapGuard()
     await user.click(await within(dialog).findByRole('button', { name: /Estilo Varas/ }))
     await user.click(within(within(dialog).getByRole('group', { name: 'Atajos de notas de la pizza' })).getByRole('button', { name: 'Sin cebolla' }))
     expect(within(dialog).getByLabelText(/nota de la pizza/i)).toHaveValue('Sin cebolla')
@@ -789,6 +795,7 @@ describe('guided steps: Productos step', () => {
     await user.click(await screen.findByRole('button', { name: /armar pizza/i }))
     const dialog = screen.getByRole('dialog', { name: /armar pizza/i })
     await user.click(within(dialog).getByRole('button', { name: 'Chica' }))
+    await waitGhostTapGuard()
     await user.click(await within(dialog).findByRole('button', { name: /Estilo Varas/ }))
     expect(within(dialog).queryByRole('group', { name: /^Atajos de/ })).not.toBeInTheDocument()
     await user.type(within(dialog).getByLabelText(/nota de la pizza/i), 'libre')

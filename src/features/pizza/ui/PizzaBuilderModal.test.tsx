@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { PizzaCatalog, PizzaSize } from '../domain/pizza'
 import { pizzaCatalogFixture } from './pizzaCatalogFixture'
-import { AUTO_ADVANCE_MS, PizzaBuilderModal } from './PizzaBuilderModal'
+import { GHOST_TAP_GUARD_MS, PizzaBuilderModal } from './PizzaBuilderModal'
 
 afterEach(() => {
   vi.useRealTimers()
@@ -20,14 +20,14 @@ function chicaWhole(catalog: PizzaCatalog = pizzaCatalogFixture): PizzaCatalog {
   return { ...catalog, sizes: [{ ...first, allowedPortions: [1] }, ...rest] }
 }
 
-/** Lets a pending auto-advance (size or style tap) run. */
+/** Lets the ghost-tap guard after an automatic advance pass, so the next tap counts. */
 function flushAdvance() {
   return act(() => {
-    vi.advanceTimersByTime(AUTO_ADVANCE_MS)
+    vi.advanceTimersByTime(GHOST_TAP_GUARD_MS)
   })
 }
 
-/** Fake timers plus two clickers: `tap` clicks without waiting for the auto-advance; `user.click` also lets the pause pass. */
+/** Fake timers plus two clickers: `tap` clicks without waiting; `user.click` also lets the ghost-tap guard pass. */
 function advancingUser() {
   vi.useFakeTimers({ shouldAdvanceTime: true })
   const tap = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
@@ -80,8 +80,8 @@ const MEXICANA = { id: 'mex', name: 'Estilo Mexicana', description: '', kind: 's
 const CUSTOM_ONLY: PizzaCatalog = { ...pizzaCatalogFixture, styles: pizzaCatalogFixture.styles.filter((s) => s.id === 'custom') }
 
 describe('PizzaBuilderModal steps', () => {
-  it('waits 200 ms after a tap before moving on by itself', () => {
-    expect(AUTO_ADVANCE_MS).toBe(200)
+  it('ignores taps on a new step for 150 ms after moving on by itself', () => {
+    expect(GHOST_TAP_GUARD_MS).toBe(150)
   })
 
   it('goes Tamaño → one step per portion (division chosen on the first) with a header of completed choices', async () => {
@@ -1129,84 +1129,59 @@ describe('PizzaBuilderModal no default size and visible auto-advance (S6, S7)', 
     expect(screen.getByRole('status', { name: 'Resumen de la pizza' })).toHaveTextContent('Elige el tamaño')
   })
 
-  it('marks the tapped size first and moves to the first portion after the pause (S7)', async () => {
+  it('moves to the first portion in the same tap and shows the size in the step header (S7)', async () => {
     const { tap, card } = renderBuilder()
     await tap.click(card('Grande'))
-    expect(card('Grande')).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByRole('group', { name: 'Tamaño' })).toBeVisible()
-    expect(screen.queryByRole('group', { name: /^Estilo de la / })).not.toBeInTheDocument()
-    act(() => {
-      vi.advanceTimersByTime(AUTO_ADVANCE_MS - 100)
-    })
-    expect(screen.getByRole('group', { name: 'Tamaño' })).toBeVisible()
-    await flushAdvance()
     expect(screen.queryByRole('group', { name: 'Tamaño' })).not.toBeInTheDocument()
     expect(screen.getByRole('group', { name: 'Estilo de la Pizza entera' })).toBeVisible()
+    expect(screen.getByRole('list', { name: 'Pasos de la pizza' })).toHaveTextContent(/Tamaño ✓.*Grande/)
+    expect(vi.getTimerCount()).toBe(0)
   })
 
-  it('marks a no-choice style first and moves to the next portion after the pause (S7)', async () => {
+  it('moves to the next portion in the same tap after a no-choice style (S7)', async () => {
     const { user, tap, card } = renderBuilder()
     await user.click(card('Grande'))
     await user.click(card('Mitades'))
     await tap.click(card(/Estilo Varas/))
-    expect(card(/Estilo Varas/)).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByRole('group', { name: 'Estilo de la Mitad 1' })).toBeVisible()
-    expect(screen.queryByRole('group', { name: 'Estilo de la Mitad 2' })).not.toBeInTheDocument()
-    await flushAdvance()
+    expect(screen.queryByRole('group', { name: 'Estilo de la Mitad 1' })).not.toBeInTheDocument()
     expect(screen.getByRole('group', { name: 'Estilo de la Mitad 2' })).toBeVisible()
+    expect(vi.getTimerCount()).toBe(0)
   })
 
-  it('a second size tap during the pause replaces the target and advances once (S7)', async () => {
+  it('ignores a quick second tap on the new step, then accepts taps after the guard (S7)', async () => {
     const { tap, card } = renderBuilder()
     await tap.click(card('Grande'))
-    act(() => {
-      vi.advanceTimersByTime(150)
-    })
-    await tap.click(card('Chica'))
-    act(() => {
-      vi.advanceTimersByTime(AUTO_ADVANCE_MS - 100)
-    })
-    expect(screen.getByRole('group', { name: 'Tamaño' })).toBeVisible()
-    expect(card('Chica')).toHaveAttribute('aria-pressed', 'true')
+    await tap.click(card(/Estilo Varas/))
+    expect(card(/Estilo Varas/)).toHaveAttribute('aria-pressed', 'false')
     act(() => {
       vi.advanceTimersByTime(100)
     })
-    expect(screen.getByRole('group', { name: 'Estilo de la Pizza entera' })).toBeVisible()
-    expect(screen.getByRole('status', { name: 'Resumen de la pizza' })).toHaveTextContent('Pizza Chica')
-    expect(vi.getTimerCount()).toBe(0)
+    await tap.click(card(/Estilo Varas/))
+    expect(card(/Estilo Varas/)).toHaveAttribute('aria-pressed', 'false')
+    act(() => {
+      vi.advanceTimersByTime(GHOST_TAP_GUARD_MS)
+    })
+    await tap.click(card(/Estilo Varas/))
+    expect(card(/Estilo Varas/)).toHaveAttribute('aria-pressed', 'true')
   })
 
-  it('going back cancels a pending advance (S7)', async () => {
+  it('a quick second tap after the size does not change the division (S7)', async () => {
+    const { tap, card } = renderBuilder()
+    await tap.click(card('Grande'))
+    await tap.click(card('Mitades'))
+    expect(card('Entera')).toHaveAttribute('aria-pressed', 'true')
+    expect(card('Mitades')).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('group', { name: 'Estilo de la Pizza entera' })).toBeVisible()
+  })
+
+  it('a quick second tap after a no-choice style does not pick on the next portion (S7)', async () => {
     const { user, tap, card } = renderBuilder()
     await user.click(card('Grande'))
     await user.click(card('Mitades'))
     await tap.click(card(/Estilo Varas/))
-    await tap.click(screen.getByRole('button', { name: '← Tamaño' }))
-    await flushAdvance()
-    expect(screen.getByRole('group', { name: 'Tamaño' })).toBeVisible()
-    expect(screen.queryByRole('group', { name: /^Estilo de la / })).not.toBeInTheDocument()
-  })
-
-  it('closing cancels a pending advance (S7)', async () => {
-    const { tap, card, onClose } = renderBuilder()
-    await tap.click(card('Grande'))
-    await tap.click(screen.getByRole('button', { name: '← Cancelar pizza' }))
-    expect(onClose).toHaveBeenCalledTimes(1)
-    expect(vi.getTimerCount()).toBe(0)
-    await flushAdvance()
-    expect(screen.getByRole('group', { name: 'Tamaño' })).toBeVisible()
-  })
-
-  it('unmounting clears the pending advance without state updates (S7)', async () => {
-    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined)
-    const { tap, card, view } = renderBuilder()
-    await tap.click(card('Grande'))
-    expect(vi.getTimerCount()).toBeGreaterThan(0)
-    view.unmount()
-    expect(vi.getTimerCount()).toBe(0)
-    await flushAdvance()
-    expect(error).not.toHaveBeenCalled()
-    error.mockRestore()
+    await tap.click(card(/Estilo Varas/))
+    expect(screen.getByRole('group', { name: 'Estilo de la Mitad 2' })).toBeVisible()
+    expect(card(/Estilo Varas/)).toHaveAttribute('aria-pressed', 'false')
   })
 
   it('changing the division never changes the step and keeps Entera as default (S7)', async () => {

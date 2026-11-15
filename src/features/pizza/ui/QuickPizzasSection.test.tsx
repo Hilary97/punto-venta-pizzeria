@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { listPizzaCatalog } from '../infrastructure/pizzaRepository'
@@ -10,6 +10,10 @@ import {
 } from '../infrastructure/quickPizzaRepository'
 import { pizzaCatalogFixture } from './pizzaCatalogFixture'
 import { QuickPizzasSection } from './QuickPizzasSection'
+import { GHOST_TAP_GUARD_MS } from './PizzaBuilderModal'
+
+/** Real wait for the builder's ghost-tap guard after a size tap moves on by itself. */
+const waitGhostTapGuard = () => act(() => new Promise((resolve) => setTimeout(resolve, GHOST_TAP_GUARD_MS)))
 
 vi.mock('../infrastructure/pizzaRepository', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../infrastructure/pizzaRepository')>()),
@@ -86,6 +90,7 @@ describe('QuickPizzasSection', () => {
     const dialog = screen.getByRole('dialog', { name: /armar pizza/i })
     // Size → (short pause) style (no ingredients to choose): "Fijar pizza" is ready without any "Siguiente".
     await user.click(within(dialog).getByRole('button', { name: 'Chica' }))
+    await waitGhostTapGuard()
     expect(within(dialog).queryByRole('button', { name: /^Siguiente/ })).not.toBeInTheDocument()
     await user.click(await within(dialog).findByRole('button', { name: /Estilo Varas/ }))
     expect(within(dialog).queryByRole('group', { name: 'Cantidad de pizzas' })).not.toBeInTheDocument()
@@ -106,6 +111,7 @@ describe('QuickPizzasSection', () => {
     const dialog = screen.getByRole('dialog', { name: /armar pizza/i })
     // Size → (short pause) style (no ingredients to choose): "Fijar pizza" is ready without any "Siguiente".
     await user.click(within(dialog).getByRole('button', { name: 'Chica' }))
+    await waitGhostTapGuard()
     expect(within(dialog).queryByRole('button', { name: /^Siguiente/ })).not.toBeInTheDocument()
     await user.click(await within(dialog).findByRole('button', { name: /Estilo Varas/ }))
     await user.click(within(dialog).getByRole('button', { name: 'Fijar pizza' }))
