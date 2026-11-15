@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { Link } from 'react-router'
 import { Button } from '../../../shared/ui/Button'
 import { ErrorBanner } from '../../../shared/ui/ErrorBanner'
 import { Spinner } from '../../../shared/ui/Spinner'
 import { toUserMessage } from '../../../shared/errors'
 import type { Category, CategoryFormValues, Product, ProductFormValues } from '../domain/product'
+import { NoteShortcutsSection } from '../../pizza/ui/NoteShortcutsSection'
 import { hideLegacyPizza } from '../../orders/domain/legacyPizza'
 import {
   createCategory,
@@ -30,6 +31,10 @@ export function AdminProductsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [modal, setModal] = useState<ModalState>({ kind: 'none' })
+  const shortcutCategoryId = useId()
+  const [shortcutCategory, setShortcutCategory] = useState<string | null>(null)
+  // The chosen category, or the first one while none (or a vanished one) is chosen.
+  const shortcutCategoryChoice = categories.find((category) => category.id === shortcutCategory) ?? categories[0]
 
   async function reload() {
     setIsLoading(true)
@@ -115,6 +120,28 @@ export function AdminProductsPage() {
         onEdit={(product) => setModal({ kind: 'edit-product', product })}
         onToggleActive={handleToggleActive}
       />
+
+      {shortcutCategoryChoice && (
+        <NoteShortcutsSection scope="category" categoryId={shortcutCategoryChoice.id}>
+          <div className="flex flex-col gap-1">
+            <label htmlFor={shortcutCategoryId} className="text-sm font-medium text-slate-700">
+              Categoría
+            </label>
+            <select
+              id={shortcutCategoryId}
+              value={shortcutCategoryChoice.id}
+              onChange={(event) => setShortcutCategory(event.target.value)}
+              className="min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-base text-slate-900"
+            >
+              {categories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </NoteShortcutsSection>
+      )}
 
       {modal.kind === 'new-category' && (
         <CategoryFormModal onSubmit={handleCreateCategory} onClose={() => setModal({ kind: 'none' })} />

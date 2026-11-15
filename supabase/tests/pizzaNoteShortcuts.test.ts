@@ -144,7 +144,7 @@ describe('reading note shortcuts', () => {
     await add('A')
     for (const user of [admin, cashier]) {
       await asUser(db, user)
-      expect(await rpc('public.list_note_shortcuts()')).toEqual({ pizza: ['B', 'A'], order: [] })
+      expect(await rpc('public.list_note_shortcuts()')).toEqual({ pizza: ['B', 'A'], order: [], categories: {} })
     }
     await asUser(db, waiter)
     await expect(rpc('public.list_note_shortcuts()')).rejects.toThrow('No tienes permiso')
@@ -154,7 +154,7 @@ describe('reading note shortcuts', () => {
 
   it('returns an empty list when there are none', async () => {
     await asUser(db, cashier)
-    expect(await rpc('public.list_note_shortcuts()')).toEqual({ pizza: [], order: [] })
+    expect(await rpc('public.list_note_shortcuts()')).toEqual({ pizza: [], order: [], categories: {} })
   })
 
   it('device_list_note_shortcuts serves waiter devices only', async () => {
@@ -167,7 +167,7 @@ describe('reading note shortcuts', () => {
     await rpc('public.admin_revoke_device($1)', [revoked.device_id])
 
     await asAnon(db)
-    expect(await rpc('public.device_list_note_shortcuts($1)', [w.device_secret])).toEqual({ pizza: ['B', 'A'], order: [] })
+    expect(await rpc('public.device_list_note_shortcuts($1)', [w.device_secret])).toEqual({ pizza: ['B', 'A'], order: [], categories: {} })
     await expect(rpc('public.device_list_note_shortcuts($1)', ['nope'])).rejects.toThrow('no está autorizado')
     await expect(rpc('public.device_list_note_shortcuts($1)', [null])).rejects.toThrow('no está autorizado')
     await expect(rpc('public.device_list_note_shortcuts($1)', [revoked.device_secret])).rejects.toThrow('no está autorizado')
@@ -253,7 +253,7 @@ describe('note shortcut scopes', () => {
     await add('Sin cebolla')
     await add('Cubiertos', 'order')
     await add('Entregar rápido', 'order')
-    const expected = { pizza: ['Sin cebolla'], order: ['Cubiertos', 'Entregar rápido'] }
+    const expected = { pizza: ['Sin cebolla'], order: ['Cubiertos', 'Entregar rápido'], categories: {} }
     await asUser(db, cashier)
     expect(await rpc('public.list_note_shortcuts()')).toEqual(expected)
     const w = await registerDevice('waiter')

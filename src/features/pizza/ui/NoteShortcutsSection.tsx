@@ -1,12 +1,14 @@
-import { useEffect, useId, useState } from 'react'
+import { useEffect, useId, useState, type ReactNode } from 'react'
 import { toUserMessage } from '../../../shared/errors'
 import { Button } from '../../../shared/ui/Button'
 import { ErrorBanner } from '../../../shared/ui/ErrorBanner'
 import { Input } from '../../../shared/ui/Input'
 import { Spinner } from '../../../shared/ui/Spinner'
 import {
+  addCategoryNoteShortcut,
   addNoteShortcut,
   deleteNoteShortcut,
+  listAdminCategoryNoteShortcuts,
   listAdminNoteShortcuts,
   moveNoteShortcut,
   type NoteShortcut,
@@ -15,7 +17,7 @@ import {
 
 const MAX_LABEL_LENGTH = 40
 
-const COPY: Record<NoteShortcutScope, { title: string; hint: string; empty: string; placeholder: string }> = {
+const COPY: Record<NoteShortcutScope | 'category', { title: string; hint: string; empty: string; placeholder: string }> = {
   pizza: {
     title: 'Atajos de notas de pizza',
     hint: 'El mesero los toca en "Armar pizza" para llenar la nota de cada porción y la nota de la pizza. Hasta 12 atajos.',
@@ -28,20 +30,46 @@ const COPY: Record<NoteShortcutScope, { title: string; hint: string; empty: stri
     empty: 'Todavía no agregaste ningún atajo: el mesero escribe la nota del pedido a mano.',
     placeholder: 'Ej. Pagan con $500',
   },
+  category: {
+    title: 'Atajos de notas por categoría',
+    hint: 'El mesero los toca bajo la nota de cada producto de la categoría al revisar el pedido. Hasta 12 atajos por categoría.',
+    empty: 'Esta categoría no tiene atajos: el mesero escribe las notas a mano.',
+    placeholder: 'Ej. Sin pepinillos',
+  },
 }
 
-/** Admin > Pizzas: one list of note shortcuts (pizza notes or the order note) the waiter taps. */
-export function NoteShortcutsSection({ scope }: { scope: NoteShortcutScope }) {
+type NoteShortcutsSectionProps =
+  | { scope: NoteShortcutScope; categoryId?: undefined; children?: undefined }
+  /** `children` (e.g. the category picker) show under the heading. */
+  | { scope: 'category'; categoryId: string; children?: ReactNode }
+
+function fetchShortcuts(scope: NoteShortcutScope | 'category', categoryId: string | undefined) {
+  return scope === 'category' ? listAdminCategoryNoteShortcuts(categoryId!) : listAdminNoteShortcuts(scope)
+}
+
+/**
+ * Admin: one list of note shortcuts the waiter taps: pizza notes or the order note (Admin > Pizzas), or the
+ * product line notes of one category (Admin > Productos).
+ */
+export function NoteShortcutsSection({ scope, categoryId, children }: NoteShortcutsSectionProps) {
   const copy = COPY[scope]
   const id = useId()
-  const [shortcuts, setShortcuts] = useState<NoteShortcut[] | null>(null)
+  // Results are tied to the list they were loaded for, so switching category never shows the previous one.
+  const listKey = `${scope}:${categoryId ?? ''}`
+  const [loaded, setLoaded] = useState<{ key: string; shortcuts: NoteShortcut[] } | null>(null)
+  const [failure, setFailure] = useState<{ key: string; message: string } | null>(null)
   const [label, setLabel] = useState('')
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [isBusy, setIsBusy] = useState(false)
+  const shortcuts = loaded?.key === listKey ? loaded.shortcuts : null
+  const errorMessage = failure?.key === listKey ? failure.message : null
+
+  function setErrorMessage(message: string | null) {
+    setFailure(message === null ? null : { key: listKey, message })
+  }
 
   async function reload() {
     try {
-      setShortcuts(await listAdminNoteShortcuts(scope))
+      setLoaded({ key: listKey, shortcuts: await fetchShortcuts(scope, categoryId) })
     } catch (error) {
       setErrorMessage(toUserMessage(error))
     }
@@ -49,18 +77,18 @@ export function NoteShortcutsSection({ scope }: { scope: NoteShortcutScope }) {
 
   useEffect(() => {
     let cancelled = false
-    listAdminNoteShortcuts(scope).then(
-      (loaded) => {
-        if (!cancelled) setShortcuts(loaded)
+    fetchShortcuts(scope, categoryId).then(
+      (list) => {
+        if (!cancelled) setLoaded({ key: listKey, shortcuts: list })
       },
       (error: unknown) => {
-        if (!cancelled) setErrorMessage(toUserMessage(error))
+        if (!cancelled) setFailure({ key: listKey, message: toUserMessage(error) })
       },
     )
     return () => {
       cancelled = true
     }
-  }, [scope])
+  }, [scope, categoryId, listKey])
 
   /** Runs a server action; returns whether it succeeded. The list is reloaded either way. */
   async function run(action: () => Promise<void>): Promise<boolean> {
@@ -80,7 +108,9 @@ export function NoteShortcutsSection({ scope }: { scope: NoteShortcutScope }) {
   }
 
   async function handleAdd() {
-    if (await run(() => addNoteShortcut(scope, label.trim()))) setLabel('')
+    const text = label.trim()
+    const added = await run(() => (scope === 'category' ? addCategoryNoteShortcut(categoryId, text) : addNoteShortcut(scope, text)))
+    if (added) setLabel('')
   }
 
   return (
@@ -93,6 +123,7 @@ export function NoteShortcutsSection({ scope }: { scope: NoteShortcutScope }) {
           {copy.hint}
         </p>
       </div>
+      {children}
 
       <form
         className="flex flex-wrap items-end gap-2"

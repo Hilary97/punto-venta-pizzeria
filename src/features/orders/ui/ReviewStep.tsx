@@ -44,6 +44,8 @@ interface ReviewStepProps {
   onOrderNotes: (notes: string) => void
   /** Admin-managed order note shortcuts, as chips under the order note. */
   noteShortcuts?: string[]
+  /** Shortcuts of the product's category, as chips under a product line's note. Pizza lines have their own. */
+  productNoteShortcuts?: (productId: string) => string[]
   pickupTime: string
   onPickupTime: (time: string) => void
   missing: MissingPiece[]
@@ -84,6 +86,7 @@ export function ReviewStep({
   orderNotes,
   onOrderNotes,
   noteShortcuts = [],
+  productNoteShortcuts,
   pickupTime,
   onPickupTime,
   missing,
@@ -169,6 +172,17 @@ export function ReviewStep({
                     <Button type="button" variant="secondary" className="min-h-12 shrink-0" onClick={() => setEditingNoteId(null)}>
                       Listo
                     </Button>
+                  </div>
+                )}
+                {isEditing && !isSubmitting && line.kind === 'product' && productNoteShortcuts && (
+                  <div className="mt-1.5">
+                    <NoteShortcutChips
+                      label={`nota de ${label}`}
+                      shortcuts={productNoteShortcuts(line.productId)}
+                      note={line.notes}
+                      maxLength={MAX_ITEM_NOTES_LENGTH}
+                      onChange={(notes) => onLineNotes(line.lineId, notes)}
+                    />
                   </div>
                 )}
                 <div className="mt-1.5 flex flex-wrap items-center gap-2">

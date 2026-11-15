@@ -116,7 +116,7 @@ describe('popular picks', () => {
 })
 
 describe('note shortcuts', () => {
-  const both = { pizza: ['Sin cebolla', 'Bien cocida'], order: ['Cubiertos'] }
+  const both = { pizza: ['Sin cebolla', 'Bien cocida'], order: ['Cubiertos'], categories: { 'cat-1': ['Sin pepinillos'] } }
 
   it('loads both lists with the device secret on a device and from the session otherwise', async () => {
     rpc.mockResolvedValue({ data: both, error: null })
@@ -127,6 +127,12 @@ describe('note shortcuts', () => {
     expect(rpc).toHaveBeenLastCalledWith('list_note_shortcuts')
   })
 
+  it('defaults categories to {} when the server does not send them', async () => {
+    rpc.mockResolvedValue({ data: { pizza: ['A'], order: [] }, error: null })
+    expect(await authenticatedOrdersSource.loadNoteShortcuts!()).toEqual({ pizza: ['A'], order: [], categories: {} })
+    expect(await createDeviceOrdersSource('secret', () => null).loadNoteShortcuts!()).toEqual({ pizza: ['A'], order: [], categories: {} })
+  })
+
   it('fails when the rpc fails or returns something else', async () => {
     rpc.mockResolvedValue({ data: null, error: { message: 'No tienes permiso' } })
     await expect(createDeviceOrdersSource('secret', () => null).loadNoteShortcuts!()).rejects.toThrow()
@@ -134,6 +140,8 @@ describe('note shortcuts', () => {
     rpc.mockResolvedValue({ data: ['Sin cebolla'], error: null })
     await expect(authenticatedOrdersSource.loadNoteShortcuts!()).rejects.toThrow()
     rpc.mockResolvedValue({ data: { pizza: [1], order: [] }, error: null })
+    await expect(authenticatedOrdersSource.loadNoteShortcuts!()).rejects.toThrow()
+    rpc.mockResolvedValue({ data: { pizza: [], order: [], categories: { c: [1] } }, error: null })
     await expect(authenticatedOrdersSource.loadNoteShortcuts!()).rejects.toThrow()
   })
 })

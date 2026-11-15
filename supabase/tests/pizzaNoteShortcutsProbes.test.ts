@@ -176,7 +176,7 @@ describe('verifier probes', () => {
 
   it('P8 read rpcs: roles, devices, and output shape labels only', async () => {
     await add('Sin cebolla'); await add('Cubiertos', 'order'); await add('Entregar rápido', 'order')
-    const expected = { pizza: ['Sin cebolla'], order: ['Cubiertos', 'Entregar rápido'] }
+    const expected = { pizza: ['Sin cebolla'], order: ['Cubiertos', 'Entregar rápido'], categories: {} }
     for (const u of [admin, cashier]) { await asUser(db, u); expect(await rpc('public.list_note_shortcuts()')).toStrictEqual(expected) }
     const out: string[] = []
     await asUser(db, waiter); out.push('waiter list: ' + await errOf(() => rpc('public.list_note_shortcuts()')))
@@ -191,7 +191,7 @@ describe('verifier probes', () => {
     await asAnon(db)
     const r = await rpc('public.device_list_note_shortcuts($1)', [w.device_secret])
     expect(r).toStrictEqual(expected)
-    expect(Object.keys(r).sort()).toEqual(['order', 'pizza'])
+    expect(Object.keys(r).sort()).toEqual(['categories', 'order', 'pizza'])
     for (const [n, sec] of [['unknown', 'nope'], ['empty', ''], ['null', null], ['revoked', rv.device_secret], ['kitchen_pizza', kp.device_secret], ['kitchen_grill', kg.device_secret]] as const) {
       await asAnon(db); out.push(`device ${n}: ` + await errOf(() => rpc('public.device_list_note_shortcuts($1)', [sec])))
     }
