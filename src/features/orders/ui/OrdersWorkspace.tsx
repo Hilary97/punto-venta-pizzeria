@@ -122,7 +122,11 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
   const [products, setProducts] = useState<Product[]>([])
   const [pizzaCatalog, setPizzaCatalog] = useState<PizzaCatalog | null>(null)
   const [popularPicks, setPopularPicks] = useState<PopularPick[]>([])
-  const [noteShortcuts, setNoteShortcuts] = useState<{ pizza: string[]; order: string[] }>({ pizza: [], order: [] })
+  const [noteShortcuts, setNoteShortcuts] = useState<{ pizza: string[]; order: string[]; categories: Record<string, string[]> }>({
+    pizza: [],
+    order: [],
+    categories: {},
+  })
   const [orders, setOrders] = useState<Order[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -570,6 +574,10 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
             orderNotes={orderNotes}
             onOrderNotes={setOrderNotes}
             noteShortcuts={noteShortcuts.order}
+            productNoteShortcuts={(productId) => {
+              const product = products.find((candidate) => candidate.id === productId)
+              return product ? (noteShortcuts.categories[product.categoryId] ?? []) : []
+            }}
             pickupTime={pickupTime}
             onPickupTime={setPickupTime}
             missing={missingForReview}

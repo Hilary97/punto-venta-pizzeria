@@ -30,8 +30,11 @@ export interface OrdersSource {
   loadCatalog(): Promise<OrdersCatalog>
   /** Fixed pizzas, then best-selling pizzas and products ("Más vendidas"); optional, failures are not shown. */
   loadPopularPicks?(): Promise<PopularPick[]>
-  /** Admin-managed note shortcuts in order: for pizza notes and for the order note; optional, failures are not shown. */
-  loadNoteShortcuts?(): Promise<{ pizza: string[]; order: string[] }>
+  /**
+   * Admin-managed note shortcuts in order: for pizza notes, the order note and, by category id, the product line
+   * notes; optional, failures are not shown.
+   */
+  loadNoteShortcuts?(): Promise<{ pizza: string[]; order: string[]; categories: Record<string, string[]> }>
   listOpenOrders(): Promise<Order[]>
   createOrder(input: CreateOrderInput): Promise<string>
   addOrderItems(orderId: string, items: OrderItemPayload[]): Promise<string>
