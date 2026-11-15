@@ -3,7 +3,8 @@ import { getSupabaseClient } from '../../../shared/supabase/client'
 import { subscribeKitchenChanges } from '../../kitchen/infrastructure/kitchenRepository'
 import { parseRpcResult } from '../../../shared/supabase/rpc'
 import { listCategories, listProducts } from '../../products/infrastructure/productsRepository'
-import { listPizzaCatalog, listPopularPizzas, pizzaCatalogSchema, popularPizzasSchema } from '../../pizza/infrastructure/pizzaRepository'
+import { listPizzaCatalog, pizzaCatalogSchema } from '../../pizza/infrastructure/pizzaRepository'
+import { listPopularPicks, POPULAR_PICKS_ERROR, popularPicksSchema } from './popularPicksRepository'
 import type { OrdersCatalog, OrdersSource } from '../domain/ordersSource'
 import {
   addOrderItems,
@@ -27,7 +28,7 @@ export const authenticatedOrdersSource: OrdersSource = {
     ])
     return { categories, products, pizza }
   },
-  loadPopularPizzas: listPopularPizzas,
+  loadPopularPicks: listPopularPicks,
   listOpenOrders,
   createOrder,
   addOrderItems,
@@ -100,11 +101,11 @@ export function createDeviceOrdersSource(
       }
     },
 
-    async loadPopularPizzas() {
-      const { data, error } = await getSupabaseClient().rpc('device_list_popular_pizzas', {
+    async loadPopularPicks() {
+      const { data, error } = await getSupabaseClient().rpc('device_list_popular_picks', {
         p_device_secret: secret,
       })
-      return parseRpcResult(popularPizzasSchema, data, error, 'No se pudieron cargar las pizzas más vendidas.')
+      return parseRpcResult(popularPicksSchema, data, error, POPULAR_PICKS_ERROR)
     },
 
     async listOpenOrders() {

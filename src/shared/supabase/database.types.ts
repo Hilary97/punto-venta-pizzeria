@@ -457,6 +457,8 @@ export interface Database {
       device_list_catalog: { Args: { p_device_secret: string }; Returns: unknown }
       device_list_popular_pizzas: { Args: { p_device_secret: string }; Returns: unknown }
       list_popular_pizzas: { Args: Record<PropertyKey, never>; Returns: unknown }
+      device_list_popular_picks: { Args: { p_device_secret: string }; Returns: unknown }
+      list_popular_picks: { Args: Record<PropertyKey, never>; Returns: unknown }
       admin_list_quick_pizzas: { Args: Record<PropertyKey, never>; Returns: unknown }
       admin_add_quick_pizza: { Args: { p_config: unknown }; Returns: unknown }
       admin_delete_quick_pizza: { Args: { p_id: string }; Returns: unknown }

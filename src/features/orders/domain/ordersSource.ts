@@ -20,11 +20,16 @@ export interface CreateOrderInput {
   service: OrderService
 }
 
+/** One "Más vendidas" shortcut: a pizza configuration or a product (with its variant). */
+export type PopularPick =
+  | { kind: 'pizza'; pizza: PizzaConfig }
+  | { kind: 'product'; productId: string; variant: string | null }
+
 /** Where the orders workspace reads and writes: a signed-in session or an authorized device. */
 export interface OrdersSource {
   loadCatalog(): Promise<OrdersCatalog>
-  /** Quick pizzas for the Productos step ("Más vendidas"); optional, failures are not shown. */
-  loadPopularPizzas?(): Promise<PizzaConfig[]>
+  /** Fixed pizzas, then best-selling pizzas and products ("Más vendidas"); optional, failures are not shown. */
+  loadPopularPicks?(): Promise<PopularPick[]>
   listOpenOrders(): Promise<Order[]>
   createOrder(input: CreateOrderInput): Promise<string>
   addOrderItems(orderId: string, items: OrderItemPayload[]): Promise<string>

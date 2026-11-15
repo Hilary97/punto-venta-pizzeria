@@ -84,26 +84,33 @@ describe('creating orders', () => {
   })
 })
 
-describe('popular pizzas', () => {
-  const stored = {
+describe('popular picks', () => {
+  const storedPizza = {
+    kind: 'pizza',
     pizza: { size: 'grande', portions: [{ style_id: 's1', ingredient_ids: [], extra_ingredient_ids: [] }], extra_ids: ['x'] },
     sold: 3,
   }
-  const config = { size: 'grande', portions: [{ styleId: 's1', ingredientIds: [], extraIngredientIds: [] }], extraIds: ['x'] }
+  const storedProduct = { kind: 'product', product_id: 'p1', variant: '600 ml', sold: 2 }
+  const storedPlain = { kind: 'product', product_id: 'p2', variant: null, sold: 1 }
+  const expected = [
+    { kind: 'pizza', pizza: { size: 'grande', portions: [{ styleId: 's1', ingredientIds: [], extraIngredientIds: [] }], extraIds: ['x'] } },
+    { kind: 'product', productId: 'p1', variant: '600 ml' },
+    { kind: 'product', productId: 'p2', variant: null },
+  ]
 
-  it('loads them with the device secret on a device and from the session otherwise', async () => {
-    rpc.mockResolvedValue({ data: [stored], error: null })
+  it('loads pizzas and products with the device secret on a device and from the session otherwise', async () => {
+    rpc.mockResolvedValue({ data: [storedPizza, storedProduct, storedPlain], error: null })
     const device = createDeviceOrdersSource('secret', () => null)
-    expect(await device.loadPopularPizzas!()).toEqual([config])
-    expect(rpc).toHaveBeenLastCalledWith('device_list_popular_pizzas', { p_device_secret: 'secret' })
+    expect(await device.loadPopularPicks!()).toEqual(expected)
+    expect(rpc).toHaveBeenLastCalledWith('device_list_popular_picks', { p_device_secret: 'secret' })
 
-    expect(await authenticatedOrdersSource.loadPopularPizzas!()).toEqual([config])
-    expect(rpc).toHaveBeenLastCalledWith('list_popular_pizzas')
+    expect(await authenticatedOrdersSource.loadPopularPicks!()).toEqual(expected)
+    expect(rpc).toHaveBeenLastCalledWith('list_popular_picks')
   })
 
   it('fails when the rpc fails', async () => {
     rpc.mockResolvedValue({ data: null, error: { message: 'Uno de los dispositivos no existe.' } })
-    await expect(createDeviceOrdersSource('secret', () => null).loadPopularPizzas!()).rejects.toThrow()
-    await expect(authenticatedOrdersSource.loadPopularPizzas!()).rejects.toThrow()
+    await expect(createDeviceOrdersSource('secret', () => null).loadPopularPicks!()).rejects.toThrow()
+    await expect(authenticatedOrdersSource.loadPopularPicks!()).rejects.toThrow()
   })
 })

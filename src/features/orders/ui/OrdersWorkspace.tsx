@@ -10,7 +10,7 @@ import { Spinner } from '../../../shared/ui/Spinner'
 import { cn } from '../../../shared/ui/cn'
 import { describePizza, isSizeSoldOut, validatePizzaConfig, type PizzaCatalog, type PizzaConfig } from '../../pizza/domain/pizza'
 import { PizzaBuilderModal, type BuiltPizza } from '../../pizza/ui/PizzaBuilderModal'
-import type { Category, Product } from '../../products/domain/product'
+import { isSoldOut, type Category, type Product } from '../../products/domain/product'
 import type { WaiterShift } from '../../waiters/domain/waiter'
 import {
   MISSING_LABEL,
@@ -24,6 +24,7 @@ import {
   normalizeNotes,
   orderLabel,
   pickupTimeToIso,
+  productLineLabel,
   serviceLabel,
   tableLabel,
   type Order,
@@ -47,7 +48,7 @@ import {
 } from '../domain/orderDraft'
 import { hideLegacyPizza } from '../domain/legacyPizza'
 import { filterOrders, sortOrdersByName } from '../domain/orderFilter'
-import type { OrdersSource } from '../domain/ordersSource'
+import type { OrdersSource, PopularPick } from '../domain/ordersSource'
 import { tableOccupancy } from '../domain/tableOccupancy'
 import { AddingToOrderBar } from './AddingToOrderBar'
 import { OpenOrdersList } from './OpenOrdersList'
@@ -68,6 +69,46 @@ interface OrdersWorkspaceProps {
   aboveBottomNav?: boolean
 }
 
+/** Most tiles Más vendidas shows. */
+export const MAX_QUICK_PICKS = 8
+
+type UsableQuickPick =
+  | { kind: 'pizza'; key: string; name: string; config: PizzaConfig }
+  | { kind: 'product'; key: string; name: string; product: Product; variant: string | null }
+
+/**
+ * Más vendidas tiles that can still be ordered, in server order, cut at MAX_QUICK_PICKS after
+ * dropping stale ones: pizzas need the builder and a valid config with dough left; products must
+ * be in the offered catalog, not sold out, and offer that variant.
+ */
+function usableQuickPicks(picks: PopularPick[], products: Product[], pizzaCatalog: PizzaCatalog | null): UsableQuickPick[] {
+  const usable: UsableQuickPick[] = []
+  for (const pick of picks) {
+    if (usable.length === MAX_QUICK_PICKS) break
+    if (pick.kind === 'pizza') {
+      if (!pizzaCatalog) continue
+      const config = pick.pizza
+      const size = pizzaCatalog.sizes.find((candidate) => candidate.code === config.size)
+      if (size === undefined || isSizeSoldOut(size) || validatePizzaConfig(config, pizzaCatalog).length > 0) continue
+      usable.push({ kind: 'pizza', key: `pizza:${JSON.stringify(config)}`, name: describePizza(config, pizzaCatalog), config })
+      continue
+    }
+    const product = products.find((candidate) => candidate.id === pick.productId)
+    if (!product || !product.active || isSoldOut(product)) continue
+    const variants = product.variants ?? []
+    const offered = variants.length === 0 ? pick.variant === null : pick.variant !== null && variants.includes(pick.variant)
+    if (!offered) continue
+    usable.push({
+      kind: 'product',
+      key: `product:${product.id}:${pick.variant ?? ''}`,
+      name: productLineLabel(product.name, pick.variant),
+      product,
+      variant: pick.variant,
+    })
+  }
+  return usable
+}
+
 /** Matches the server messages for a missing or expired waiter shift. */
 function isShiftError(error: unknown): boolean {
   const message = toUserMessage(error)
@@ -79,7 +120,7 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
   const [categories, setCategories] = useState<Category[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [pizzaCatalog, setPizzaCatalog] = useState<PizzaCatalog | null>(null)
-  const [popularPizzas, setPopularPizzas] = useState<PizzaConfig[]>([])
+  const [popularPicks, setPopularPicks] = useState<PopularPick[]>([])
   const [orders, setOrders] = useState<Order[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -161,29 +202,19 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
     void load()
   }, [source])
 
-  // Quick pizzas are a convenience: a failure only hides them.
+  // Más vendidas is a convenience: a failure only hides it.
   useEffect(() => {
     let active = true
     source
-      .loadPopularPizzas?.()
-      .then((configs) => {
-        if (active) setPopularPizzas(configs)
+      .loadPopularPicks?.()
+      .then((picks) => {
+        if (active) setPopularPicks(picks)
       })
       .catch(() => {})
     return () => {
       active = false
     }
   }, [source])
-
-  const quickPizzas = useMemo(() => {
-    if (!pizzaCatalog) return []
-    return popularPizzas
-      .filter((config) => {
-        const size = pizzaCatalog.sizes.find((candidate) => candidate.code === config.size)
-        return size !== undefined && !isSizeSoldOut(size) && validatePizzaConfig(config, pizzaCatalog).length === 0
-      })
-      .map((config) => ({ key: JSON.stringify(config), config, name: describePizza(config, pizzaCatalog) }))
-  }, [popularPizzas, pizzaCatalog])
 
   /** Runs a server action behind the pending guard; returns whether it succeeded. */
   async function runGuarded(action: () => Promise<void>, onError?: (message: string) => void): Promise<boolean> {
@@ -343,6 +374,7 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
 
   const legacyHidden = hideLegacyPizza(categories, products)
   const hasPizzaBuilder = pizzaCatalog !== null && pizzaCatalog.sizes.length > 0
+  const quickPicks = usableQuickPicks(popularPicks, legacyHidden.products, hasPizzaBuilder ? pizzaCatalog : null)
   const visibleOrders = sortOrdersByName(filterOrders(orders, { tableNumber: filterTable, nameQuery }))
   const isFiltering = filterTable !== null || nameQuery.trim() !== ''
 
@@ -480,15 +512,27 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
             canBuildPizza={hasPizzaBuilder}
             pizzaCount={pizzaQuantity(draft)}
             onBuildPizza={() => setIsBuilderOpen(true)}
-            quickPizzas={quickPizzas.map(({ key, name, config }) => ({
-              key,
-              name,
-              quantity: draft
-                .filter((line) => line.kind === 'pizza' && JSON.stringify(line.pizza) === key)
-                .reduce((sum, line) => sum + line.quantity, 0),
-              onAdd: () => handleAddPizza({ config, name, notes: '' }),
-              onRemove: () => updateDraft((c) => removePizzaFromDraft(c, config)),
-            }))}
+            quickPicks={quickPicks.map((pick) =>
+              pick.kind === 'pizza'
+                ? {
+                    key: pick.key,
+                    name: pick.name,
+                    label: pick.name.replace(/^Pizza /, ''),
+                    quantity: draft
+                      .filter((line) => line.kind === 'pizza' && JSON.stringify(line.pizza) === JSON.stringify(pick.config))
+                      .reduce((sum, line) => sum + line.quantity, 0),
+                    onAdd: () => handleAddPizza({ config: pick.config, name: pick.name, notes: '' }),
+                    onRemove: () => updateDraft((c) => removePizzaFromDraft(c, pick.config)),
+                  }
+                : {
+                    key: pick.key,
+                    name: pick.name,
+                    label: pick.name,
+                    quantity: productQuantity(draft, pick.product.id, pick.variant),
+                    onAdd: () => addProduct(pick.product, pick.variant),
+                    onRemove: () => updateDraft((c) => removeProductFromDraft(c, pick.product.id, pick.variant)),
+                  },
+            )}
             itemCount={draftItemCount(draft)}
             onReview={() => setStep('revisar')}
             aboveBottomNav={aboveBottomNav}

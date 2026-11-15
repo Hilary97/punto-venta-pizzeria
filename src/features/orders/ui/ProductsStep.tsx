@@ -5,14 +5,16 @@ import { useLongPress } from '../../../shared/ui/useLongPress'
 import { ProductGrid, QuantityBadge } from '../../sales/ui/ProductGrid'
 import { StepBar } from './StepBar'
 
-export interface QuickPizzaTile {
+export interface QuickPickTile {
   key: string
-  /** Pizza description, as shown on the order. */
+  /** Pizza description or product line label ("Coca (600 ml)"), as shown on the order. */
   name: string
-  /** Units of this exact pizza already in the order. */
+  /** Text on the tile. */
+  label: string
+  /** Units of this exact pizza or product variant already in the order. */
   quantity: number
   onAdd: () => void
-  /** Holding the tile takes one of this pizza off the order. */
+  /** Holding the tile takes one of it off the order. */
   onRemove?: () => void
 }
 
@@ -27,8 +29,8 @@ interface ProductsStepProps {
   canBuildPizza: boolean
   pizzaCount: number
   onBuildPizza: () => void
-  /** Fixed and best-selling pizzas, added with one tap ("Más vendidas"). */
-  quickPizzas?: QuickPizzaTile[]
+  /** Fixed pizzas and best-selling pizzas and products, added with one tap ("Más vendidas"). */
+  quickPicks?: QuickPickTile[]
   /** Total units in the order being composed. */
   itemCount: number
   onReview: () => void
@@ -46,7 +48,7 @@ export function ProductsStep({
   canBuildPizza,
   pizzaCount,
   onBuildPizza,
-  quickPizzas = [],
+  quickPicks = [],
   itemCount,
   onReview,
   aboveBottomNav,
@@ -81,23 +83,23 @@ export function ProductsStep({
           </button>
         </div>
       )}
-      {canBuildPizza && quickPizzas.length > 0 && (
-        <section aria-labelledby="quick-pizzas-heading" className="flex flex-col gap-2">
-          <h3 id="quick-pizzas-heading" className="text-sm font-bold uppercase tracking-wide text-slate-600">
+      {quickPicks.length > 0 && (
+        <section aria-labelledby="quick-picks-heading" className="flex flex-col gap-2">
+          <h3 id="quick-picks-heading" className="text-sm font-bold uppercase tracking-wide text-slate-600">
             Más vendidas
           </h3>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {quickPizzas.map((pizza) => (
+            {quickPicks.map((pick) => (
               <button
-                key={pizza.key}
+                key={pick.key}
                 type="button"
                 disabled={disabled}
-                {...press(pizza.onAdd, pizza.quantity > 0 ? pizza.onRemove : undefined)}
-                aria-label={`Agregar ${pizza.name}`}
+                {...press(pick.onAdd, pick.quantity > 0 ? pick.onRemove : undefined)}
+                aria-label={`Agregar ${pick.name}`}
                 className="relative min-h-[68px] select-none rounded-xl [-webkit-touch-callout:none] border border-[#9FE34B]/70 bg-[#9FE34B]/20 px-3 py-2 text-left text-[13px] font-semibold leading-snug text-lime-950 shadow-sm hover:bg-[#9FE34B]/35 disabled:opacity-50 dark:border-[#9FE34B]/50 dark:bg-[#9FE34B]/12 dark:text-lime-50 dark:hover:bg-[#9FE34B]/20"
               >
-                <span className="line-clamp-3">{pizza.name.replace(/^Pizza /, '')}</span>
-                {pizza.quantity > 0 && <QuantityBadge quantity={pizza.quantity} />}
+                <span className="line-clamp-3">{pick.label}</span>
+                {pick.quantity > 0 && <QuantityBadge quantity={pick.quantity} />}
               </button>
             ))}
           </div>
