@@ -33,7 +33,8 @@ export function NoteShortcutChips({ label, shortcuts, note, maxLength, onChange 
               'min-h-8 rounded-full border px-3 text-xs font-medium transition-colors disabled:opacity-40',
               pressed
                 ? 'border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700 dark:bg-amber-950/60 dark:text-amber-100'
-                : 'border-slate-300 bg-transparent text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800',
+                : // No dark: slate overrides: dark mode inverts the slate scale (src/index.css), so these stay readable.
+                  'border-slate-300 bg-transparent text-slate-700 hover:bg-slate-100',
             )}
           >
             {shortcut}

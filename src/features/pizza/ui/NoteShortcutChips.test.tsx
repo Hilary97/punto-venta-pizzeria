@@ -24,10 +24,16 @@ describe('NoteShortcutChips', () => {
   it('is a small outline chip when idle: 32px, thin slate border, transparent, slate text', () => {
     renderChips()
     const chip = screen.getByRole('button', { name: 'Cubiertos' })
-    for (const cls of ['min-h-8', 'rounded-full', 'border', 'border-slate-300', 'bg-transparent', 'text-slate-600', 'font-medium', 'dark:border-slate-600', 'dark:text-slate-300']) {
+    for (const cls of ['min-h-8', 'rounded-full', 'border', 'border-slate-300', 'bg-transparent', 'text-slate-700', 'font-medium']) {
       expect(chip).toHaveClass(cls)
     }
     for (const cls of ['min-h-11', 'bg-slate-200', 'bg-red-700', 'px-4', 'font-semibold']) expect(chip).not.toHaveClass(cls)
+  })
+
+  it('relies on the dark-mode slate inversion: no dark: slate overrides that would dim the text', () => {
+    renderChips()
+    const chip = screen.getByRole('button', { name: 'Cubiertos' })
+    expect(chip.className).not.toMatch(/dark:[a-z:-]*slate/)
   })
 
   it('turns soft amber when pressed, with dark variants, never the big red chip', () => {
