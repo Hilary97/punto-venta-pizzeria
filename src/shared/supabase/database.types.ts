@@ -465,6 +465,8 @@ export interface Database {
       admin_move_quick_pizza: { Args: { p_id: string; p_direction: number }; Returns: unknown }
       admin_list_note_shortcuts: { Args: { p_scope: string }; Returns: unknown }
       admin_add_note_shortcut: { Args: { p_scope: string; p_label: string }; Returns: unknown }
+      admin_list_category_note_shortcuts: { Args: { p_category_id: string }; Returns: unknown }
+      admin_add_category_note_shortcut: { Args: { p_category_id: string; p_label: string }; Returns: unknown }
       admin_delete_note_shortcut: { Args: { p_id: string }; Returns: unknown }
       admin_move_note_shortcut: { Args: { p_id: string; p_direction: number }; Returns: unknown }
       list_note_shortcuts: { Args: Record<PropertyKey, never>; Returns: unknown }
