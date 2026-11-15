@@ -56,6 +56,11 @@ export function PizzaLabelGroups({ groups, styleDescriptions = {} }: PizzaLabelG
                 ))}
               </ul>
             )}
+            {group.note && (
+              <span className="mt-1 block rounded-lg bg-amber-100 px-2 py-1 text-[0.8em] font-medium text-amber-900 dark:bg-amber-900 dark:text-amber-100">
+                {group.note}
+              </span>
+            )}
           </li>
         )
       })}

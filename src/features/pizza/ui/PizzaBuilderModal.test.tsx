@@ -873,3 +873,186 @@ describe('PizzaBuilderModal auto-advance', () => {
     })
   })
 })
+
+describe('PizzaBuilderModal portion notes', () => {
+  async function toLastHalf() {
+    const built = renderBuilder()
+    await built.user.click(built.card('Grande'))
+    await built.user.click(built.card('Mitades'))
+    await built.pickStyle()
+    await built.pickStyle()
+    return built
+  }
+
+  it('shows a note per portion on the last step, labelled with the portion and its style, before the pizza note', async () => {
+    await toLastHalf()
+    const group = screen.getByRole('group', { name: 'Notas por porción' })
+    expect(within(group).getByLabelText('Mitad 1 · Varas')).toBeVisible()
+    expect(within(group).getByLabelText('Mitad 2 · Varas')).toBeVisible()
+    const pizzaNote = screen.getByLabelText(/nota de la pizza/i)
+    expect(group.compareDocumentPosition(pizzaNote) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('does not show them before the last step', async () => {
+    const { user, card, pickStyle } = renderBuilder()
+    await user.click(card('Grande'))
+    await user.click(card('Mitades'))
+    await pickStyle()
+    await user.click(screen.getByRole('button', { name: /^←/ }))
+    expect(screen.queryByRole('group', { name: 'Notas por porción' })).not.toBeInTheDocument()
+  })
+
+  it('adds the pizza with trimmed portion notes and drops a blank one, keeping the pizza note apart', async () => {
+    const { onAdd, user, add } = await toLastHalf()
+    await user.type(screen.getByLabelText('Mitad 1 · Varas'), '  sin piña en la orilla ')
+    await user.type(screen.getByLabelText('Mitad 2 · Varas'), '   ')
+    await user.type(screen.getByLabelText(/nota de la pizza/i), 'bien cocida')
+    await add()
+    const built = onAdd.mock.calls[0]![0]
+    expect(built.config.portions).toEqual([
+      { styleId: 'varas', ingredientIds: [], extraIngredientIds: [], note: 'sin piña en la orilla' },
+      { styleId: 'varas', ingredientIds: [], extraIngredientIds: [] },
+    ])
+    expect(built.name).toBe('Pizza Grande · Mitades: ½ Estilo Varas — sin piña en la orilla | ½ Estilo Varas')
+    expect(built.notes).toBe('bien cocida')
+  })
+
+  it('limits each note to 80 characters', async () => {
+    await toLastHalf()
+    expect(screen.getByLabelText('Mitad 1 · Varas')).toHaveAttribute('maxlength', '80')
+  })
+
+  it('names the third portions Porción 3', async () => {
+    const { user, card, pickStyle } = renderBuilder()
+    await user.click(card('Grande'))
+    await user.click(card('Tercios'))
+    await pickStyle()
+    await pickStyle()
+    await pickStyle()
+    expect(screen.getByLabelText('Porción 3 · Varas')).toBeVisible()
+  })
+
+  it('shows no portion notes on a whole pizza and sends none after going back from halves', async () => {
+    const whole = renderBuilder()
+    await whole.toIngredients()
+    expect(screen.queryByRole('group', { name: 'Notas por porción' })).not.toBeInTheDocument()
+    expect(screen.getByLabelText(/nota de la pizza/i)).toBeVisible()
+  })
+
+  it('drops the portion notes when the division goes back to a whole pizza', async () => {
+    const { onAdd, user, back, card, add, pickStyle } = await toLastHalf()
+    await user.type(screen.getByLabelText('Mitad 1 · Varas'), 'sin piña')
+    await back()
+    await user.click(card('Entera'))
+    await pickStyle()
+    expect(screen.queryByRole('group', { name: 'Notas por porción' })).not.toBeInTheDocument()
+    await add()
+    expect(onAdd.mock.calls[0]![0].config.portions).toEqual([{ styleId: 'varas', ingredientIds: [], extraIngredientIds: [] }])
+  })
+
+  it('does not offer them when pinning a quick pizza', async () => {
+    const onAdd = vi.fn()
+    render(<PizzaBuilderModal catalog={pizzaCatalogFixture} onAdd={onAdd} onClose={vi.fn()} quickPick />)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Grande' }))
+    await user.click(screen.getByRole('button', { name: 'Mitades' }))
+    for (let i = 0; i < 2; i++) {
+      const group = screen.getByRole('group', { name: /^Estilo de la / })
+      await user.click(within(group).getAllByRole('button').find((c) => /Estilo Varas/.test(c.textContent ?? '')) as HTMLElement)
+    }
+    expect(screen.getByRole('button', { name: 'Fijar pizza' })).toBeVisible()
+    expect(screen.queryByRole('group', { name: 'Notas por porción' })).not.toBeInTheDocument()
+  })
+})
+
+describe('PizzaBuilderModal note shortcuts', () => {
+  const shortcuts = ['Sin cebolla', 'Bien cocida']
+
+  async function toLast(options: { shortcuts?: string[]; halves?: boolean } = {}) {
+    const onAdd = vi.fn()
+    render(<PizzaBuilderModal catalog={pizzaCatalogFixture} onAdd={onAdd} onClose={vi.fn()} noteShortcuts={options.shortcuts ?? shortcuts} />)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Grande' }))
+    if (options.halves !== false) await user.click(screen.getByRole('button', { name: 'Mitades' }))
+    const count = options.halves === false ? 1 : 2
+    for (let i = 0; i < count; i++) {
+      const group = screen.getByRole('group', { name: /^Estilo de la / })
+      await user.click(within(group).getAllByRole('button').find((c) => /Estilo Varas/.test(c.textContent ?? '')) as HTMLElement)
+    }
+    return { onAdd, user }
+  }
+
+  it('shows toggle chips under each portion note and under the pizza note', async () => {
+    await toLast()
+    for (const name of ['Atajos de Mitad 1 · Varas', 'Atajos de Mitad 2 · Varas', 'Atajos de notas de la pizza']) {
+      const group = screen.getByRole('group', { name: name })
+      expect(within(group).getAllByRole('button').map((b) => b.textContent)).toEqual(shortcuts)
+      for (const chip of within(group).getAllByRole('button')) expect(chip).toHaveAttribute('aria-pressed', 'false')
+    }
+  })
+
+  it('appends a tapped shortcut to that note only, joined with ", ", and removes it on a second tap', async () => {
+    const { user } = await toLast()
+    const half1 = screen.getByRole('group', { name: 'Atajos de Mitad 1 · Varas' })
+    await user.type(screen.getByLabelText('Mitad 1 · Varas'), 'poca sal')
+    await user.click(within(half1).getByRole('button', { name: 'Sin cebolla' }))
+    await user.click(within(half1).getByRole('button', { name: 'Bien cocida' }))
+    expect(screen.getByLabelText('Mitad 1 · Varas')).toHaveValue('poca sal, Sin cebolla, Bien cocida')
+    expect(screen.getByLabelText('Mitad 2 · Varas')).toHaveValue('')
+    expect(within(half1).getByRole('button', { name: 'Sin cebolla' })).toHaveAttribute('aria-pressed', 'true')
+
+    await user.click(within(half1).getByRole('button', { name: 'Sin cebolla' }))
+    expect(screen.getByLabelText('Mitad 1 · Varas')).toHaveValue('poca sal, Bien cocida')
+    expect(within(half1).getByRole('button', { name: 'Sin cebolla' })).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('fills the pizza note and keeps free text working, sending both notes with the pizza', async () => {
+    const { onAdd, user } = await toLast()
+    const half2 = screen.getByRole('group', { name: 'Atajos de Mitad 2 · Varas' })
+    await user.click(within(half2).getByRole('button', { name: 'Bien cocida' }))
+    await user.type(screen.getByLabelText('Mitad 2 · Varas'), ' y crujiente')
+    const pizzaGroup = screen.getByRole('group', { name: 'Atajos de notas de la pizza' })
+    await user.click(within(pizzaGroup).getByRole('button', { name: 'Sin cebolla' }))
+    expect(screen.getByLabelText(/nota de la pizza/i)).toHaveValue('Sin cebolla')
+    await user.click(screen.getByRole('button', { name: 'Agregar pizza' }))
+    const built = onAdd.mock.calls[0]![0]
+    expect(built.notes).toBe('Sin cebolla')
+    expect(built.config.portions[1].note).toBe('Bien cocida y crujiente')
+    expect(built.config.portions[0].note).toBeUndefined()
+  })
+
+  it('works on a whole pizza with only the pizza note chips', async () => {
+    const { user } = await toLast({ halves: false })
+    expect(screen.queryByRole('group', { name: /^Atajos de Mitad/ })).not.toBeInTheDocument()
+    await user.click(within(screen.getByRole('group', { name: 'Atajos de notas de la pizza' })).getByRole('button', { name: 'Bien cocida' }))
+    expect(screen.getByLabelText(/nota de la pizza/i)).toHaveValue('Bien cocida')
+  })
+
+  it('does not append past the 80-character portion limit: the chip is disabled and the note stays', async () => {
+    const { user } = await toLast({ shortcuts: ['Sin cebolla'] })
+    const note = screen.getByLabelText('Mitad 1 · Varas')
+    await user.type(note, 'x'.repeat(75))
+    const chip = within(screen.getByRole('group', { name: 'Atajos de Mitad 1 · Varas' })).getByRole('button', { name: 'Sin cebolla' })
+    expect(chip).toBeDisabled()
+    await user.click(chip)
+    expect(note).toHaveValue('x'.repeat(75))
+  })
+
+  it('shows no chips when there are no shortcuts', async () => {
+    await toLast({ shortcuts: [] })
+    expect(screen.queryByRole('group', { name: /^Atajos de/ })).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Mitad 1 · Varas')).toBeVisible()
+  })
+
+  it('shows no chips when pinning a quick pizza', async () => {
+    render(<PizzaBuilderModal catalog={pizzaCatalogFixture} onAdd={vi.fn()} onClose={vi.fn()} quickPick noteShortcuts={shortcuts} />)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Grande' }))
+    await user.click(screen.getByRole('button', { name: 'Mitades' }))
+    for (let i = 0; i < 2; i++) {
+      const group = screen.getByRole('group', { name: /^Estilo de la / })
+      await user.click(within(group).getAllByRole('button').find((c) => /Estilo Varas/.test(c.textContent ?? '')) as HTMLElement)
+    }
+    expect(screen.queryByRole('group', { name: /^Atajos de/ })).not.toBeInTheDocument()
+  })
+})

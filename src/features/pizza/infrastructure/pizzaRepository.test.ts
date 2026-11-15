@@ -135,3 +135,19 @@ describe('listPizzaCatalog dough_left', () => {
     await expect(listPizzaCatalog()).rejects.toThrow('No se pudo cargar el catálogo de pizzas.')
   })
 })
+
+describe('portion notes mapping', () => {
+  it('maps a portion note both ways and sends none when it is blank or absent', () => {
+    const parsed = pizzaConfigSchema.parse({
+      size: 'grande',
+      portions: [{ style_id: 's1', note: 'sin piña' }, { style_id: 's2' }],
+    })
+    expect(parsed.portions.map((portion) => portion.note)).toEqual(['sin piña', undefined])
+    expect(toRpcPizzaConfig(parsed).portions).toEqual([
+      { style_id: 's1', ingredient_ids: [], extra_ingredient_ids: [], note: 'sin piña' },
+      { style_id: 's2', ingredient_ids: [], extra_ingredient_ids: [] },
+    ])
+    const blank = toRpcPizzaConfig({ ...parsed, portions: [{ ...parsed.portions[0]!, note: '  ' }] })
+    expect(Object.keys(blank.portions[0]!)).not.toContain('note')
+  })
+})

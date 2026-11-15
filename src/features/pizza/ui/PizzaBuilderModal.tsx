@@ -2,12 +2,14 @@ import { useId, useMemo, useRef, useState } from 'react'
 import { Button } from '../../../shared/ui/Button'
 import { byName } from '../../../shared/sortByName'
 import { cn } from '../../../shared/ui/cn'
+import { Input } from '../../../shared/ui/Input'
 import { Modal } from '../../../shared/ui/Modal'
 import { Textarea } from '../../../shared/ui/Textarea'
 import { MAX_ITEM_NOTES_LENGTH } from '../../orders/domain/order'
-import { describePizza, isSizeSoldOut, portionLabel, validatePizzaConfig, validatePortion } from '../domain/pizza'
+import { MAX_PORTION_NOTE_LENGTH, describePizza, isSizeSoldOut, portionLabel, validatePizzaConfig, validatePortion } from '../domain/pizza'
 import type { PizzaCatalog, PizzaConfig, PizzaPortion, PizzaSize, PizzaSizeCode, PizzaStyle } from '../domain/pizza'
 import { buildConfig, hasChileVariants, hasStyle, initialPortions, resizePortions, sortBuilderStyles, togglePizzaExtra } from '../domain/pizzaBuilder'
+import { NoteShortcutChips } from './NoteShortcutChips'
 import { PizzaDiagram } from './PizzaDiagram'
 import { PortionEditor } from './PortionEditor'
 import { StyleCards } from './StyleCards'
@@ -26,6 +28,8 @@ interface PizzaBuilderModalProps {
   onClose: () => void
   /** Admin quick pizzas: one pizza without quantity or note, added with "Fijar pizza". */
   quickPick?: boolean
+  /** Admin-managed note shortcuts, shown as chips under each note field. */
+  noteShortcuts?: string[]
 }
 
 type Step = { kind: 'size' } | { kind: 'portion'; index: number }
@@ -70,7 +74,7 @@ function hasNoChoices(style: PizzaStyle | undefined): boolean {
   return style !== undefined && style.includedIngredients === 0 && !hasChileVariants(style)
 }
 
-export function PizzaBuilderModal({ catalog, onAdd, onClose, quickPick = false }: PizzaBuilderModalProps) {
+export function PizzaBuilderModal({ catalog, onAdd, onClose, quickPick = false, noteShortcuts = [] }: PizzaBuilderModalProps) {
   const notesId = useId()
   const sizes = useMemo(() => [...catalog.sizes].sort((a, b) => a.sortOrder - b.sortOrder), [catalog.sizes])
   const styles = useMemo(() => sortBuilderStyles(catalog.styles), [catalog.styles])
@@ -314,14 +318,53 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose, quickPick = false }
               </fieldset>
             )}
 
+            {isLast && !quickPick && count > 1 && (
+              <fieldset className="flex flex-col gap-2">
+                <legend className="mb-1 text-sm font-bold text-slate-900">Notas por porción</legend>
+                {portions.map((portion, index) => {
+                  const styleName = shortStyle(styleOf(portion))
+                  const title = portionTitle(count, index)
+                  const label = styleName ? `${title} · ${styleName}` : title
+                  return (
+                    <div key={index} className="flex flex-col gap-1">
+                      <Input
+                        id={`${notesId}-portion-${index}`}
+                        label={label}
+                        value={portion.note ?? ''}
+                        maxLength={MAX_PORTION_NOTE_LENGTH}
+                        placeholder="Nota (opcional)"
+                        onChange={(event) => updatePortion(index, { ...portion, note: event.target.value })}
+                      />
+                      <NoteShortcutChips
+                        label={label}
+                        shortcuts={noteShortcuts}
+                        note={portion.note ?? ''}
+                        maxLength={MAX_PORTION_NOTE_LENGTH}
+                        onChange={(note) => updatePortion(index, { ...portion, note })}
+                      />
+                    </div>
+                  )
+                })}
+              </fieldset>
+            )}
+
             {isLast && !quickPick && (
-              <Textarea
-                id={notesId}
-                label="Nota de la pizza (opcional)"
-                value={notes}
-                maxLength={MAX_ITEM_NOTES_LENGTH}
-                onChange={(event) => setNotes(event.target.value)}
-              />
+              <div className="flex flex-col gap-1">
+                <Textarea
+                  id={notesId}
+                  label="Nota de la pizza (opcional)"
+                  value={notes}
+                  maxLength={MAX_ITEM_NOTES_LENGTH}
+                  onChange={(event) => setNotes(event.target.value)}
+                />
+                <NoteShortcutChips
+                  label="notas de la pizza"
+                  shortcuts={noteShortcuts}
+                  note={notes}
+                  maxLength={MAX_ITEM_NOTES_LENGTH}
+                  onChange={setNotes}
+                />
+              </div>
             )}
           </>
         )}
