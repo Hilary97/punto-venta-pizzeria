@@ -203,6 +203,15 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose, quickPick = false, 
   const extraNames = extras.filter((extra) => extraIds.includes(extra.id)).map((extra) => extra.name)
   const summary = [summaryParts.join(' / '), ...(extraNames.length > 0 ? [extraNames.join(', ')] : [])].join(' · ')
 
+  const currentIndex = current.kind === 'portion' ? current.index : -1
+  /**
+   * Portions an automatic advance left behind whose style includes no ingredients: the only thing that
+   * could be added there is a charged extra, so the way back stays visible instead of leaving with the step.
+   */
+  const extraStops = portions
+    .map((portion, index) => ({ index, style: styleOf(portion) }))
+    .filter((entry) => currentIndex > 0 && entry.index < currentIndex && ingredients.length > 0 && hasNoChoices(entry.style))
+
   const headerItems = [
     { label: 'Tamaño', value: size?.name ?? '', state: current.kind === 'size' ? 'cur' : 'done' },
     ...portions.map((portion, index) => ({
@@ -288,6 +297,24 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose, quickPick = false, 
                 Elige el estilo
               </p>
             </div>
+            {extraStops.length > 0 && (
+              <div
+                role="group"
+                aria-label="Ingredientes extra de porciones anteriores"
+                className="flex flex-col gap-2 rounded-xl border border-amber-600 bg-amber-50 p-3 dark:border-amber-500 dark:bg-amber-950/60"
+              >
+                {extraStops.map((entry) => (
+                  <div key={entry.index} className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+                    <p className="min-w-0 break-words text-sm font-semibold text-amber-800 dark:text-amber-200">
+                      {`${portionTitle(count, entry.index)} · ${shortStyle(entry.style)}`}
+                    </p>
+                    <Button variant="secondary" size="md" onClick={() => goTo({ kind: 'portion', index: entry.index })}>
+                      {`+ Extras en ${portionTitle(count, entry.index)}`}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
             {current.index === 0 && hasDivision && size && (
               <fieldset className="flex flex-col gap-2">
                 <legend className="mb-2 text-sm font-medium text-slate-700">División</legend>

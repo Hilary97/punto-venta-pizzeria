@@ -905,6 +905,63 @@ describe('PizzaBuilderModal auto-advance', () => {
       expect(onAdd).toHaveBeenCalledTimes(1)
     })
   })
+
+  describe('extras of a portion the style moved past (S8)', () => {
+    const extraStops = () => screen.queryByRole('group', { name: 'Ingredientes extra de porciones anteriores' })
+    const chips = () => screen.getByRole('group', { name: 'Ingredientes disponibles' })
+
+    it('offers the way back to a portion left behind, and the ingredient added there is charged', async () => {
+      const { onAdd, user, add, card, next, pickStyle } = renderBuilder()
+      await user.click(card('Grande'))
+      await user.click(card('Mitades'))
+      await user.click(card(/Estilo Varas/))
+      expect(screen.getByRole('group', { name: 'Estilo de la Mitad 2' })).toBeVisible()
+      expect(within(extraStops() as HTMLElement).getByText('Mitad 1 · Varas')).toBeVisible()
+      await user.click(screen.getByRole('button', { name: /Extras en Mitad 1/ }))
+      expect(screen.getByRole('group', { name: 'Estilo de la Mitad 1' })).toBeVisible()
+      await user.click(within(chips()).getByRole('button', { name: 'Jalapeños' }))
+      await next()
+      await pickStyle()
+      await add()
+      expect(onAdd.mock.calls[0]?.[0].config.portions).toEqual([
+        { styleId: 'varas', ingredientIds: [], extraIngredientIds: ['jal'] },
+        { styleId: 'varas', ingredientIds: [], extraIngredientIds: [] },
+      ])
+    })
+
+    it('shows one way back per portion left behind', async () => {
+      const { user, card } = renderBuilder()
+      await user.click(card('Grande'))
+      await user.click(card('Tercios'))
+      await user.click(card(/Estilo Varas/))
+      await user.click(card(/Estilo Varas/))
+      expect(screen.getByRole('group', { name: 'Estilo de la Porción 3' })).toBeVisible()
+      expect(within(extraStops() as HTMLElement).getAllByRole('button').map((button) => button.textContent)).toEqual([
+        '+ Extras en Porción 1',
+        '+ Extras en Porción 2',
+      ])
+      await user.click(screen.getByRole('button', { name: /Extras en Porción 1/ }))
+      expect(screen.getByRole('group', { name: 'Estilo de la Porción 1' })).toBeVisible()
+      expect(within(chips()).getByRole('button', { name: 'Jalapeños' })).toHaveAttribute('aria-pressed', 'false')
+    })
+
+    it('shows nothing when the portion was not left behind by itself', async () => {
+      const { user, card } = renderBuilder(CUSTOM_ONLY)
+      await user.click(card('Grande'))
+      await user.click(card('Mitades'))
+      await user.click(card(/Arma tu combinación/))
+      expect(screen.getByRole('group', { name: 'Estilo de la Mitad 1' })).toBeVisible()
+      expect(extraStops()).not.toBeInTheDocument()
+    })
+
+    it('shows nothing on a whole pizza, which never moves on by itself', async () => {
+      const { user, card } = renderBuilder()
+      await user.click(card('Chica'))
+      await user.click(card(/Estilo Varas/))
+      expect(screen.getByRole('group', { name: 'Ingredientes disponibles' })).toBeVisible()
+      expect(extraStops()).not.toBeInTheDocument()
+    })
+  })
 })
 
 describe('PizzaBuilderModal portion notes', () => {
