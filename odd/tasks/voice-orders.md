@@ -37,6 +37,7 @@ Branch: feat/voice-orders (stacked on main). Primera rebanada SIN captura de aud
 - Slice 1 `c07f04a`: intérprete + sus tests (~535 líneas, unas 250 son tests y ~120 el documento).
 - Slice 2 `249696f`: confirmación + arreglo del merge + tests + README (~753 líneas).
 - Total ~1295 líneas: por encima de la rebanada revisable de ~400. Si se abre PR, partirlo en dos encadenados (1 -> 2), o revisar con este documento como guía.
+- PR #13 abierto contra `main`: https://github.com/Hilary97/punto-venta-pizzeria/pull/13 (un solo PR con la guía de revisión por commit; queda pendiente la prueba manual en teléfono).
 
 ## Log
 
@@ -49,3 +50,4 @@ Branch: feat/voice-orders (stacked on main). Primera rebanada SIN captura de aud
 - L7: Delegación de T1 y T2 a gentle-ai-worker por el backstop de contexto del parent; el parent revisó el riesgo reportado en T2 y encontró el defecto de fusión (T2b), reproducido con test antes de arreglarlo.
 - L8: Verificación independiente ronda 1: FAIL por 3 defectos (S1/S5/S6/S7/S8) con evidencia de sonda sobre datos de semilla reales; ronda de corrección del worker con RED->GREEN por defecto y re-verificación ronda 2: PASS en los tres + PASS de addVoiceLines + PASS de alcance (sin precios, un solo camino al borrador). Advisory NFD (solo texto pegado en NFD) cerrado por el parent. Suite completa 1524/1524, build OK.
 - L9: Commits hechos en la rama feat/voice-orders (c07f04a, 249696f). La rebanada total supera las ~400 líneas: queda anotado el límite de cada slice para que la entrega se parta si se abre PR. Push, PR y merge quedan a decisión del usuario.
+- L10: User (verbatim): "abre un pr para revisar los cambios" — PR #13 abierto contra main con la guía de revisión por commit; push, merge y prueba en teléfono quedan del lado del usuario.
