@@ -177,10 +177,24 @@ project or Supabase cloud project was created here), but the repo is ready:
 6. Try calling `create_sale` with a tampered price via the Supabase client
    directly (e.g. from the browser console) → confirm the server still
    charges the real DB price.
+7. Pedido por voz: in the Productos step press "Pedido por voz", type
+   `dos cocas y una grande de pepperoni` → confirm the sheet shows a
+   product line asking which Coca-Cola and the pizza line, that nothing is
+   in the order yet, then press "Agregar al pedido" → confirm the lines are
+   in Revisar with their quantities. Repeat typing `2 aros sin cebolla`
+   with an existing plain "Aros" line in the order → confirm a separate
+   line with the note is added, not a merged one without it.
 
 ## Notes / known limitations
 
 - Payment is cash-only, by design (no card/terminal integration).
+- Pedido por voz v1 reads text only (typed or dictated with the phone
+  keyboard's mic button): there is no in-app microphone yet, because Web
+  Speech is unreliable in an installed iOS PWA. It is a deterministic
+  parser (no network, no AI service): products, variants, pizza size and
+  style are recognised; halves, ingredients and extras must still go
+  through "Armar pizza". Nothing reaches the order without pressing
+  "Agregar al pedido".
 - Only one cash register session may be open at a time (enforced by a
   partial unique index in Postgres), matching the single shared register.
 - `src/shared/supabase/database.types.ts` was written by hand to match the

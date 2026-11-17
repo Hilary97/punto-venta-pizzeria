@@ -29,6 +29,8 @@ interface ProductsStepProps {
   canBuildPizza: boolean
   pizzaCount: number
   onBuildPizza: () => void
+  /** Opens the dictated-order confirmation sheet (no new step). */
+  onVoiceOrder?: () => void
   /** Fixed pizzas and best-selling pizzas and products, added with one tap ("Más vendidas"). */
   quickPicks?: QuickPickTile[]
   /** Total units in the order being composed. */
@@ -48,6 +50,7 @@ export function ProductsStep({
   canBuildPizza,
   pizzaCount,
   onBuildPizza,
+  onVoiceOrder,
   quickPicks = [],
   itemCount,
   onReview,
@@ -60,29 +63,36 @@ export function ProductsStep({
       <h2 id="productos-heading" tabIndex={-1} data-step-heading className="text-lg font-bold text-slate-900 focus:outline-none">
         Productos
       </h2>
-      {canBuildPizza && (
-        <div className="relative">
-          <button
-            type="button"
-            disabled={disabled}
-            onClick={onBuildPizza}
-            className="flex min-h-[68px] w-full items-center gap-3 rounded-xl bg-red-700 px-3.5 text-left text-white shadow-sm hover:bg-red-800 disabled:opacity-50"
-          >
-            <svg viewBox="0 0 32 32" aria-hidden="true" className="size-9 shrink-0">
-              <circle cx="16" cy="16" r="14" fill="#fff" />
-              <path d="M16 16V2M16 16l12 7M16 16L4 23" stroke="#b91c1c" strokeWidth="2" />
-              <circle cx="10" cy="10" r="2.5" fill="#b91c1c" />
-              <circle cx="22" cy="11" r="2.5" fill="#b91c1c" />
-              <circle cx="16" cy="24" r="2.5" fill="#b91c1c" />
-            </svg>
-            <span className="min-w-0">
-              <strong className="block text-[17px]">Armar pizza</strong>
-              <span className="text-[13px]">Tamaño, mitades y extras</span>
-            </span>
-            {pizzaCount > 0 && <QuantityBadge quantity={pizzaCount} />}
-          </button>
-        </div>
-      )}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
+        {canBuildPizza && (
+          <div className="relative sm:flex-1">
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={onBuildPizza}
+              className="flex min-h-[68px] w-full items-center gap-3 rounded-xl bg-red-700 px-3.5 text-left text-white shadow-sm hover:bg-red-800 disabled:opacity-50"
+            >
+              <svg viewBox="0 0 32 32" aria-hidden="true" className="size-9 shrink-0">
+                <circle cx="16" cy="16" r="14" fill="#fff" />
+                <path d="M16 16V2M16 16l12 7M16 16L4 23" stroke="#b91c1c" strokeWidth="2" />
+                <circle cx="10" cy="10" r="2.5" fill="#b91c1c" />
+                <circle cx="22" cy="11" r="2.5" fill="#b91c1c" />
+                <circle cx="16" cy="24" r="2.5" fill="#b91c1c" />
+              </svg>
+              <span className="min-w-0">
+                <strong className="block text-[17px]">Armar pizza</strong>
+                <span className="text-[13px]">Tamaño, mitades y extras</span>
+              </span>
+              {pizzaCount > 0 && <QuantityBadge quantity={pizzaCount} />}
+            </button>
+          </div>
+        )}
+        {onVoiceOrder && (
+          <Button type="button" variant="secondary" disabled={disabled} onClick={onVoiceOrder} className="min-h-12 sm:w-56">
+            Pedido por voz
+          </Button>
+        )}
+      </div>
       {quickPicks.length > 0 && (
         <section aria-labelledby="quick-picks-heading" className="flex flex-col gap-2">
           <h3 id="quick-picks-heading" className="text-sm font-bold uppercase tracking-wide text-slate-600">

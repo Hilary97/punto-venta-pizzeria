@@ -1790,3 +1790,75 @@ describe('category note chips (verify probes)', () => {
     await act(async () => { release('new-order') })
   })
 })
+
+describe('pedido por voz', () => {
+  beforeEach(() => {
+    vi.mocked(listPizzaCatalog).mockResolvedValue(pizzaCatalogFixture)
+    vi.mocked(listCategories).mockResolvedValue([{ id: 'bebidas', name: 'Bebidas', sortOrder: 0 }])
+    vi.mocked(listProducts).mockResolvedValue([
+      { id: 'coca', categoryId: 'bebidas', name: 'Coca-Cola 600 ml', priceCents: 1500, active: true, variants: [] },
+    ])
+  })
+
+  /** Opens the products step, taps Pedido por voz and returns the sheet dialog scoped helper. */
+  async function openVoiceSheet(user: ReturnType<typeof userEvent.setup>) {
+    renderPage()
+    await startOrder(user, { table: 4 })
+    await user.click(await screen.findByRole('button', { name: 'Pedido por voz' }))
+    return within(screen.getByRole('dialog', { name: 'Pedido por voz' }))
+  }
+
+  async function interpretInSheet(user: ReturnType<typeof userEvent.setup>, dialog: ReturnType<typeof within>, text: string) {
+    await user.type(dialog.getByLabelText('Dicta o escribe el pedido'), text)
+    await user.click(dialog.getByRole('button', { name: 'Interpretar' }))
+  }
+
+  it('opens from Productos, proposes the interpreted lines, and only Agregar al pedido touches the draft', async () => {
+    const user = userEvent.setup()
+    const dialog = await openVoiceSheet(user)
+    expect(dialog.queryByRole('group', { name: /^Cantidad de/ })).not.toBeInTheDocument()
+    await interpretInSheet(user, dialog, 'dos cocas y una grande de varas')
+    expect(dialog.getByText('Coca-Cola 600 ml')).toBeVisible()
+    expect(dialog.getByText('Pizza Grande: Estilo Varas')).toBeVisible()
+    // The draft behind the sheet is unchanged while it stays open.
+    expect(screen.getByRole('button', { name: /agrega productos/i })).toBeVisible()
+    await user.click(dialog.getByRole('button', { name: 'Agregar al pedido' }))
+    expect(screen.queryByRole('dialog', { name: 'Pedido por voz' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /revisar pedido/i }))
+    expect(screen.getByRole('group', { name: 'Cantidad de Coca-Cola 600 ml' })).toBeVisible()
+    expect(screen.getByRole('group', { name: 'Cantidad de Pizza Grande: Estilo Varas' })).toBeVisible()
+    await user.click(screen.getByRole('button', { name: /enviar a cocina/i }))
+    expect(createOrder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        items: [
+          { type: 'product', productId: 'coca', quantity: 2 },
+          { type: 'pizza', pizza: { size: 'grande', portions: [{ styleId: 'varas', ingredientIds: [], extraIngredientIds: [] }], extraIds: [] }, quantity: 1 },
+        ],
+      }),
+    )
+  })
+
+  it('Cancelar closes the sheet and leaves the draft untouched', async () => {
+    const user = userEvent.setup()
+    const dialog = await openVoiceSheet(user)
+    await interpretInSheet(user, dialog, 'una coca')
+    await user.click(dialog.getByRole('button', { name: 'Cancelar' }))
+    expect(screen.queryByRole('dialog', { name: 'Pedido por voz' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /agrega productos/i })).toBeVisible()
+    expect(createOrder).not.toHaveBeenCalled()
+  })
+
+  it('adds quantity 3 of a noted product as one draft line of three with its note', async () => {
+    const user = userEvent.setup()
+    const dialog = await openVoiceSheet(user)
+    await interpretInSheet(user, dialog, '3 cocas sin hielo')
+    await user.click(dialog.getByRole('button', { name: 'Agregar al pedido' }))
+    await user.click(screen.getByRole('button', { name: /revisar pedido/i }))
+    const line = screen.getByRole('group', { name: 'Cantidad de Coca-Cola 600 ml' }).closest('li')!
+    expect(within(line).getByText('Nota: sin hielo')).toBeVisible()
+    await user.click(screen.getByRole('button', { name: /enviar a cocina/i }))
+    expect(createOrder).toHaveBeenCalledWith(
+      expect.objectContaining({ items: [{ type: 'product', productId: 'coca', quantity: 3, notes: 'sin hielo' }] }),
+    )
+  })
+})

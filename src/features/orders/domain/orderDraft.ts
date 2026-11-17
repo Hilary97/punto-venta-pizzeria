@@ -53,6 +53,56 @@ export function addPizzaToDraft(draft: DraftLine[], pizza: NewPizzaLine): DraftL
   return [...draft, { ...pizza, kind: 'pizza', quantity: 1 }]
 }
 
+/** One line of a dictated order, already resolved against the catalog. */
+export type VoiceDraftLine =
+  | { kind: 'product'; productId: string; name: string; variant: string | null; quantity: number; notes: string }
+  | { kind: 'pizza'; pizza: PizzaConfig; name: string; quantity: number; notes: string }
+
+/**
+ * Adds dictated lines, generating their ids. A product line without a note merges into the first plain line
+ * of the same product and variant (the server merges the same way); a line with a note, or a pizza, is always
+ * appended with its full quantity, so nothing the waiter said can be swallowed by a merge.
+ */
+export function addVoiceLines(draft: DraftLine[], lines: VoiceDraftLine[], nextLineId: () => string): DraftLine[] {
+  let next = draft
+  for (const line of lines) {
+    if (line.quantity < 1) continue
+    if (line.kind === 'pizza') {
+      for (let unit = 0; unit < line.quantity; unit++) {
+        next = addPizzaToDraft(next, { lineId: nextLineId(), pizza: line.pizza, name: line.name, notes: line.notes })
+      }
+      continue
+    }
+    const mergeable =
+      line.notes.trim() === ''
+        ? next.find(
+            (candidate): candidate is Extract<DraftLine, { kind: 'product' }> =>
+              candidate.kind === 'product' &&
+              candidate.productId === line.productId &&
+              candidate.variant === line.variant &&
+              candidate.notes.trim() === '',
+          )
+        : undefined
+    if (mergeable) {
+      for (let unit = 0; unit < line.quantity; unit++) next = incrementDraftLine(next, mergeable.lineId)
+      continue
+    }
+    next = [
+      ...next,
+      {
+        lineId: nextLineId(),
+        kind: 'product',
+        productId: line.productId,
+        name: line.name,
+        variant: line.variant,
+        quantity: line.quantity,
+        notes: line.notes,
+      },
+    ]
+  }
+  return next
+}
+
 /** Increases the quantity of a draft line by one. */
 export function incrementDraftLine(draft: DraftLine[], lineId: string): DraftLine[] {
   return draft.map((line) => (line.lineId === lineId ? { ...line, quantity: line.quantity + 1 } : line))

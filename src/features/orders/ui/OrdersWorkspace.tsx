@@ -35,6 +35,7 @@ import {
 import {
   addPizzaToDraft,
   addToDraft,
+  addVoiceLines,
   decrementDraftLine,
   removePizzaFromDraft,
   removeProductFromDraft,
@@ -58,6 +59,7 @@ import { MesaStep } from './MesaStep'
 import { OrderContextBar } from './OrderContextBar'
 import { ProductsStep } from './ProductsStep'
 import { ReviewStep } from './ReviewStep'
+import { VoiceOrderSheet, type VoiceConfirmedLine } from './VoiceOrderSheet'
 import { StepIndicator, type OrderStep } from './StepIndicator'
 
 interface OrdersWorkspaceProps {
@@ -133,6 +135,7 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
   const [orderNotes, setOrderNotes] = useState('')
   const [pickupTime, setPickupTime] = useState('')
   const [isBuilderOpen, setIsBuilderOpen] = useState(false)
+  const [isVoiceOpen, setIsVoiceOpen] = useState(false)
   const [notesOrder, setNotesOrder] = useState<Order | null>(null)
   const [notesText, setNotesText] = useState('')
   const [notesError, setNotesError] = useState<string | null>(null)
@@ -276,6 +279,12 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
     const lineId = nextLineId()
     updateDraft((current) => addPizzaToDraft(current, { lineId, pizza: pizza.config, name: pizza.name, notes: pizza.notes }))
     setIsBuilderOpen(false)
+  }
+
+  /** Adds the confirmed voice lines with the existing draft helpers only (S10). */
+  function handleVoiceAdd(lines: VoiceConfirmedLine[]) {
+    setIsVoiceOpen(false)
+    updateDraft((current) => addVoiceLines(current, lines, nextLineId))
   }
 
   function handleEditNotes(order: Order) {
@@ -527,6 +536,7 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
             canBuildPizza={hasPizzaBuilder}
             pizzaCount={pizzaQuantity(draft)}
             onBuildPizza={() => setIsBuilderOpen(true)}
+            onVoiceOrder={() => setIsVoiceOpen(true)}
             quickPicks={quickPicks.map((pick) =>
               pick.kind === 'pizza'
                 ? {
@@ -609,6 +619,16 @@ export function OrdersWorkspace({ source, shift, canCharge, onChangeWaiter, onSh
 
       {isBuilderOpen && pizzaCatalog && (
         <PizzaBuilderModal catalog={pizzaCatalog} noteShortcuts={noteShortcuts.pizza} onAdd={handleAddPizza} onClose={() => setIsBuilderOpen(false)} />
+      )}
+
+      {isVoiceOpen && (
+        <VoiceOrderSheet
+          open
+          products={legacyHidden.products.filter((product) => product.active).map((product) => ({ id: product.id, name: product.name, variants: product.variants }))}
+          pizzaCatalog={pizzaCatalog ?? { sizes: [], styles: [], ingredients: [], extras: [] }}
+          onAdd={handleVoiceAdd}
+          onClose={() => setIsVoiceOpen(false)}
+        />
       )}
 
       {notesOrder && (
