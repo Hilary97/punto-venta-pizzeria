@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Armar pizza · iPad vertical (una columna)</title>
+<style>
+  :root{
+    --brand:#b91c1c; --brand-strong:#991b1b; --brand-bg:#fef2f2;
+    --ink:#0f172a; --ink-soft:#334155; --muted:#64748b; --line:#e2e8f0; --line-strong:#cbd5e1;
+    --surface:#f8fafc; --ok:#047857; --warn:#b45309;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ink);background:#cbd5e1;display:grid;place-items:center;min-height:100vh;padding:20px}
+  .pad{width:768px;height:1024px;background:#fff;border-radius:20px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 18px 44px rgba(15,23,42,.3)}
+  .top{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--line)}
+  .top h1{font-size:20px;margin:0;font-weight:700}
+  .close{border:0;background:transparent;font-size:20px;color:var(--muted);min-height:48px;min-width:48px;border-radius:12px;cursor:pointer}
+  .body{flex:1;overflow-y:auto;padding:14px 20px;display:flex;flex-direction:column;gap:14px}
+  .group{display:flex;flex-direction:column;gap:6px;margin:0;padding:0;border:0}
+  .group > .legend{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+  .row{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{display:inline-flex;align-items:center;gap:6px;min-height:46px;padding:0 16px;border-radius:999px;border:1px solid var(--line-strong);background:#fff;color:var(--ink-soft);font:600 15px/1 inherit;cursor:pointer}
+  .chip[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:#fff}
+  .chip[disabled]{opacity:.45;cursor:not-allowed}
+  .chip .hint{font-size:11px;font-weight:600;opacity:.85}
+  .tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:var(--surface);padding:5px;border-radius:14px}
+  .tab{border:0;background:transparent;border-radius:10px;min-height:56px;padding:8px 4px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font:inherit;color:var(--muted)}
+  .tab b{font-size:15px;color:var(--ink)}
+  .tab span{font-size:12px;font-weight:600;color:var(--ok)}
+  .tab span.empty{color:var(--warn)}
+  .tab[aria-selected="true"]{background:#fff;box-shadow:0 1px 3px rgba(15,23,42,.18)}
+  .tab[aria-selected="true"] b{color:var(--brand-strong)}
+  .panes{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;align-items:start}
+  .pane{display:flex;flex-direction:column;gap:10px;min-width:0}
+  .pane-title{margin:0;font-size:14px;font-weight:700;color:var(--ink)}
+  .styles{display:grid;gap:8px}
+  .style{min-height:56px;border:1px solid var(--line-strong);border-radius:12px;background:#fff;cursor:pointer;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:2px;padding:8px 10px;font:inherit;text-align:left}
+  .style b{font-size:15px;font-weight:700;color:var(--ink)}
+  .style small{font-size:12px;color:var(--muted)}
+  .style[aria-pressed="true"]{border-color:var(--brand);border-width:2px;background:var(--brand-bg);padding:7px 9px}
+  .style[aria-pressed="true"] b,.style[aria-pressed="true"] small{color:var(--brand-strong)}
+  .legend-line{border:1px solid #fcd34d;background:#fffbeb;color:#92400e;border-radius:12px;padding:8px 10px;font-size:13px;font-weight:600;margin:0}
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .accrow{display:flex;flex-direction:column;gap:8px;border:1px solid var(--line);border-radius:12px;min-height:52px;padding:8px 10px;background:#fff;font-size:14px;font-weight:600}
+  .accrow .levels{display:flex;gap:2px;background:var(--surface);border-radius:10px;padding:3px}
+  .accrow .levels button{flex:1;min-height:44px;min-width:0;border:0;border-radius:8px;background:transparent;font:700 13px/1 inherit;color:var(--ink-soft);cursor:pointer}
+  .accrow .levels button[aria-pressed="true"]{background:var(--brand);color:#fff}
+  .extras{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .extra{display:flex;align-items:center;justify-content:space-between;gap:8px;border:1px solid var(--line);border-radius:12px;min-height:50px;padding:0 12px;font-size:15px;font-weight:600}
+  .extra input{width:22px;height:22px;accent-color:var(--brand)}
+  .acc{display:flex;align-items:center;justify-content:space-between;width:100%;min-height:50px;padding:0 12px;border:1px solid var(--line);border-radius:12px;background:#fff;font:700 14px/1 inherit;color:var(--ink);cursor:pointer}
+  .foot{border-top:1px solid var(--line);padding:10px 20px 14px;display:flex;flex-direction:column;gap:8px;background:#fff;box-shadow:0 -6px 16px rgba(15,23,42,.08)}
+  .summary{font-size:14px;color:var(--muted);margin:0}
+  .summary b{color:var(--ink);font-weight:700}
+  .foot-row{display:flex;gap:10px;align-items:center}
+  .qty{display:flex;align-items:center;justify-content:space-between;width:140px;background:var(--surface);border-radius:12px;padding:4px}
+  .qty button{min-height:44px;min-width:44px;border:0;background:transparent;font-size:20px;font-weight:700;color:var(--ink-soft);border-radius:9px;cursor:pointer}
+  .qty output{font-weight:700;font-size:15px}
+  .add{flex:1;min-height:54px;border:0;border-radius:14px;background:var(--brand);color:#fff;font:700 18px/1 inherit;cursor:pointer}
+  .note{margin:0;font-size:12px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="pad">
+  <div class="top">
+    <h1>Armar pizza</h1>
+    <button class="close" type="button" aria-label="Cerrar">✕</button>
+  </div>
+
+  <div class="body">
+    <fieldset class="group">
+      <legend class="legend">Tamaño</legend>
+      <div class="row">
+        <button class="chip" type="button" aria-pressed="false">Chica</button>
+        <button class="chip" type="button" aria-pressed="true">Mediana</button>
+        <button class="chip" type="button" aria-pressed="false">Grande<span class="hint">Quedan 6</span></button>
+        <button class="chip" type="button" aria-pressed="false" disabled>Familiar<span class="hint">Agotado</span></button>
+      </div>
+    </fieldset>
+
+    <fieldset class="group">
+      <legend class="legend">División</legend>
+      <div class="row">
+        <button class="chip" type="button" aria-pressed="false">Entera</button>
+        <button class="chip" type="button" aria-pressed="true">Mitades</button>
+        <button class="chip" type="button" aria-pressed="false">Tercios</button>
+      </div>
+    </fieldset>
+
+    <div class="tabs" role="tablist" aria-label="Porciones de la pizza">
+      <button class="tab" type="button" role="tab" aria-selected="true"><b>Mitad 1</b><span>Varas</span></button>
+      <button class="tab" type="button" role="tab" aria-selected="false"><b>Mitad 2</b><span class="empty">Sin estilo</span></button>
+    </div>
+
+    <div class="panes">
+      <div class="pane">
+        <p class="pane-title">Estilo de la Mitad 1</p>
+        <div class="styles">
+          <button class="style" type="button" aria-pressed="true"><b>Varas</b><small>Pepperoni y queso</small></button>
+          <button class="style" type="button" aria-pressed="false"><b>Pepperoni</b><small>Sin ingredientes</small></button>
+          <button class="style" type="button" aria-pressed="false"><b>Hawaiana</b><small>Sin ingredientes</small></button>
+          <button class="style" type="button" aria-pressed="false"><b>Mexicana</b><small>Chile a elegir</small></button>
+          <button class="style" type="button" aria-pressed="false"><b>Suprema</b><small>2 ingredientes</small></button>
+        </div>
+      </div>
+
+      <div class="pane">
+        <p class="pane-title">Ingredientes de la Mitad 1</p>
+        <p class="legend-line">Este estilo no incluye ingredientes a elección · Todo ingrediente que agregues cuenta como extra</p>
+        <div class="chips">
+          <button class="chip" type="button" aria-pressed="true">Jalapeños</button>
+          <button class="chip" type="button" aria-pressed="false">Pepperoni</button>
+          <button class="chip" type="button" aria-pressed="false">Piña</button>
+          <button class="chip" type="button" aria-pressed="false">Champiñones</button>
+        </div>
+        <div class="accrow">
+          <span>Jalapeños <small style="display:block;color:var(--warn);font-weight:600">Extra</small></span>
+          <div class="levels" role="group" aria-label="Cantidad de Jalapeños">
+            <button type="button" aria-pressed="true">Normal</button>
+            <button type="button" aria-pressed="false">Doble</button>
+            <button type="button" aria-pressed="false">Quitar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="extras">
+      <label class="extra">Extra queso <input type="checkbox"></label>
+      <label class="extra">Orilla rellena <input type="checkbox" checked></label>
+    </div>
+
+    <button class="acc" type="button" aria-expanded="false">
+      <span>Notas <span style="font-weight:500;color:var(--muted);font-size:12px">pizza y porción</span></span>
+      <span aria-hidden="true" style="color:var(--muted)">▾</span>
+    </button>
+
+    <p class="note">En vertical (menos de 1024 px) sigue una sola columna, más ancha y con texto más grande: estilos y después ingredientes. Los dos paneles entran recién en horizontal.</p>
+  </div>
+
+  <div class="foot">
+    <p class="summary"><b>Pizza Mediana</b> · Mitad Varas / Mitad 2 sin estilo · Orilla rellena</p>
+    <div class="foot-row">
+      <div class="qty">
+        <button type="button" aria-label="Menos">−</button>
+        <output>×2</output>
+        <button type="button" aria-label="Más">+</button>
+      </div>
+      <button class="add" type="button">Agregar pizza</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>

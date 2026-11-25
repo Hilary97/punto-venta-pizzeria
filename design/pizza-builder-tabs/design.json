@@ -16,6 +16,20 @@
       "tradeoff": "Las dos mitades se ven a la vez con su estilo; cambiar cuesta desplazarse hasta la otra tarjeta.",
       "width": 375,
       "height": 812
+    },
+    {
+      "file": "03-ipad-horizontal.html",
+      "title": "iPad horizontal: estilos | ingredientes",
+      "tradeoff": "Cero scroll en horizontal y texto más grande; requiere dos columnas sólo desde 1024 px, así que el builder necesita una grilla propia.",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "file": "04-ipad-vertical.html",
+      "title": "iPad vertical: una columna ancha y legible",
+      "tradeoff": "Mantiene el orden de teléfono con más ancho y texto más grande; los dos paneles entran recién en horizontal, así que en vertical hay algo de scroll.",
+      "width": 768,
+      "height": 1024
     }
   ]
 }
