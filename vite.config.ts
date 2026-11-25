@@ -6,6 +6,10 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
 export default defineConfig({
+  // host: true binds the dev server to the LAN, so a phone on the same Wi-Fi can open it (http://<ip-lan>:5173).
+  server: {
+    host: true,
+  },
   plugins: [
     react(),
     tailwindcss(),
