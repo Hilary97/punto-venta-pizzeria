@@ -33,15 +33,15 @@ export function PortionEditor({ portion, style, ingredients, onChange }: Portion
 
   return (
     <div className="flex flex-col gap-3">
-      <p className="rounded-xl border border-amber-600 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800 dark:border-amber-500 dark:bg-amber-950/60 dark:text-amber-200">{legend(style)}</p>
+      <p className="rounded-xl border border-amber-600 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800 md:text-base dark:border-amber-500 dark:bg-amber-950/60 dark:text-amber-200">{legend(style)}</p>
       {style.includedIngredients > 0 && (
-        <p aria-live="polite" className="text-xs text-slate-500">
+        <p aria-live="polite" className="text-xs text-slate-500 md:text-sm">
           Ingredientes incluidos: {portion.ingredientIds.length}/{style.includedIngredients}
         </p>
       )}
 
       <fieldset className="flex flex-col gap-2">
-        <legend className="text-sm font-bold text-slate-900">Elige ingredientes</legend>
+        <legend className="text-sm font-bold text-slate-900 md:text-base">Elige ingredientes</legend>
         <div role="group" aria-label="Ingredientes disponibles" className="flex flex-wrap gap-2">
           {ingredients.map((ingredient) => {
             const picked = ingredientLevel(portion, ingredient.id) !== 'none'
@@ -60,7 +60,7 @@ export function PortionEditor({ portion, style, ingredients, onChange }: Portion
 
       {chosen.length > 0 && (
         <div className="flex flex-col gap-2">
-          <h4 id={headingId} className="text-sm font-bold text-slate-900">
+          <h4 id={headingId} className="text-sm font-bold text-slate-900 md:text-base">
             Ajusta cada ingrediente
           </h4>
           <ul aria-labelledby={headingId} className="flex flex-col gap-2">

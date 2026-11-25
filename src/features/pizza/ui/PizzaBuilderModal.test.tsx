@@ -654,6 +654,18 @@ describe('PizzaBuilderModal extras', () => {
     expect(onAdd.mock.calls[0]?.[0].config.extraIds).toEqual(['orilla', 'queso'])
   })
 
+  it('shows the whole-pizza extras last, after the portion and its ingredients (L6)', async () => {
+    const { user, card } = renderBuilder(CUSTOM_ONLY)
+    await user.click(card('Chica'))
+    await user.click(card(/Arma tu combinación/))
+    await user.click(within(ingredientsGroup() as HTMLElement).getByRole('button', { name: 'Piña' }))
+    const lastIngredientHeading = screen.getByText('Ajusta cada ingrediente')
+    const notesToggle = screen.getByRole('button', { name: 'Notas' })
+    const extras = screen.getByRole('group', { name: 'Extras para toda la pizza' })
+    expect(lastIngredientHeading.compareDocumentPosition(extras) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(notesToggle.compareDocumentPosition(extras) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
   it('hides the extras group when the catalog has no extras', () => {
     renderBuilder({ ...pizzaCatalogFixture, extras: [] })
     expect(screen.queryByRole('group', { name: 'Extras para toda la pizza' })).not.toBeInTheDocument()

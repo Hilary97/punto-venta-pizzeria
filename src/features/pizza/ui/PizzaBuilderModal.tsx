@@ -211,7 +211,7 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose, quickPick = false, 
       {/* touch-manipulation: no double-tap zoom or tap delay on phones, so taps register at once. */}
       <div className="flex min-w-0 touch-manipulation flex-col gap-4">
         <fieldset className="flex flex-col gap-2">
-          <legend className="mb-1 text-sm font-bold text-slate-900">Tamaño</legend>
+          <legend className="mb-1 text-sm font-bold text-slate-900 md:text-base">Tamaño</legend>
           <div className="flex flex-wrap gap-2">
             {sizes.map((candidate) => (
               <ToggleChip
@@ -227,31 +227,11 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose, quickPick = false, 
           {noDough && <p className="font-semibold text-amber-700 dark:text-amber-300">No hay masas de pizza disponibles.</p>}
         </fieldset>
 
-        {extras.length > 0 && (
-          <fieldset className="flex flex-col gap-2">
-            <legend className="mb-1 text-sm font-bold text-slate-900">Extras para toda la pizza</legend>
-            {extras.map((extra) => (
-              <label
-                key={extra.id}
-                className="flex min-h-12 items-center justify-between rounded-xl border border-slate-200 bg-white px-3 text-base font-semibold text-slate-900"
-              >
-                {extra.name}
-                <input
-                  type="checkbox"
-                  checked={extraIds.includes(extra.id)}
-                  onChange={() => setExtraIds((existing) => togglePizzaExtra(existing, extra.id))}
-                  className="size-6 accent-red-700"
-                />
-              </label>
-            ))}
-          </fieldset>
-        )}
-
         {size && (
           <div className="contents" onClickCapture={ignoreGhostTap}>
             {hasDivision && (
               <fieldset className="flex flex-col gap-2">
-                <legend className="mb-1 text-sm font-bold text-slate-900">División</legend>
+                <legend className="mb-1 text-sm font-bold text-slate-900 md:text-base">División</legend>
                 <div className="flex flex-wrap gap-2">
                   {size.allowedPortions.map((option) => (
                     <ToggleChip key={option} label={portionLabel(option)} pressed={count === option} onToggle={() => selectDivision(option)} />
@@ -281,7 +261,7 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose, quickPick = false, 
                       tabIndex={at === index ? 0 : -1}
                       onClick={() => setActiveIndex(at)}
                       className={cn(
-                        'flex min-h-14 min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-1',
+                        'flex min-h-14 min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-1 lg:min-h-16',
                         at === index ? 'bg-white shadow-sm' : 'text-slate-600',
                       )}
                     >
@@ -316,27 +296,33 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose, quickPick = false, 
                 </p>
               </div>
 
-              <StyleCards
-                title={portionTitle(count, index)}
-                portion={activePortion}
-                styles={styles}
-                onChange={(portion) => {
-                  pickedStyleId.current = portion.styleId
-                  updatePortion(index, portion)
-                }}
-                collapsed={collapsed.includes(index)}
-                onPick={() => pickStyle(index)}
-                onReopen={() => setCollapsed((existing) => existing.filter((at) => at !== index))}
-              />
-
-              {activeStyle && (
-                <PortionEditor
+              <div className="grid gap-3 lg:grid-cols-2 lg:items-start lg:gap-6">
+                <StyleCards
+                  title={portionTitle(count, index)}
                   portion={activePortion}
-                  style={activeStyle}
-                  ingredients={ingredients}
-                  onChange={(portion) => updatePortion(index, portion)}
+                  styles={styles}
+                  onChange={(portion) => {
+                    pickedStyleId.current = portion.styleId
+                    updatePortion(index, portion)
+                  }}
+                  collapsed={collapsed.includes(index)}
+                  onPick={() => pickStyle(index)}
+                  onReopen={() => setCollapsed((existing) => existing.filter((at) => at !== index))}
                 />
-              )}
+
+                {activeStyle ? (
+                  <PortionEditor
+                    portion={activePortion}
+                    style={activeStyle}
+                    ingredients={ingredients}
+                    onChange={(portion) => updatePortion(index, portion)}
+                  />
+                ) : (
+                  <p className="hidden rounded-xl border border-dashed border-slate-300 px-4 py-6 text-center text-sm text-slate-500 lg:block">
+                    Elige un estilo para ajustar sus ingredientes.
+                  </p>
+                )}
+              </div>
             </div>
 
             {!quickPick && (
@@ -402,9 +388,32 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose, quickPick = false, 
           </div>
         )}
 
+        {/* Whole-pizza extras close the screen, after the chosen portion and its ingredients. */}
+        {extras.length > 0 && (
+          <fieldset className="flex flex-col gap-2">
+            <legend className="mb-1 text-sm font-bold text-slate-900 md:text-base">Extras para toda la pizza</legend>
+            <div className="flex flex-col gap-2 md:grid md:grid-cols-2">
+              {extras.map((extra) => (
+                <label
+                  key={extra.id}
+                  className="flex min-h-12 items-center justify-between rounded-xl border border-slate-200 bg-white px-3 text-base font-semibold text-slate-900"
+                >
+                  {extra.name}
+                  <input
+                    type="checkbox"
+                    checked={extraIds.includes(extra.id)}
+                    onChange={() => setExtraIds((existing) => togglePizzaExtra(existing, extra.id))}
+                    className="size-6 accent-red-700"
+                  />
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        )}
+
         <div className="sticky -bottom-6 -mx-6 -mb-6 flex flex-col gap-2 border-t border-slate-300 bg-white px-6 pb-4 pt-3 shadow-[0_-6px_16px_rgba(15,23,42,0.08)]">
           {!noDough && (
-            <div role="status" aria-label="Resumen de la pizza" aria-live="polite" className="text-sm text-slate-500">
+            <div role="status" aria-label="Resumen de la pizza" aria-live="polite" className="text-sm text-slate-500 md:text-base">
               {size ? (
                 <>
                   <b className="break-words text-slate-900">{`Pizza ${size.name}`}</b>
@@ -446,7 +455,7 @@ export function PizzaBuilderModal({ catalog, onAdd, onClose, quickPick = false, 
                 </button>
               </div>
             )}
-            <Button size="lg" className="flex-1" disabled={blocked} onClick={addPizzas}>
+            <Button size="lg" className="flex-1 md:min-h-14 md:text-xl" disabled={blocked} onClick={addPizzas}>
               {quickPick ? 'Fijar pizza' : 'Agregar pizza'}
             </Button>
           </div>
