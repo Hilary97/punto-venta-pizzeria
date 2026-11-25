@@ -1,0 +1,35 @@
+{
+  "title": "Armar pizza en una sola pantalla",
+  "brief": "Rediseñar el armador de pizzas del POS (meseros, teléfono a 375px) para quitar los pasos de navegación: tamaño y división fijos arriba, la porción activa debajo y el resumen siempre visible. Dirección elegida por el usuario: una pantalla con las porciones agrupadas.",
+  "feature": "odd/tasks/pizza-builder-tabs.md",
+  "artboards": [
+    {
+      "file": "01-tabs-porcion.html",
+      "title": "Mitad en tabs: cero navegación",
+      "tradeoff": "Sin scroll largo y sin botones de navegación; cambiar de mitad cuesta 1 tap en su tab y la otra mitad no se ve completa.",
+      "width": 375,
+      "height": 812
+    },
+    {
+      "file": "02-tarjetas-apiladas.html",
+      "title": "Mitades apiladas: la tocada se expande",
+      "tradeoff": "Las dos mitades se ven a la vez con su estilo; cambiar cuesta desplazarse hasta la otra tarjeta.",
+      "width": 375,
+      "height": 812
+    },
+    {
+      "file": "03-ipad-horizontal.html",
+      "title": "iPad horizontal: estilos | ingredientes",
+      "tradeoff": "Cero scroll en horizontal y texto más grande; requiere dos columnas sólo desde 1024 px, así que el builder necesita una grilla propia.",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "file": "04-ipad-vertical.html",
+      "title": "iPad vertical: una columna ancha y legible",
+      "tradeoff": "Mantiene el orden de teléfono con más ancho y texto más grande; los dos paneles entran recién en horizontal, así que en vertical hay algo de scroll.",
+      "width": 768,
+      "height": 1024
+    }
+  ]
+}

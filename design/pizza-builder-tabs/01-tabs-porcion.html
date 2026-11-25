@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Armar pizza · mitad en tabs</title>
+<style>
+  :root{
+    --brand:#b91c1c; --brand-strong:#991b1b; --brand-bg:#fef2f2; --brand-line:#fca5a5;
+    --ink:#0f172a; --ink-soft:#334155; --muted:#64748b; --line:#e2e8f0; --line-strong:#cbd5e1;
+    --surface:#f8fafc; --ok:#047857; --warn:#b45309; --warn-bg:#fffbeb;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    color:var(--ink);background:#cbd5e1;display:grid;place-items:center;min-height:100vh;padding:20px;
+  }
+  .phone{width:375px;height:812px;background:#fff;border-radius:22px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 18px 44px rgba(15,23,42,.3)}
+  /* header */
+  .top{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--line)}
+  .top h1{font-size:17px;margin:0;font-weight:700}
+  .close{border:0;background:transparent;font-size:20px;color:var(--muted);min-height:44px;min-width:44px;border-radius:12px;cursor:pointer}
+  .close:focus-visible,.chip:focus-visible,.style:focus-visible,.acc:focus-visible,.add:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+  /* scrollable middle */
+  .body{flex:1;overflow-y:auto;padding:12px 16px 16px;display:flex;flex-direction:column;gap:14px}
+  .group{display:flex;flex-direction:column;gap:6px;margin:0;padding:0;border:0}
+  .group > .legend{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+  .row{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{
+    display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 16px;border-radius:999px;
+    border:1px solid var(--line-strong);background:#fff;color:var(--ink-soft);font:600 15px/1 inherit;cursor:pointer;
+  }
+  .chip[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:#fff}
+  .chip[disabled]{opacity:.45;cursor:not-allowed}
+  .chip .hint{font-size:11px;font-weight:600;opacity:.8}
+  /* portion tabs */
+  .tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:var(--surface);padding:4px;border-radius:14px}
+  .tab{
+    border:0;background:transparent;border-radius:10px;min-height:52px;padding:6px 4px;cursor:pointer;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font:inherit;color:var(--muted)
+  }
+  .tab b{font-size:14px;color:var(--ink)}
+  .tab span{font-size:11px;font-weight:600;color:var(--ok)}
+  .tab[aria-selected="true"]{background:#fff;box-shadow:0 1px 3px rgba(15,23,42,.18)}
+  .tab[aria-selected="true"] b{color:var(--brand-strong)}
+  .tab span.empty{color:var(--warn)}
+  /* active portion */
+  .portion-head{display:flex;align-items:center;gap:10px}
+  .portion-head p{margin:0;font-size:13px;color:var(--muted)}
+  .portion-head strong{display:block;font-size:15px;color:var(--ink)}
+  .styles{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .style{
+    min-height:56px;border:1px solid var(--line-strong);border-radius:14px;background:#fff;cursor:pointer;
+    display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:2px;padding:8px 10px;font:inherit;text-align:left
+  }
+  .style b{font-size:15px;font-weight:600;color:var(--ink)}
+  .style small{font-size:11px;color:var(--muted)}
+  .style[aria-pressed="true"]{border-color:var(--brand);border-width:2px;background:var(--brand-bg);padding:7px 9px}
+  .style[aria-pressed="true"] b{color:var(--brand-strong)}
+  .style[aria-pressed="true"] small{color:var(--brand-strong)}
+  /* ingredients of the chosen style */
+  .choices{border:1px solid var(--line);border-radius:14px;padding:10px;display:flex;flex-direction:column;gap:8px;background:var(--surface)}
+  .choices h3{margin:0;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+  .pick{display:flex;align-items:center;justify-content:space-between;gap:8px;background:#fff;border:1px solid var(--line);border-radius:12px;min-height:44px;padding:0 10px;font-size:14px;font-weight:600}
+  .pick input{width:22px;height:22px;accent-color:var(--brand)}
+  /* accordions */
+  .acc{display:flex;align-items:center;justify-content:space-between;width:100%;min-height:48px;padding:0 12px;border:1px solid var(--line);border-radius:12px;background:#fff;font:600 14px/1 inherit;color:var(--ink);cursor:pointer}
+  .acc .meta{font-weight:500;color:var(--muted);font-size:12px}
+  .acc .caret{color:var(--muted)}
+  /* footer */
+  .foot{border-top:1px solid var(--line);padding:10px 16px 14px;display:flex;flex-direction:column;gap:8px;background:#fff;box-shadow:0 -6px 16px rgba(15,23,42,.08)}
+  .summary{font-size:13px;color:var(--muted);margin:0}
+  .summary b{color:var(--ink);font-weight:700}
+  .foot-row{display:flex;gap:10px;align-items:center}
+  .qty{display:flex;align-items:center;justify-content:space-between;width:130px;background:var(--surface);border-radius:12px;padding:4px}
+  .qty button{min-height:44px;min-width:44px;border:0;background:transparent;font-size:20px;font-weight:700;color:var(--ink-soft);border-radius:9px;cursor:pointer}
+  .qty output{font-weight:700;font-size:15px}
+  .add{flex:1;min-height:52px;border:0;border-radius:14px;background:var(--brand);color:#fff;font:700 17px/1 inherit;cursor:pointer}
+  .add:active{background:var(--brand-strong)}
+  .note{margin:0;font-size:11px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="phone">
+  <div class="top">
+    <h1>Armar pizza</h1>
+    <button class="close" type="button" aria-label="Cerrar">✕</button>
+  </div>
+
+  <div class="body">
+    <fieldset class="group">
+      <legend class="legend">Tamaño</legend>
+      <div class="row">
+        <button class="chip" type="button" aria-pressed="false">Chica</button>
+        <button class="chip" type="button" aria-pressed="true">Mediana</button>
+        <button class="chip" type="button" aria-pressed="false">Grande<span class="hint">Quedan 6</span></button>
+        <button class="chip" type="button" aria-pressed="false" disabled>Familiar<span class="hint">Agotado</span></button>
+      </div>
+    </fieldset>
+
+    <fieldset class="group">
+      <legend class="legend">División</legend>
+      <div class="row">
+        <button class="chip" type="button" aria-pressed="false">Entera</button>
+        <button class="chip" type="button" aria-pressed="true">Mitades</button>
+        <button class="chip" type="button" aria-pressed="false">Tercios</button>
+      </div>
+    </fieldset>
+
+    <div class="tabs" role="tablist" aria-label="Porciones de la pizza">
+      <button class="tab" type="button" role="tab" aria-selected="true">
+        <b>Mitad 1</b><span>Varas</span>
+      </button>
+      <button class="tab" type="button" role="tab" aria-selected="false">
+        <b>Mitad 2</b><span class="empty">Sin estilo</span>
+      </button>
+    </div>
+
+    <div class="portion-head">
+      <svg width="52" height="52" viewBox="0 0 52 52" aria-label="Pizza dividida en mitades; mitad 1 seleccionada" role="img">
+        <circle cx="26" cy="26" r="23" fill="#fef2f2" stroke="#b91c1c" stroke-width="2"/>
+        <path d="M26 3 A23 23 0 0 1 26 49 Z" fill="#fff" stroke="#cbd5e1" stroke-width="1.5"/>
+        <line x1="26" y1="3" x2="26" y2="49" stroke="#b91c1c" stroke-width="2"/>
+      </svg>
+      <p><strong>Mitad 1</strong>Elige el estilo</p>
+    </div>
+
+    <div class="styles">
+      <button class="style" type="button" aria-pressed="true"><b>Varas</b><small>Elegido</small></button>
+      <button class="style" type="button" aria-pressed="false"><b>Pepperoni</b><small>Sin ingredientes</small></button>
+      <button class="style" type="button" aria-pressed="false"><b>Hawaiana</b><small>Sin ingredientes</small></button>
+      <button class="style" type="button" aria-pressed="false"><b>Mexicana</b><small>+ chile a elegir</small></button>
+      <button class="style" type="button" aria-pressed="false"><b>Suprema</b><small>2 ingredientes</small></button>
+      <button class="style" type="button" aria-pressed="false"><b>Cuatro Quesos</b><small>Sin ingredientes</small></button>
+    </div>
+
+    <button class="acc" type="button" aria-expanded="false">
+      <span>Extras de esta mitad <span class="meta">opcional</span></span>
+      <span class="caret" aria-hidden="true">▾</span>
+    </button>
+
+    <button class="acc" type="button" aria-expanded="true">
+      <span>Extras para toda la pizza <span class="meta">1 elegido</span></span>
+      <span class="caret" aria-hidden="true">▴</span>
+    </button>
+    <div class="choices">
+      <h3>Orilla y adicionales</h3>
+      <label class="pick">Orilla rellena de queso <input type="checkbox" checked></label>
+      <label class="pick">Doble queso <input type="checkbox"></label>
+    </div>
+
+    <button class="acc" type="button" aria-expanded="false">
+      <span>Notas <span class="meta">pizza y porción</span></span>
+      <span class="caret" aria-hidden="true">▾</span>
+    </button>
+
+    <p class="note">Sin botones "Siguiente": la mitad 2 se toca en su tab.</p>
+  </div>
+
+  <div class="foot">
+    <p class="summary"><b>Pizza Mediana</b> · Varas / sin estilo · Orilla rellena</p>
+    <div class="foot-row">
+      <div class="qty">
+        <button type="button" aria-label="Menos">−</button>
+        <output>×2</output>
+        <button type="button" aria-label="Más">+</button>
+      </div>
+      <button class="add" type="button">Agregar pizza</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>

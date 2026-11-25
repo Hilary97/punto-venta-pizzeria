@@ -20,7 +20,7 @@ export function Modal({ title, onClose, children, wide = false }: ModalProps) {
         aria-labelledby={titleId}
         className={cn(
           'max-h-[90vh] w-full overflow-y-auto rounded-t-2xl bg-white p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-xl sm:rounded-2xl',
-          wide ? 'sm:max-w-2xl' : 'sm:max-w-md',
+          wide ? 'sm:max-w-2xl md:max-w-3xl lg:max-w-5xl' : 'sm:max-w-md',
         )}
       >
         <div className="mb-4 flex items-center justify-between">

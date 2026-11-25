@@ -38,13 +38,13 @@ export function StyleCards({ title, portion, styles, onChange, collapsed = false
                 onPick?.()
               }}
               className={cn(
-                'flex min-h-[60px] items-center gap-3 rounded-xl border px-3 py-2 text-left transition-colors',
+                'flex min-h-[60px] items-center gap-3 rounded-xl border px-3 py-2 text-left transition-colors md:min-h-[68px] md:px-4 md:py-3',
                 selected ? 'border-2 border-red-700 bg-red-50 dark:border-red-400 dark:bg-red-950/60' : 'border-slate-300 bg-white hover:bg-slate-50',
               )}
             >
               <span className="flex min-w-0 flex-1 flex-col">
-                <span className="font-bold text-slate-900">{candidate.name}</span>
-                {candidate.description && <span className="break-words text-xs text-slate-500">{candidate.description}</span>}
+                <span className="font-bold text-slate-900 md:text-[17px]">{candidate.name}</span>
+                {candidate.description && <span className="break-words text-xs text-slate-500 md:text-sm">{candidate.description}</span>}
               </span>
               <span
                 aria-hidden="true"

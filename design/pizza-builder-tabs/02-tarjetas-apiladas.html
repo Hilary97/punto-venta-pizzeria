@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Armar pizza · mitades apiladas</title>
+<style>
+  :root{
+    --brand:#b91c1c; --brand-strong:#991b1b; --brand-bg:#fef2f2;
+    --ink:#0f172a; --ink-soft:#334155; --muted:#64748b; --line:#e2e8f0; --line-strong:#cbd5e1;
+    --surface:#f8fafc; --ok:#047857; --warn:#b45309; --warn-bg:#fffbeb; --warn-line:#fcd34d;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ink);background:#cbd5e1;display:grid;place-items:center;min-height:100vh;padding:20px}
+  .phone{width:375px;height:812px;background:#fff;border-radius:22px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 18px 44px rgba(15,23,42,.3)}
+  .top{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--line)}
+  .top h1{font-size:17px;margin:0;font-weight:700}
+  .close{border:0;background:transparent;font-size:20px;color:var(--muted);min-height:44px;min-width:44px;border-radius:12px;cursor:pointer}
+  .close:focus-visible,.chip:focus-visible,.style:focus-visible,.card-head:focus-visible,.add:focus-visible,.acc:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+  .body{flex:1;overflow-y:auto;padding:12px 16px 16px;display:flex;flex-direction:column;gap:12px}
+  .group{display:flex;flex-direction:column;gap:6px;margin:0;padding:0;border:0}
+  .group > .legend{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+  .row{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 16px;border-radius:999px;border:1px solid var(--line-strong);background:#fff;color:var(--ink-soft);font:600 15px/1 inherit;cursor:pointer}
+  .chip[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:#fff}
+  .chip[disabled]{opacity:.45;cursor:not-allowed}
+  .chip .hint{font-size:11px;font-weight:600;opacity:.8}
+  /* stacked portion cards */
+  .portion{border:1px solid var(--line-strong);border-radius:16px;overflow:hidden;background:#fff}
+  .portion.active{border-color:var(--brand);border-width:2px}
+  .card-head{display:flex;align-items:center;gap:10px;width:100%;min-height:60px;padding:8px 12px;border:0;background:transparent;cursor:pointer;font:inherit;text-align:left}
+  .portion.active .card-head{background:var(--brand-bg)}
+  .card-head .txt{flex:1;min-width:0}
+  .card-head b{display:block;font-size:15px;color:var(--ink)}
+  .card-head span{font-size:12px;font-weight:600;color:var(--ok)}
+  .card-head span.empty{color:var(--warn)}
+  .card-head .caret{color:var(--muted);font-size:14px}
+  .collapsed-row{display:flex;gap:8px;align-items:center;padding:0 12px 12px}
+  .mini{border:1px solid var(--line-strong);background:#fff;border-radius:10px;min-height:38px;padding:0 12px;font:600 13px/1 inherit;color:var(--ink-soft);cursor:pointer}
+  .mini.warn{border-color:var(--warn-line);background:var(--warn-bg);color:#92400e}
+  .inner{padding:0 12px 12px;display:flex;flex-direction:column;gap:10px}
+  .styles{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .style{min-height:52px;border:1px solid var(--line-strong);border-radius:12px;background:#fff;cursor:pointer;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:2px;padding:6px 10px;font:inherit;text-align:left}
+  .style b{font-size:14px;font-weight:600;color:var(--ink)}
+  .style small{font-size:11px;color:var(--muted)}
+  .style[aria-pressed="true"]{border-color:var(--brand);border-width:2px;background:var(--brand-bg);padding:5px 9px}
+  .style[aria-pressed="true"] b,.style[aria-pressed="true"] small{color:var(--brand-strong)}
+  .acc{display:flex;align-items:center;justify-content:space-between;width:100%;min-height:48px;padding:0 12px;border:1px solid var(--line);border-radius:12px;background:#fff;font:600 14px/1 inherit;color:var(--ink);cursor:pointer}
+  .acc .meta{font-weight:500;color:var(--muted);font-size:12px}
+  .foot{border-top:1px solid var(--line);padding:10px 16px 14px;display:flex;flex-direction:column;gap:8px;background:#fff;box-shadow:0 -6px 16px rgba(15,23,42,.08)}
+  .summary{font-size:13px;color:var(--muted);margin:0}
+  .summary b{color:var(--ink);font-weight:700}
+  .foot-row{display:flex;gap:10px;align-items:center}
+  .qty{display:flex;align-items:center;justify-content:space-between;width:130px;background:var(--surface);border-radius:12px;padding:4px}
+  .qty button{min-height:44px;min-width:44px;border:0;background:transparent;font-size:20px;font-weight:700;color:var(--ink-soft);border-radius:9px;cursor:pointer}
+  .qty output{font-weight:700;font-size:15px}
+  .add{flex:1;min-height:52px;border:0;border-radius:14px;background:var(--brand);color:#fff;font:700 17px/1 inherit;cursor:pointer}
+  .note{margin:0;font-size:11px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="phone">
+  <div class="top">
+    <h1>Armar pizza</h1>
+    <button class="close" type="button" aria-label="Cerrar">✕</button>
+  </div>
+
+  <div class="body">
+    <fieldset class="group">
+      <legend class="legend">Tamaño</legend>
+      <div class="row">
+        <button class="chip" type="button" aria-pressed="false">Chica</button>
+        <button class="chip" type="button" aria-pressed="true">Mediana</button>
+        <button class="chip" type="button" aria-pressed="false">Grande<span class="hint">Quedan 6</span></button>
+        <button class="chip" type="button" aria-pressed="false" disabled>Familiar<span class="hint">Agotado</span></button>
+      </div>
+    </fieldset>
+
+    <fieldset class="group">
+      <legend class="legend">División</legend>
+      <div class="row">
+        <button class="chip" type="button" aria-pressed="false">Entera</button>
+        <button class="chip" type="button" aria-pressed="true">Mitades</button>
+        <button class="chip" type="button" aria-pressed="false">Tercios</button>
+      </div>
+    </fieldset>
+
+    <section class="portion" aria-label="Mitad 1">
+      <button class="card-head" type="button" aria-expanded="false">
+        <svg width="34" height="34" viewBox="0 0 34 34" role="img" aria-label="Mitad 1">
+          <circle cx="17" cy="17" r="15" fill="#fef2f2" stroke="#b91c1c" stroke-width="1.5"/>
+          <path d="M17 2 A15 15 0 0 1 17 32 Z" fill="#fff" stroke="#cbd5e1"/>
+          <line x1="17" y1="2" x2="17" y2="32" stroke="#b91c1c" stroke-width="1.5"/>
+        </svg>
+        <span class="txt"><b>Mitad 1</b><span>Varas</span></span>
+        <span class="caret" aria-hidden="true">Cambiar ▾</span>
+      </button>
+      <div class="collapsed-row">
+        <button class="mini warn" type="button">+ Extras en Mitad 1</button>
+      </div>
+    </section>
+
+    <section class="portion active" aria-label="Mitad 2">
+      <button class="card-head" type="button" aria-expanded="true">
+        <svg width="34" height="34" viewBox="0 0 34 34" role="img" aria-label="Mitad 2">
+          <circle cx="17" cy="17" r="15" fill="#fff" stroke="#cbd5e1" stroke-width="1.5"/>
+          <path d="M17 2 A15 15 0 0 0 17 32 Z" fill="#fef2f2"/>
+          <line x1="17" y1="2" x2="17" y2="32" stroke="#b91c1c" stroke-width="1.5"/>
+        </svg>
+        <span class="txt"><b>Mitad 2</b><span class="empty">Elige el estilo</span></span>
+        <span class="caret" aria-hidden="true">▴</span>
+      </button>
+      <div class="inner">
+        <div class="styles">
+          <button class="style" type="button" aria-pressed="false"><b>Varas</b><small>Sin ingredientes</small></button>
+          <button class="style" type="button" aria-pressed="false"><b>Pepperoni</b><small>Sin ingredientes</small></button>
+          <button class="style" type="button" aria-pressed="false"><b>Hawaiana</b><small>Sin ingredientes</small></button>
+          <button class="style" type="button" aria-pressed="true"><b>Mexicana</b><small>Chile a elegir</small></button>
+          <button class="style" type="button" aria-pressed="false"><b>Suprema</b><small>2 ingredientes</small></button>
+          <button class="style" type="button" aria-pressed="false"><b>Cuatro Quesos</b><small>Sin ingredientes</small></button>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <label style="display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:12px;min-height:44px;padding:0 10px;font-size:13px;font-weight:600">Chile jalapeño <input type="checkbox" checked style="width:22px;height:22px;accent-color:var(--brand)"></label>
+          <label style="display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:12px;min-height:44px;padding:0 10px;font-size:13px;font-weight:600">Chile serrano <input type="checkbox" style="width:22px;height:22px;accent-color:var(--brand)"></label>
+        </div>
+        <button class="acc" type="button" aria-expanded="false">
+          <span>Extras de esta mitad <span class="meta">opcional</span></span>
+          <span aria-hidden="true" style="color:var(--muted)">▾</span>
+        </button>
+      </div>
+    </section>
+
+    <button class="acc" type="button" aria-expanded="false">
+      <span>Extras para toda la pizza <span class="meta">1 elegido</span></span>
+      <span aria-hidden="true" style="color:var(--muted)">▾</span>
+    </button>
+    <button class="acc" type="button" aria-expanded="false">
+      <span>Notas <span class="meta">pizza y porción</span></span>
+      <span aria-hidden="true" style="color:var(--muted)">▾</span>
+    </button>
+
+    <p class="note">Sin tabs ni "Siguiente": la mitad activa es la que se tocó.</p>
+  </div>
+
+  <div class="foot">
+    <p class="summary"><b>Pizza Mediana</b> · Varas / Mexicana · Orilla rellena</p>
+    <div class="foot-row">
+      <div class="qty">
+        <button type="button" aria-label="Menos">−</button>
+        <output>×2</output>
+        <button type="button" aria-label="Más">+</button>
+      </div>
+      <button class="add" type="button">Agregar pizza</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>
