@@ -20,7 +20,7 @@ function chicaWhole(catalog: PizzaCatalog = pizzaCatalogFixture): PizzaCatalog {
   return { ...catalog, sizes: [{ ...first, allowedPortions: [1] }, ...rest] }
 }
 
-/** Lets the ghost-tap guard after an automatic advance pass, so the next tap counts. */
+/** Lets the ghost-tap guard after an automatic move pass, so the next tap counts. */
 function flushAdvance() {
   return act(() => {
     vi.advanceTimersByTime(GHOST_TAP_GUARD_MS)
@@ -41,16 +41,19 @@ function advancingUser() {
   return { tap, user }
 }
 
+const styleGroup = () => screen.getByRole('group', { name: /^Estilo de la / })
+const ingredientsGroup = () => screen.queryByRole('group', { name: 'Ingredientes disponibles' })
+const summary = () => screen.getByRole('status', { name: 'Resumen de la pizza' })
+
 function renderBuilder(catalog: PizzaCatalog = pizzaCatalogFixture, quickPick = false) {
   const { tap, user } = advancingUser()
   const onAdd = vi.fn()
   const onClose = vi.fn()
   const view = render(<PizzaBuilderModal catalog={catalog} onAdd={onAdd} onClose={onClose} quickPick={quickPick} />)
-  const next = () => user.click(screen.getByRole('button', { name: /^Siguiente/ }))
-  const back = () => user.click(screen.getByRole('button', { name: /^←/ }))
-  const add = () => user.click(screen.getByRole('button', { name: 'Agregar pizza' }))
+  const add = () => user.click(screen.getByRole('button', { name: quickPick ? 'Fijar pizza' : 'Agregar pizza' }))
   const card = (name: RegExp | string) => screen.getByRole('button', { name })
-  /** Picks Estilo Varas (or the first listed style) when the open portion has none chosen yet. */
+  const tab = (name: RegExp | string) => screen.getByRole('tab', { name })
+  /** Picks Estilo Varas on the open portion when it has no style yet. */
   async function pickStyle() {
     const group = screen.queryByRole('group', { name: /^Estilo de la / })
     if (!group) return
@@ -58,323 +61,357 @@ function renderBuilder(catalog: PizzaCatalog = pizzaCatalogFixture, quickPick = 
     if (cards.some((c) => c.getAttribute('aria-pressed') === 'true')) return
     await user.click(cards.find((c) => /Estilo Varas/.test(c.textContent ?? '')) ?? (cards[0] as HTMLElement))
   }
-  /** Taps the selected (or first available) size, then picks a style per portion (using Siguiente when a style has ingredients) until the last portion. */
-  async function toIngredients() {
-    const sizeGroup = screen.queryByRole('group', { name: 'Tamaño' })
-    if (sizeGroup) {
-      const buttons = within(sizeGroup).getAllByRole('button')
-      const selected = buttons.find((c) => c.getAttribute('aria-pressed') === 'true') ?? buttons.find((c) => !(c as HTMLButtonElement).disabled)
-      await user.click(selected as HTMLElement)
-    }
-    while (!screen.queryByRole('button', { name: 'Agregar pizza' })) {
-      await pickStyle()
-      const following = screen.queryByRole('button', { name: /^Siguiente/ })
-      if (following && !(following as HTMLButtonElement).disabled) await next()
-    }
-    await pickStyle()
+  /** Opens the notes disclosure, which starts folded because the notes are optional. */
+  async function openNotes() {
+    const toggle = screen.queryByRole('button', { name: 'Notas' })
+    if (toggle && toggle.getAttribute('aria-expanded') === 'false') await user.click(toggle)
   }
-  return { onAdd, onClose, user, tap, view, next, back, add, card, toIngredients, pickStyle }
+  /** Picks the first available size and a style on every portion, leaving the pizza ready to add. */
+  async function readyPizza() {
+    const sizes = within(screen.getByRole('group', { name: 'Tamaño' })).getAllByRole('button')
+    const alreadyChosen = sizes.some((button) => button.getAttribute('aria-pressed') === 'true')
+    const pickable = sizes.find((button) => !(button as HTMLButtonElement).disabled)
+    if (!alreadyChosen && pickable) await user.click(pickable)
+    const tabs = screen.queryAllByRole('tab')
+    for (let at = 0; at < Math.max(tabs.length, 1); at += 1) {
+      const tabAt = screen.queryAllByRole('tab')[at]
+      if (tabAt) await user.click(tabAt)
+      await pickStyle()
+    }
+  }
+  return { onAdd, onClose, user, tap, view, add, card, tab, pickStyle, openNotes, readyPizza }
 }
 
 const MEXICANA = { id: 'mex', name: 'Estilo Mexicana', description: '', kind: 'special', includedIngredients: 0, sortOrder: 3 } as const
 const CUSTOM_ONLY: PizzaCatalog = { ...pizzaCatalogFixture, styles: pizzaCatalogFixture.styles.filter((s) => s.id === 'custom') }
 
-describe('PizzaBuilderModal steps', () => {
-  it('ignores taps on a new step for 150 ms after moving on by itself', () => {
-    expect(GHOST_TAP_GUARD_MS).toBe(150)
-  })
-
-  it('goes Tamaño → one step per portion (division chosen on the first) with a header of completed choices', async () => {
-    const { user, back, card, pickStyle } = renderBuilder()
-    const steps = screen.getByRole('list', { name: 'Pasos de la pizza' })
-    expect(screen.getByRole('group', { name: 'Tamaño' })).toBeVisible()
-    expect(screen.getByRole('button', { name: 'Agregar pizza' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: '← Cancelar pizza' })).toBeVisible()
-
-    await user.click(card('Grande'))
-    expect(screen.getByRole('group', { name: 'División' })).toBeVisible()
-    expect(steps).toHaveTextContent(/Tamaño ✓\s*Grande/)
-    await user.click(card('Mitades'))
-    expect(screen.getByRole('group', { name: 'Estilo de la Mitad 1' })).toBeVisible()
-    await pickStyle()
-    expect(screen.getByRole('group', { name: 'Estilo de la Mitad 2' })).toBeVisible()
-    expect(steps).toHaveTextContent(/Mitad 1 ✓\s*Varas/)
-    await back()
-    expect(screen.getByRole('group', { name: 'Ingredientes disponibles' })).toBeVisible()
-    await user.click(screen.getByRole('button', { name: 'Siguiente: Mitad 2 →' }))
-    await pickStyle()
-    expect(screen.getByRole('group', { name: 'Ingredientes disponibles' })).toBeVisible()
-    expect(screen.getByRole('button', { name: 'Agregar pizza' })).toBeVisible()
-  })
-
-  it('has no separate Ingredientes step: the ingredients are on the style step', async () => {
-    const { user, card } = renderBuilder(CUSTOM_ONLY)
-    expect(screen.queryByRole('list', { name: 'Pasos de la pizza' })).toHaveTextContent(/Tamaño/)
-    expect(screen.getByRole('list', { name: 'Pasos de la pizza' })).not.toHaveTextContent('Ingredientes')
-    await user.click(card('Chica'))
-    expect(screen.getByRole('group', { name: 'Estilo de la Pizza entera' })).toBeVisible()
-    await user.click(card(/Arma tu combinación/))
-    expect(screen.getByRole('group', { name: 'Ingredientes disponibles' })).toBeVisible()
-    await user.click(within(screen.getByRole('group', { name: 'Ingredientes disponibles' })).getByRole('button', { name: 'Piña' }))
-    expect(screen.getByRole('group', { name: 'Cantidad de Piña' })).toBeVisible()
-    expect(card(/Arma tu combinación/)).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.queryByRole('button', { name: /Siguiente: Ingredientes/ })).not.toBeInTheDocument()
-  })
-
-  it('shows the ingredients of the newly chosen style and resets them to its defaults', async () => {
+describe('PizzaBuilderModal single screen (S1-S3, S5, S6)', () => {
+  it('shows size, division and the portion on one screen with no step navigation', async () => {
     const { user, card } = renderBuilder()
-    await user.click(card('Chica'))
-    await user.click(card(/Estilo Varas/))
-    expect(screen.getByText(/no incluye ingredientes/i)).toBeVisible()
-    await user.click(screen.getByRole('button', { name: 'Cambiar estilo' }))
-    await user.click(card(/Arma tu combinación/))
-    expect(screen.getByText('Incluye 2 ingredientes a elección · Doble cuenta como extra')).toBeVisible()
-    await user.click(within(screen.getByRole('group', { name: 'Ingredientes disponibles' })).getByRole('button', { name: 'Piña' }))
-    await user.click(screen.getByRole('button', { name: 'Cambiar estilo' }))
-    await user.click(card(/Estilo Varas/))
-    expect(screen.getByText(/no incluye ingredientes/i)).toBeVisible()
-    expect(within(screen.getByRole('group', { name: 'Ingredientes disponibles' })).getByRole('button', { name: 'Piña' })).toHaveAttribute('aria-pressed', 'false')
-  })
-
-  it('goes Tamaño → Pizza for a whole pizza, adding from that step', async () => {
-    const { onAdd, user, add, card } = renderBuilder(chicaWhole())
-    await user.click(card('Chica'))
-    await user.click(card(/Estilo Varas/))
-    expect(screen.getByRole('list', { name: 'Pasos de la pizza' })).toHaveTextContent(/Pizza\s*Varas/)
-    expect(screen.getByRole('group', { name: 'Estilo de la Pizza entera' })).toBeVisible()
-    expect(screen.getByRole('group', { name: 'Extras para toda la pizza' })).toBeVisible()
-    expect(screen.getByLabelText(/nota de la pizza/i)).toBeVisible()
+    expect(screen.getByRole('group', { name: 'Tamaño' })).toBeVisible()
     expect(screen.queryByRole('button', { name: /^Siguiente/ })).not.toBeInTheDocument()
-    await user.type(screen.getByLabelText(/nota de la pizza/i), 'sin orilla')
-    await add()
-    expect(onAdd).toHaveBeenCalledTimes(1)
-    expect(onAdd.mock.calls[0]?.[0].notes).toBe('sin orilla')
+    expect(screen.queryByRole('list', { name: 'Pasos de la pizza' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^←/ })).not.toBeInTheDocument()
+
+    await user.click(card('Grande'))
+    // Choosing a size does not navigate anywhere: the size stays on screen next to everything it enables.
+    expect(screen.getByRole('group', { name: 'Tamaño' })).toBeVisible()
+    expect(screen.getByRole('group', { name: 'División' })).toBeVisible()
+    expect(screen.getByRole('group', { name: 'Estilo de la Pizza entera' })).toBeVisible()
+    expect(screen.queryByRole('button', { name: /^Siguiente/ })).not.toBeInTheDocument()
   })
 
-  it('shows extras, note and quantity only on the last portion', async () => {
-    const { user, next, card } = renderBuilder()
-    await user.click(card('Grande'))
-    await user.click(card('Mitades'))
-    await user.click(card(/Arma tu combinación/))
-    await user.click(within(screen.getByRole('group', { name: 'Ingredientes disponibles' })).getByRole('button', { name: 'Pepperoni' }))
-    expect(screen.getByRole('button', { name: 'Siguiente: Mitad 2 →' })).toBeEnabled()
-    expect(screen.queryByRole('group', { name: 'Extras para toda la pizza' })).not.toBeInTheDocument()
-    expect(screen.queryByLabelText(/nota de la pizza/i)).not.toBeInTheDocument()
-    expect(screen.queryByRole('group', { name: 'Cantidad de pizzas' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Agregar pizza' })).not.toBeInTheDocument()
-    await next()
-    await user.click(card(/Estilo Varas/))
+  it('keeps extras, quantity, summary and the add button on screen from the start', () => {
+    renderBuilder()
     expect(screen.getByRole('group', { name: 'Extras para toda la pizza' })).toBeVisible()
-    expect(screen.getByLabelText(/nota de la pizza/i)).toBeVisible()
     expect(screen.getByRole('group', { name: 'Cantidad de pizzas' })).toBeVisible()
     expect(screen.getByRole('button', { name: 'Agregar pizza' })).toBeVisible()
-    expect(screen.queryByRole('button', { name: /^Siguiente/ })).not.toBeInTheDocument()
+    expect(summary()).toHaveTextContent('Elige el tamaño')
   })
 
-  it('blocks Siguiente on a custom portion without ingredients and shows the error there', async () => {
-    const { user, next, card } = renderBuilder(CUSTOM_ONLY)
-    await user.click(card('Grande'))
-    await user.click(card('Mitades'))
-    await user.click(card(/Arma tu combinación/))
-    expect(screen.getByRole('button', { name: /^Siguiente/ })).toBeDisabled()
-    expect(screen.getByText(/elige al menos un ingrediente/i)).toBeVisible()
-    await user.click(within(screen.getByRole('group', { name: 'Ingredientes disponibles' })).getByRole('button', { name: 'Pepperoni' }))
-    expect(screen.getByRole('button', { name: /^Siguiente/ })).toBeEnabled()
-    await next()
-    await user.click(card(/Arma tu combinación/))
+  it('opens with no size selected and asks to choose one (S6)', () => {
+    const { onAdd } = renderBuilder()
+    const sizes = within(screen.getByRole('group', { name: 'Tamaño' })).getAllByRole('button')
+    for (const button of sizes) expect(button).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.queryByRole('group', { name: /^Estilo de la / })).not.toBeInTheDocument()
+    expect(summary()).toHaveTextContent('Elige el tamaño')
     expect(screen.getByRole('button', { name: 'Agregar pizza' })).toBeDisabled()
-    expect(screen.getByText(/elige al menos un ingrediente/i)).toBeVisible()
+    expect(onAdd).not.toHaveBeenCalled()
   })
 
-  it('skips División when the size only allows a whole pizza', async () => {
-    const { user, card } = renderBuilder(chicaWhole())
-    expect(screen.queryByRole('button', { name: /^Siguiente/ })).not.toBeInTheDocument()
-    await user.click(card('Chica'))
-    expect(screen.queryByRole('group', { name: 'División' })).not.toBeInTheDocument()
-    expect(screen.getByRole('group', { name: 'Estilo de la Pizza entera' })).toBeVisible()
-  })
-
-  it('labels the next button with the portion that follows', async () => {
-    const { user, card } = renderBuilder()
-    await user.click(card('Grande'))
-    await user.click(card('Mitades'))
-    expect(screen.getByRole('button', { name: 'Siguiente: Mitad 2 →' })).toBeVisible()
-  })
-
-  it('shows a diagram that names the portion being edited', async () => {
-    const { user, next, card, pickStyle } = renderBuilder()
-    await user.click(card('Grande'))
-    await user.click(card('Tercios'))
-    expect(screen.getByRole('img', { name: /Tercios.*Porción 1/ })).toBeVisible()
-    await pickStyle()
-    await next()
-    expect(screen.getByRole('img', { name: /Tercios.*Porción 2/ })).toBeVisible()
-  })
-
-  it('lets the style be chosen from cards with name and description, per portion', async () => {
-    const { onAdd, user, card, add } = renderBuilder()
-    await user.click(card('Grande'))
-    await user.click(card('Mitades'))
-    expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
-    expect(card(/Estilo Varas/)).toHaveTextContent('Pepperoni y queso')
-    expect(card(/Estilo Varas/)).toHaveAttribute('aria-pressed', 'false')
-    expect(card(/Arma tu combinación/)).toHaveAttribute('aria-pressed', 'false')
-    await user.click(card(/Estilo Varas/))
-    await user.click(card(/Arma tu combinación/))
-    expect(card(/Arma tu combinación/)).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.queryByRole('button', { name: /Estilo Varas/ })).not.toBeInTheDocument()
-    await user.click(within(screen.getByRole('group', { name: 'Ingredientes disponibles' })).getByRole('button', { name: 'Piña' }))
-    await add()
-    expect(onAdd.mock.calls[0]?.[0].config.portions).toEqual([
-      { styleId: 'varas', ingredientIds: [], extraIngredientIds: [] },
-      { styleId: 'custom', ingredientIds: ['pina'], extraIngredientIds: [] },
-    ])
-  })
-
-  it('keeps every choice when going back and forward', async () => {
-    const { user, back, card, onClose } = renderBuilder()
-    await user.click(card('Grande'))
-    await user.click(card('Cuartos'))
-    await user.click(card(/Arma tu combinación/))
-    await back()
-    expect(screen.getByRole('group', { name: 'Tamaño' })).toBeVisible()
-    expect(card('Grande')).toHaveAttribute('aria-pressed', 'true')
-    await user.click(card('Grande'))
-    expect(card('Cuartos')).toHaveAttribute('aria-pressed', 'true')
-    expect(card(/Arma tu combinación/)).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByRole('group', { name: 'Estilo de la Porción 1' })).toBeVisible()
-    expect(onClose).not.toHaveBeenCalled()
-  })
-
-  it('cancels the pizza from the first step', async () => {
+  it('closes without adding from the modal close button', async () => {
     const { user, onClose, onAdd } = renderBuilder()
-    await user.click(screen.getByRole('button', { name: '← Cancelar pizza' }))
+    await user.click(screen.getByRole('button', { name: 'Cerrar' }))
     expect(onClose).toHaveBeenCalledTimes(1)
     expect(onAdd).not.toHaveBeenCalled()
   })
 })
 
-describe('PizzaBuilderModal style collapse', () => {
-  async function toFirstPortion() {
-    const ctx = renderBuilder()
-    await ctx.user.click(ctx.card('Grande'))
-    await ctx.user.click(ctx.card('Mitades'))
-    return ctx
-  }
-  const styleGroup = (name: string) => screen.getByRole('group', { name })
-
-  it('lists every style until one is chosen', async () => {
-    await toFirstPortion()
-    expect(within(styleGroup('Estilo de la Mitad 1')).getAllByRole('button')).toHaveLength(2)
-    expect(screen.queryByRole('button', { name: 'Cambiar estilo' })).not.toBeInTheDocument()
-  })
-
-  it('hides the other styles once one is chosen and keeps its ingredients right below', async () => {
-    const { user, card } = await toFirstPortion()
-    await user.click(card(/Arma tu combinación/))
-    const cards = within(styleGroup('Estilo de la Mitad 1')).getAllByRole('button')
-    expect(cards).toHaveLength(1)
-    expect(cards[0]).toHaveTextContent('Arma tu combinación')
-    expect(cards[0]).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.queryByRole('button', { name: /Estilo Varas/ })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Cambiar estilo' })).toBeVisible()
-    expect(screen.getByRole('group', { name: 'Ingredientes disponibles' })).toBeVisible()
-    expect(screen.getByText('Incluye 2 ingredientes a elección · Doble cuenta como extra')).toBeVisible()
-  })
-
-  it('Cambiar estilo shows the list again; picking another style collapses it and resets the ingredients', async () => {
-    const { user, back, card } = await toFirstPortion()
-    await user.click(card(/Arma tu combinación/))
-    await user.click(within(screen.getByRole('group', { name: 'Ingredientes disponibles' })).getByRole('button', { name: 'Piña' }))
-    await user.click(screen.getByRole('button', { name: 'Cambiar estilo' }))
-    expect(within(styleGroup('Estilo de la Mitad 1')).getAllByRole('button')).toHaveLength(2)
-    expect(card(/Arma tu combinación/)).toHaveAttribute('aria-pressed', 'true')
-    await user.click(card(/Estilo Varas/))
-    await back()
-    expect(within(styleGroup('Estilo de la Mitad 1')).getAllByRole('button')).toHaveLength(1)
-    expect(screen.queryByRole('button', { name: /Arma tu combinación/ })).not.toBeInTheDocument()
-    expect(screen.getByText(/no incluye ingredientes/i)).toBeVisible()
-    expect(screen.queryByRole('group', { name: 'Cantidad de Piña' })).not.toBeInTheDocument()
-  })
-
-  it('shows a portion that already has a style collapsed when coming back to it', async () => {
-    const { user, next, back, card } = await toFirstPortion()
-    await user.click(card(/Arma tu combinación/))
-    await user.click(within(screen.getByRole('group', { name: 'Ingredientes disponibles' })).getByRole('button', { name: 'Piña' }))
-    await next()
-    expect(within(styleGroup('Estilo de la Mitad 2')).getAllByRole('button')).toHaveLength(2)
-    await back()
-    expect(within(styleGroup('Estilo de la Mitad 1')).getAllByRole('button')).toHaveLength(1)
-    expect(screen.getByRole('button', { name: 'Cambiar estilo' })).toBeVisible()
-  })
-
-  it('keeps the chiles of Estilo Mexicana under the collapsed style', async () => {
-    const catalog: PizzaCatalog = { ...pizzaCatalogFixture, styles: [...pizzaCatalogFixture.styles, MEXICANA] }
-    const { user, card } = renderBuilder(catalog)
+describe('PizzaBuilderModal portion tabs', () => {
+  it('has no tab strip on a whole pizza', async () => {
+    const { user, card } = renderBuilder()
     await user.click(card('Chica'))
-    await user.click(card(/Estilo Mexicana/))
-    expect(within(styleGroup('Estilo de la Pizza entera')).getAllByRole('button')).toHaveLength(1)
-    expect(screen.getByRole('group', { name: 'Chile (elige uno o dos)' })).toBeVisible()
+    expect(screen.queryByRole('tablist')).not.toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Estilo de la Pizza entera' })).toBeVisible()
+  })
+
+  it('shows one tab per portion with its style as the subtitle', async () => {
+    const { user, card, tab } = renderBuilder()
+    await user.click(card('Grande'))
+    await user.click(card('Mitades'))
+    expect(within(screen.getByRole('tablist', { name: 'Porciones de la pizza' })).getAllByRole('tab')).toHaveLength(2)
+    expect(tab(/Mitad 1/)).toHaveTextContent('Sin estilo')
+    expect(tab(/Mitad 2/)).toHaveTextContent('Sin estilo')
+
+    await user.click(card(/Estilo Varas/))
+    expect(tab(/Mitad 1/)).toHaveTextContent('Varas')
+    expect(tab(/Mitad 1/)).toHaveAttribute('aria-selected', 'false')
+    expect(tab(/Mitad 2/)).toHaveAttribute('aria-selected', 'true')
+  })
+
+  it('shows only the active portion and switches with one tap on a tab', async () => {
+    const { user, card, tab } = renderBuilder()
+    await user.click(card('Grande'))
+    await user.click(card('Mitades'))
+    expect(screen.getByRole('group', { name: 'Estilo de la Mitad 1' })).toBeVisible()
+    expect(screen.queryByRole('group', { name: 'Estilo de la Mitad 2' })).not.toBeInTheDocument()
+
+    await user.click(tab(/Mitad 2/))
+    expect(screen.getByRole('group', { name: 'Estilo de la Mitad 2' })).toBeVisible()
+    expect(screen.queryByRole('group', { name: 'Estilo de la Mitad 1' })).not.toBeInTheDocument()
+
+    await user.click(tab(/Mitad 1/))
+    expect(screen.getByRole('group', { name: 'Estilo de la Mitad 1' })).toBeVisible()
+  })
+
+  it('reaches every portion with the arrow keys', async () => {
+    const { user, card } = renderBuilder()
+    await user.click(card('Grande'))
+    await user.click(card('Tercios'))
+    expect(screen.getByRole('group', { name: 'Estilo de la Porción 1' })).toBeVisible()
+
+    await user.click(screen.getByRole('tab', { name: /Porción 1/ }))
+    await user.keyboard('{ArrowRight}')
+    expect(screen.getByRole('group', { name: 'Estilo de la Porción 2' })).toBeVisible()
+
+    await user.keyboard('{End}')
+    expect(screen.getByRole('group', { name: 'Estilo de la Porción 3' })).toBeVisible()
+
+    await user.keyboard('{Home}')
+    expect(screen.getByRole('group', { name: 'Estilo de la Porción 1' })).toBeVisible()
+  })
+
+  it('names the third portions Porción 3', async () => {
+    const { user, card, pickStyle, openNotes } = renderBuilder()
+    await user.click(card('Grande'))
+    await user.click(card('Tercios'))
+    await pickStyle()
+    await pickStyle()
+    await pickStyle()
+    await openNotes()
+    expect(screen.getByLabelText('Porción 3 · Varas')).toBeVisible()
+  })
+
+  it('needs no way back to a portion the style moved past: its tab is one tap away', async () => {
+    const { onAdd, user, card, tab, add, openNotes } = renderBuilder()
+    await user.click(card('Grande'))
+    await user.click(card('Mitades'))
+    await user.click(card(/Estilo Varas/))
+    expect(tab(/Mitad 2/)).toHaveAttribute('aria-selected', 'true')
+    expect(screen.queryByRole('button', { name: /Extras en Mitad 1/ })).not.toBeInTheDocument()
+
+    // Back to the first half in one tap and charge an extra ingredient there.
+    await user.click(tab(/Mitad 1/))
+    await user.click(within(ingredientsGroup() as HTMLElement).getByRole('button', { name: 'Jalapeños' }))
+    await user.click(tab(/Mitad 2/))
+    await user.click(card(/Estilo Varas/))
+    await add()
+    expect(onAdd.mock.calls[0]?.[0].config.portions).toEqual([
+      { styleId: 'varas', ingredientIds: [], extraIngredientIds: ['jal'] },
+      { styleId: 'varas', ingredientIds: [], extraIngredientIds: [] },
+    ])
+    expect(openNotes).toBeTypeOf('function')
   })
 })
 
-describe('PizzaBuilderModal adding', () => {
-  it('adds a whole special pizza with its description and note', async () => {
-    const { onAdd, user, add, toIngredients } = renderBuilder()
-    await toIngredients()
-    expect(screen.getByRole('status', { name: 'Resumen de la pizza' })).toHaveTextContent('Pizza Chica · Varas')
-    await user.type(screen.getByLabelText(/nota de la pizza/i), 'bien cocida')
+describe('PizzaBuilderModal size and pizza dough', () => {
+  it('shows a sold-out size as Agotado and cannot select it', async () => {
+    const { user, card } = renderBuilder(withDough(null, 0))
+    const grande = card(/Grande/)
+    expect(within(grande).getByText('Agotado')).toBeVisible()
+    expect(grande).toBeDisabled()
+    await user.click(grande)
+    expect(card(/Chica/)).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('group', { name: 'Tamaño' })).toBeVisible()
+  })
+
+  it('lets the available size be picked when the first one is sold out', async () => {
+    const { onAdd, readyPizza, card, add } = renderBuilder(withDough(0, 5))
+    expect(card(/Chica/)).toBeDisabled()
+    await readyPizza()
     await add()
-    expect(onAdd).toHaveBeenCalledTimes(1)
-    expect(onAdd).toHaveBeenCalledWith({
-      config: { size: 'chica', portions: [{ styleId: 'varas', ingredientIds: [], extraIngredientIds: [] }], extraIds: [] },
-      name: 'Pizza Chica: Estilo Varas',
-      notes: 'bien cocida',
-    })
+    expect(onAdd.mock.calls[0]?.[0].config.size).toBe('grande')
   })
 
-  it('adds as many identical pizzas as the quantity (1 to 20) and closes', async () => {
-    const { onAdd, onClose, user, add, toIngredients } = renderBuilder()
-    await toIngredients()
-    const group = screen.getByRole('group', { name: 'Cantidad de pizzas' })
-    expect(within(group).getByText('×1')).toBeVisible()
-    expect(within(group).getByRole('button', { name: 'Menos' })).toBeDisabled()
-    await user.click(within(group).getByRole('button', { name: 'Más' }))
-    await user.click(within(group).getByRole('button', { name: 'Más' }))
-    expect(within(group).getByText('×3')).toBeVisible()
-    await add()
-    expect(onAdd).toHaveBeenCalledTimes(3)
-    expect(onAdd.mock.calls[1]?.[0]).toEqual(onAdd.mock.calls[0]?.[0])
-    expect(onAdd.mock.calls[2]?.[0]).toEqual(onAdd.mock.calls[0]?.[0])
-    expect(onClose).toHaveBeenCalledTimes(1)
+  it('shows how many doughs remain for a limited size and nothing for an unlimited one', () => {
+    renderBuilder(withDough(3, null))
+    expect(within(screen.getByRole('button', { name: /Chica/ })).getByText('Quedan 3')).toBeVisible()
+    expect(screen.queryByText('Agotado')).not.toBeInTheDocument()
+    expect(within(screen.getByRole('button', { name: /Grande/ })).queryByText(/Quedan/)).not.toBeInTheDocument()
   })
 
-  it('caps the quantity at 20', async () => {
-    const { user, toIngredients } = renderBuilder()
-    await toIngredients()
-    const group = screen.getByRole('group', { name: 'Cantidad de pizzas' })
-    for (let i = 0; i < 25; i++) {
-      const more = within(group).getByRole('button', { name: 'Más' })
-      if (!(more as HTMLButtonElement).disabled) await user.click(more)
-    }
-    expect(within(group).getByText('×20')).toBeVisible()
-    expect(within(group).getByRole('button', { name: 'Más' })).toBeDisabled()
+  it('blocks adding when every size is sold out', () => {
+    renderBuilder(withDough(0, 0))
+    expect(screen.getByText('No hay masas de pizza disponibles.')).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Agregar pizza' })).toBeDisabled()
+    expect(screen.getAllByText('Agotado')).toHaveLength(2)
   })
 
-  it('shows a live summary with size, portions and extras', async () => {
-    const { user, card, toIngredients } = renderBuilder()
+  it('keeps the chosen size marked and everything chosen when another size is tapped', async () => {
+    const { user, card } = renderBuilder()
+    await user.click(card('Chica'))
+    await user.click(card(/Estilo Varas/))
+    expect(card('Chica')).toHaveAttribute('aria-pressed', 'true')
     await user.click(card('Grande'))
+    expect(card('Grande')).toHaveAttribute('aria-pressed', 'true')
+    expect(card(/Estilo Varas/)).toHaveAttribute('aria-pressed', 'true')
+    expect(summary()).toHaveTextContent('Pizza Grande · Varas')
+  })
+
+  it('unselects a chosen size that sold out instead of replacing it (S6)', async () => {
+    const { user, card, view } = renderBuilder()
+    await user.click(card('Chica'))
+    expect(screen.getByRole('group', { name: 'Estilo de la Pizza entera' })).toBeVisible()
+    view.rerender(<PizzaBuilderModal catalog={withDough(0, 5)} onAdd={vi.fn()} onClose={vi.fn()} />)
+    const sizes = within(screen.getByRole('group', { name: 'Tamaño' })).getAllByRole('button')
+    for (const button of sizes) expect(button).toHaveAttribute('aria-pressed', 'false')
+    expect(summary()).toHaveTextContent('Elige el tamaño')
+  })
+})
+
+describe('PizzaBuilderModal division', () => {
+  it('starts as Entera and offers only the divisions the size allows', async () => {
+    const { user, card } = renderBuilder()
+    await user.click(card('Grande'))
+    const division = screen.getByRole('group', { name: 'División' })
+    expect(within(division).getAllByRole('button').map((button) => button.textContent)).toEqual(['Entera', 'Mitades', 'Tercios', 'Cuartos'])
+    expect(within(division).getByRole('button', { name: 'Entera' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('shows no division selector when the size only allows a whole pizza', async () => {
+    const { user, card } = renderBuilder(chicaWhole())
+    await user.click(card('Chica'))
+    expect(screen.queryByRole('group', { name: 'División' })).not.toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Estilo de la Pizza entera' })).toBeVisible()
+  })
+
+  it('adds and removes portion tabs keeping the styles already chosen', async () => {
+    const { user, card } = renderBuilder()
+    await user.click(card('Grande'))
+    await user.click(card(/Arma tu combinación/))
+    await user.click(within(ingredientsGroup() as HTMLElement).getByRole('button', { name: 'Piña' }))
     await user.click(card('Mitades'))
-    await toIngredients()
-    await user.click(within(screen.getByRole('group', { name: 'Extras para toda la pizza' })).getByRole('checkbox', { name: 'Extra queso' }))
-    expect(screen.getByRole('status', { name: 'Resumen de la pizza' })).toHaveTextContent('Pizza Grande · Mitad Varas / Mitad Varas · Extra queso')
+    expect(within(screen.getByRole('tablist')).getAllByRole('tab')).toHaveLength(2)
+    expect(screen.getByRole('group', { name: 'Estilo de la Mitad 1' })).toBeVisible()
+    expect(card(/Arma tu combinación/)).toHaveAttribute('aria-pressed', 'true')
+    expect(within(ingredientsGroup() as HTMLElement).getByRole('button', { name: 'Piña' })).toHaveAttribute('aria-pressed', 'true')
+
+    await user.click(card('Entera'))
+    expect(screen.queryByRole('tablist')).not.toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Estilo de la Pizza entera' })).toBeVisible()
+  })
+
+  it('falls back to Entera when another size does not allow the current division', async () => {
+    const { user, card } = renderBuilder()
+    await user.click(card('Grande'))
+    await user.click(card('Cuartos'))
+    await user.click(card('Chica'))
+    expect(card('Entera')).toHaveAttribute('aria-pressed', 'true')
+    expect(within(screen.getByRole('group', { name: 'División' })).queryByRole('button', { name: 'Cuartos' })).not.toBeInTheDocument()
+  })
+
+  it('keeps the pizza extras when the division changes', async () => {
+    const { onAdd, user, add, card, readyPizza } = renderBuilder()
+    await user.click(card('Chica'))
+    await user.click(screen.getByRole('checkbox', { name: 'Extra queso' }))
+    await user.click(card('Mitades'))
+    await readyPizza()
+    await add()
+    expect(onAdd.mock.calls[0]?.[0].config.extraIds).toEqual(['queso'])
   })
 })
 
 describe('PizzaBuilderModal styles', () => {
+  it('starts a portion with no style and no ingredient controls', async () => {
+    const { user, card } = renderBuilder()
+    await user.click(card('Chica'))
+    const cards = within(styleGroup()).getAllByRole('button')
+    expect(cards).toHaveLength(2)
+    for (const styleCard of cards) expect(styleCard).toHaveAttribute('aria-pressed', 'false')
+    expect(ingredientsGroup()).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Cambiar estilo' })).not.toBeInTheDocument()
+  })
+
+  it('blocks adding with a hint until every portion has a style', async () => {
+    const { onAdd, user, card } = renderBuilder()
+    await user.click(card('Grande'))
+    await user.click(card('Mitades'))
+    expect(screen.getByRole('button', { name: 'Agregar pizza' })).toBeDisabled()
+    expect(screen.getByText('Elige el estilo de la mitad 1')).toBeVisible()
+
+    await user.click(card(/Estilo Varas/))
+    expect(screen.getByRole('button', { name: 'Agregar pizza' })).toBeDisabled()
+    expect(screen.getByText('Elige el estilo de la mitad 2')).toBeVisible()
+    expect(summary()).toHaveTextContent('Mitad Varas / Mitad 2 sin estilo')
+
+    await user.click(card(/Estilo Varas/))
+    expect(screen.getByRole('button', { name: 'Agregar pizza' })).toBeEnabled()
+    expect(screen.queryByText(/Elige el estilo de la mitad/)).not.toBeInTheDocument()
+    expect(onAdd).not.toHaveBeenCalled()
+  })
+
+  it('hides the other styles once one is chosen and keeps its ingredients right below', async () => {
+    const { user, card } = renderBuilder(CUSTOM_ONLY)
+    await user.click(card('Chica'))
+    await user.click(card(/Arma tu combinación/))
+    const cards = within(styleGroup()).getAllByRole('button')
+    expect(cards).toHaveLength(1)
+    expect(cards[0]).toHaveTextContent('Arma tu combinación')
+    expect(cards[0]).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Cambiar estilo' })).toBeVisible()
+    expect(screen.getByText('Incluye 2 ingredientes a elección · Doble cuenta como extra')).toBeVisible()
+  })
+
+  it('Cambiar estilo shows the list again; another style resets the ingredients', async () => {
+    const { user, card } = renderBuilder()
+    await user.click(card('Chica'))
+    await user.click(card(/Arma tu combinación/))
+    await user.click(within(ingredientsGroup() as HTMLElement).getByRole('button', { name: 'Piña' }))
+    await user.click(screen.getByRole('button', { name: 'Cambiar estilo' }))
+    expect(within(styleGroup()).getAllByRole('button')).toHaveLength(2)
+    await user.click(card(/Estilo Varas/))
+    expect(within(styleGroup()).getAllByRole('button')).toHaveLength(1)
+    expect(screen.getByText(/no incluye ingredientes/i)).toBeVisible()
+    expect(screen.queryByRole('group', { name: 'Cantidad de Piña' })).not.toBeInTheDocument()
+  })
+
+  it('shows a portion that already has a style collapsed when coming back to its tab', async () => {
+    const { user, card, tab } = renderBuilder()
+    await user.click(card('Grande'))
+    await user.click(card('Mitades'))
+    await user.click(card(/Arma tu combinación/))
+    await user.click(within(ingredientsGroup() as HTMLElement).getByRole('button', { name: 'Piña' }))
+    await user.click(tab(/Mitad 2/))
+    expect(within(styleGroup()).getAllByRole('button')).toHaveLength(2)
+    await user.click(tab(/Mitad 1/))
+    expect(within(styleGroup()).getAllByRole('button')).toHaveLength(1)
+    expect(screen.getByRole('button', { name: 'Cambiar estilo' })).toBeVisible()
+  })
+
+  it('lists Pepperoni and Hawaiana first, then the rest A-Z, and preselects none', async () => {
+    const catalog: PizzaCatalog = {
+      ...pizzaCatalogFixture,
+      styles: [
+        ...pizzaCatalogFixture.styles,
+        { id: 'hawaiana', name: 'Estilo Hawaiana', description: '', kind: 'special', includedIngredients: 0, sortOrder: 3 },
+        { id: 'pepperoni', name: 'Estilo Pepperoni', description: '', kind: 'special', includedIngredients: 0, sortOrder: 4 },
+      ],
+    }
+    const { user, card } = renderBuilder(catalog)
+    await user.click(card('Chica'))
+    const cards = within(styleGroup()).getAllByRole('button')
+    expect(cards.map((c) => c.textContent)).toEqual([
+      expect.stringContaining('Estilo Pepperoni'),
+      expect.stringContaining('Estilo Hawaiana'),
+      expect.stringContaining('Arma tu combinación'),
+      expect.stringContaining('Estilo Varas'),
+    ])
+    for (const styleCard of cards) expect(styleCard).toHaveAttribute('aria-pressed', 'false')
+  })
+
   it('lets Estilo Mexicana pick one or two chiles, starting on the 3 chiles', async () => {
     const catalog: PizzaCatalog = { ...pizzaCatalogFixture, styles: [...pizzaCatalogFixture.styles, MEXICANA] }
-    const { onAdd, user, add, card, toIngredients } = renderBuilder(catalog)
+    const { onAdd, user, add, card } = renderBuilder(catalog)
     await user.click(card('Chica'))
     await user.click(card(/Estilo Varas/))
     expect(screen.queryByRole('group', { name: /chile/i })).not.toBeInTheDocument()
@@ -393,7 +430,6 @@ describe('PizzaBuilderModal styles', () => {
     expect(chip('Los 3 chiles')).toHaveAttribute('aria-pressed', 'false')
     await user.click(chip('Morrón'))
     expect(chip('Serrano')).toHaveAttribute('aria-pressed', 'false')
-    await toIngredients()
     await add()
     expect(onAdd).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -406,57 +442,111 @@ describe('PizzaBuilderModal styles', () => {
       }),
     )
   })
+})
 
-  it('lists Pepperoni and Hawaiana first, then the rest A-Z, and preselects none', async () => {
-    const catalog: PizzaCatalog = {
-      ...pizzaCatalogFixture,
-      styles: [
-        ...pizzaCatalogFixture.styles,
-        { id: 'hawaiana', name: 'Estilo Hawaiana', description: '', kind: 'special', includedIngredients: 0, sortOrder: 3 },
-        { id: 'pepperoni', name: 'Estilo Pepperoni', description: '', kind: 'special', includedIngredients: 0, sortOrder: 4 },
-      ],
-    }
-    const { user, card } = renderBuilder(catalog)
-    await user.click(card('Chica'))
-    const cards = within(screen.getByRole('group', { name: 'Estilo de la Pizza entera' })).getAllByRole('button')
-    expect(cards.map((c) => c.textContent)).toEqual([
-      expect.stringContaining('Estilo Pepperoni'),
-      expect.stringContaining('Estilo Hawaiana'),
-      expect.stringContaining('Arma tu combinación'),
-      expect.stringContaining('Estilo Varas'),
-    ])
-    for (const c of cards) expect(c).toHaveAttribute('aria-pressed', 'false')
+describe('PizzaBuilderModal moving on by itself (S4, S7)', () => {
+  it('moves to the next portion in the same tap when the style has no ingredients to choose', async () => {
+    const { tap, user, card, tab } = renderBuilder()
+    await user.click(card('Grande'))
+    await user.click(card('Mitades'))
+    await tap.click(card(/Estilo Varas/))
+    expect(tab(/Mitad 2/)).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('group', { name: 'Estilo de la Mitad 2' })).toBeVisible()
+    expect(vi.getTimerCount()).toBe(0)
   })
 
-  it('shows only the divisions allowed by the size and resets an invalid one when resizing', async () => {
-    const { user, back, card } = renderBuilder()
-    await user.click(card('Chica'))
-    const division = screen.getByRole('group', { name: 'División' })
-    expect(within(division).queryByRole('button', { name: 'Cuartos' })).not.toBeInTheDocument()
-    await back()
+  it('stays on its portion when the style has ingredients to choose', async () => {
+    const { user, card, tab } = renderBuilder()
     await user.click(card('Grande'))
-    await user.click(card('Cuartos'))
-    expect(screen.getByRole('group', { name: 'Estilo de la Porción 1' })).toBeVisible()
-    await back()
-    await user.click(card('Chica'))
+    await user.click(card('Mitades'))
+    await user.click(card(/Arma tu combinación/))
+    expect(tab(/Mitad 1/)).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('group', { name: 'Estilo de la Mitad 1' })).toBeVisible()
+    expect(ingredientsGroup()).toBeVisible()
+  })
+
+  it('stays on its portion when the style has a chile choice', async () => {
+    const catalog: PizzaCatalog = { ...pizzaCatalogFixture, styles: [...pizzaCatalogFixture.styles, MEXICANA] }
+    const { user, card, tab } = renderBuilder(catalog)
+    await user.click(card('Grande'))
+    await user.click(card('Mitades'))
+    await user.click(card(/Estilo Mexicana/))
+    expect(tab(/Mitad 1/)).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('group', { name: 'Chile (elige uno o dos)' })).toBeVisible()
+  })
+
+  it('does not move when only the ingredients of the chosen style are changed', async () => {
+    const { user, card, tab } = renderBuilder()
+    await user.click(card('Grande'))
+    await user.click(card('Mitades'))
+    await user.click(card(/Estilo Varas/))
+    await user.click(tab(/Mitad 1/))
+    await user.click(within(ingredientsGroup() as HTMLElement).getByRole('button', { name: 'Jalapeños' }))
+    expect(tab(/Mitad 1/)).toHaveAttribute('aria-selected', 'true')
+  })
+
+  it('ignores a quick second tap on the content the move reached, then accepts taps after the guard', async () => {
+    const { tap, card } = renderBuilder()
+    await tap.click(card('Grande'))
+    await tap.click(card(/Estilo Varas/))
+    expect(card(/Estilo Varas/)).toHaveAttribute('aria-pressed', 'false')
+    act(() => {
+      vi.advanceTimersByTime(100)
+    })
+    await tap.click(card(/Estilo Varas/))
+    expect(card(/Estilo Varas/)).toHaveAttribute('aria-pressed', 'false')
+    act(() => {
+      vi.advanceTimersByTime(GHOST_TAP_GUARD_MS)
+    })
+    await tap.click(card(/Estilo Varas/))
+    expect(card(/Estilo Varas/)).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('a quick second tap after the size does not change the division', async () => {
+    const { tap, card } = renderBuilder()
+    await tap.click(card('Grande'))
+    await tap.click(card('Mitades'))
     expect(card('Entera')).toHaveAttribute('aria-pressed', 'true')
+    expect(card('Mitades')).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('a quick second tap after a no-choice style does not pick on the next portion', async () => {
+    const { user, tap, card, tab } = renderBuilder()
+    await user.click(card('Grande'))
+    await user.click(card('Mitades'))
+    await tap.click(card(/Estilo Varas/))
+    await tap.click(card(/Estilo Varas/))
+    expect(tab(/Mitad 2/)).toHaveAttribute('aria-selected', 'true')
+    expect(card(/Estilo Varas/)).toHaveAttribute('aria-pressed', 'false')
   })
 })
 
 describe('PizzaBuilderModal ingredients', () => {
-  const chips = () => screen.getByRole('group', { name: 'Ingredientes disponibles' })
+  const chips = () => ingredientsGroup() as HTMLElement
   const level = (name: string, option: 'Normal' | 'Doble' | 'Quitar') =>
     within(screen.getByRole('group', { name: `Cantidad de ${name}` })).getByRole('button', { name: option })
 
   it('shows the real included count in the legend', async () => {
-    const { toIngredients } = renderBuilder(CUSTOM_ONLY)
-    await toIngredients()
+    const { user, card } = renderBuilder(CUSTOM_ONLY)
+    await user.click(card('Chica'))
+    await user.click(card(/Arma tu combinación/))
     expect(screen.getByText('Incluye 2 ingredientes a elección · Doble cuenta como extra')).toBeVisible()
   })
 
+  it('has no separate ingredients step: the ingredients sit under the style', async () => {
+    const { user, card } = renderBuilder(CUSTOM_ONLY)
+    await user.click(card('Chica'))
+    await user.click(card(/Arma tu combinación/))
+    await user.click(within(chips()).getByRole('button', { name: 'Piña' }))
+    expect(screen.getByRole('group', { name: 'Cantidad de Piña' })).toBeVisible()
+    expect(card(/Arma tu combinación/)).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.queryByRole('button', { name: /^Siguiente/ })).not.toBeInTheDocument()
+  })
+
   it('requires at least one ingredient for the custom style and keeps extras beyond the limit charged', async () => {
-    const { onAdd, user, add, toIngredients } = renderBuilder(CUSTOM_ONLY)
-    await toIngredients()
+    const { onAdd, user, add, card } = renderBuilder(CUSTOM_ONLY)
+    await user.click(card('Chica'))
+    await user.click(card(/Arma tu combinación/))
     const addButton = screen.getByRole('button', { name: 'Agregar pizza' })
     expect(addButton).toBeDisabled()
     expect(screen.getByText(/elige al menos un ingrediente/i)).toBeVisible()
@@ -474,8 +564,9 @@ describe('PizzaBuilderModal ingredients', () => {
   })
 
   it('Normal / Doble / Quitar gives the same pizza as the old tap cycle for an included ingredient', async () => {
-    const { onAdd, user, add, toIngredients } = renderBuilder(CUSTOM_ONLY)
-    await toIngredients()
+    const { onAdd, user, add, card } = renderBuilder(CUSTOM_ONLY)
+    await user.click(card('Chica'))
+    await user.click(card(/Arma tu combinación/))
     await user.click(within(chips()).getByRole('button', { name: 'Jalapeños' }))
     expect(level('Jalapeños', 'Normal')).toHaveAttribute('aria-pressed', 'true')
     await user.click(level('Jalapeños', 'Doble'))
@@ -495,8 +586,9 @@ describe('PizzaBuilderModal ingredients', () => {
   })
 
   it('charges an ingredient on a style without included ones, doubled twice', async () => {
-    const { onAdd, user, add, toIngredients } = renderBuilder()
-    await toIngredients()
+    const { onAdd, user, add, card } = renderBuilder()
+    await user.click(card('Chica'))
+    await user.click(card(/Estilo Varas/))
     expect(screen.getByText(/no incluye ingredientes/i)).toBeVisible()
     await user.click(within(chips()).getByRole('button', { name: 'Jalapeños' }))
     await user.click(level('Jalapeños', 'Doble'))
@@ -512,8 +604,9 @@ describe('PizzaBuilderModal ingredients', () => {
       ...pizzaCatalogFixture,
       styles: pizzaCatalogFixture.styles.map((style) => ({ ...style, includedIngredients: 2 })),
     }
-    const { onAdd, user, add, toIngredients } = renderBuilder(catalog)
-    await toIngredients()
+    const { onAdd, user, add, card } = renderBuilder(catalog)
+    await user.click(card('Chica'))
+    await user.click(card(/Estilo Varas/))
     expect(screen.getByRole('button', { name: 'Agregar pizza' })).toBeEnabled()
     await user.click(within(chips()).getByRole('button', { name: 'Pepperoni' }))
     await user.click(within(chips()).getByRole('button', { name: 'Jalapeños' }))
@@ -521,16 +614,16 @@ describe('PizzaBuilderModal ingredients', () => {
     expect(onAdd.mock.calls[0]?.[0].name).toBe('Pizza Chica: Estilo Varas (Jalapeños, Pepperoni)')
   })
 
-  it('configures each portion on its own step', async () => {
-    const { onAdd, user, next, back, add, card, pickStyle } = renderBuilder()
+  it('configures each portion on its own tab', async () => {
+    const { onAdd, user, add, card, tab } = renderBuilder()
     await user.click(card('Grande'))
     await user.click(card('Mitades'))
-    await pickStyle()
-    await pickStyle()
+    await user.click(card(/Estilo Varas/))
+    await user.click(card(/Estilo Varas/))
     await user.click(within(chips()).getByRole('button', { name: 'Jalapeños' }))
-    await back()
+    await user.click(tab(/Mitad 1/))
     expect(within(chips()).getByRole('button', { name: 'Jalapeños' })).toHaveAttribute('aria-pressed', 'false')
-    await next()
+    await user.click(tab(/Mitad 2/))
     expect(within(chips()).getByRole('button', { name: 'Jalapeños' })).toHaveAttribute('aria-pressed', 'true')
     await add()
     expect(onAdd.mock.calls[0]?.[0].config.portions).toEqual([
@@ -539,461 +632,152 @@ describe('PizzaBuilderModal ingredients', () => {
     ])
   })
 
-  it('lists ingredients and extras alphabetically and applies extras to the whole pizza', async () => {
-    const { onAdd, user, add, toIngredients } = renderBuilder()
-    await toIngredients()
+  it('lists ingredients alphabetically', async () => {
+    const { user, card } = renderBuilder()
+    await user.click(card('Chica'))
+    await user.click(card(/Estilo Varas/))
     expect(within(chips()).getAllByRole('button').map((b) => b.textContent)).toEqual(['Jalapeños', 'Pepperoni', 'Piña'])
+  })
+})
+
+describe('PizzaBuilderModal extras', () => {
+  it('lists the extras alphabetically and applies them to the whole pizza', async () => {
+    const { onAdd, user, add, card } = renderBuilder()
+    await user.click(card('Chica'))
+    await user.click(card(/Estilo Varas/))
     const extras = screen.getByRole('group', { name: 'Extras para toda la pizza' })
-    expect(within(extras).getAllByRole('checkbox').map((b) => b.getAttribute('aria-label') ?? b.parentElement?.textContent)).toEqual([
-      'Extra queso',
-      'Orilla rellena',
-    ])
+    expect(within(extras).getAllByRole('checkbox').map((b) => b.parentElement?.textContent)).toEqual(['Extra queso', 'Orilla rellena'])
     await user.click(within(extras).getByRole('checkbox', { name: 'Orilla rellena' }))
     await user.click(within(extras).getByRole('checkbox', { name: 'Extra queso' }))
+    expect(summary()).toHaveTextContent('Extra queso, Orilla rellena')
     await add()
     expect(onAdd.mock.calls[0]?.[0].config.extraIds).toEqual(['orilla', 'queso'])
-    expect(onAdd.mock.calls[0]?.[0].name).toBe('Pizza Chica: Estilo Varas + Extra queso, Orilla rellena')
   })
 
-  it('hides the extras group when there are no active extras', async () => {
-    const { toIngredients } = renderBuilder({ ...pizzaCatalogFixture, extras: [] })
-    await toIngredients()
+  it('hides the extras group when the catalog has no extras', () => {
+    renderBuilder({ ...pizzaCatalogFixture, extras: [] })
     expect(screen.queryByRole('group', { name: 'Extras para toda la pizza' })).not.toBeInTheDocument()
   })
 
-  it('keeps the pizza extras when the division changes', async () => {
-    const { onAdd, user, add, card, toIngredients } = renderBuilder()
-    await user.click(card('Chica'))
-    await user.click(screen.getByRole('checkbox', { name: 'Extra queso' }))
-    await user.click(card('Mitades'))
-    await toIngredients()
-    await add()
-    expect(onAdd.mock.calls[0]?.[0].config.extraIds).toEqual(['queso'])
-  })
-
-  it('enforces the note length limit', async () => {
-    const { toIngredients } = renderBuilder()
-    await toIngredients()
-    expect(screen.getByLabelText(/nota de la pizza/i)).toHaveAttribute('maxlength')
+  it('shows the extras while a portion is still missing its style', () => {
+    renderBuilder()
+    expect(screen.getByRole('group', { name: 'Extras para toda la pizza' })).toBeVisible()
   })
 })
 
-describe('PizzaBuilderModal pizza dough', () => {
-  it('shows a sold-out size as Agotado and cannot select it', async () => {
-    const { user, card } = renderBuilder(withDough(null, 0))
-    const grande = card(/Grande/)
-    expect(within(grande).getByText('Agotado')).toBeVisible()
-    expect(grande).toBeDisabled()
-    await user.click(grande)
-    expect(card(/Chica/)).toHaveAttribute('aria-pressed', 'false')
-    expect(screen.getByRole('group', { name: 'Tamaño' })).toBeVisible()
-  })
-
-  it('lets the available size be picked when the first one is sold out', async () => {
-    const { onAdd, add, toIngredients, card } = renderBuilder(withDough(0, 5))
-    expect(card(/Chica/)).toBeDisabled()
-    await toIngredients()
-    await add()
-    expect(onAdd.mock.calls[0]?.[0].config.size).toBe('grande')
-  })
-
-  it('shows how many doughs remain for a limited size and nothing for an unlimited one', () => {
-    renderBuilder(withDough(3, null))
-    expect(within(screen.getByRole('button', { name: /Chica/ })).getByText('Quedan 3')).toBeVisible()
-    expect(screen.queryByText('Agotado')).not.toBeInTheDocument()
-    expect(within(screen.getByRole('button', { name: /Grande/ })).queryByText(/Quedan/)).not.toBeInTheDocument()
-  })
-
-  it('blocks continuing when every size is sold out', () => {
-    renderBuilder(withDough(0, 0))
-    expect(screen.getByText('No hay masas de pizza disponibles.')).toBeVisible()
-    expect(screen.queryByRole('button', { name: /^Siguiente/ })).not.toBeInTheDocument()
-    expect(screen.getByRole('group', { name: 'Tamaño' })).toBeVisible()
-    expect(screen.getAllByText('Agotado')).toHaveLength(2)
-  })
-})
-
-describe('PizzaBuilderModal no default style', () => {
-  it('starts a portion with no style selected and no ingredient controls', async () => {
-    const { user, card } = renderBuilder()
+describe('PizzaBuilderModal adding', () => {
+  it('adds a whole special pizza with its description and note', async () => {
+    const { onAdd, user, add, card, openNotes } = renderBuilder()
     await user.click(card('Chica'))
-    const cards = within(screen.getByRole('group', { name: 'Estilo de la Pizza entera' })).getAllByRole('button')
-    expect(cards).toHaveLength(2)
-    for (const card of cards) expect(card).toHaveAttribute('aria-pressed', 'false')
-    expect(screen.queryByRole('group', { name: 'Ingredientes disponibles' })).not.toBeInTheDocument()
-    expect(screen.queryByText(/Incluye \d+ ingredientes|no incluye ingredientes/i)).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Cambiar estilo' })).not.toBeInTheDocument()
-  })
-
-  it('blocks the footer button with a hint until a style is chosen', async () => {
-    const { user, card, onAdd } = renderBuilder(chicaWhole())
-    await user.click(card('Chica'))
-    expect(screen.getByRole('button', { name: 'Agregar pizza' })).toBeDisabled()
-    expect(screen.getByText('Elige el estilo de la pizza')).toBeVisible()
-    expect(screen.getByRole('status', { name: 'Resumen de la pizza' })).not.toHaveTextContent('Varas')
     await user.click(card(/Estilo Varas/))
-    expect(screen.getByRole('button', { name: 'Agregar pizza' })).toBeEnabled()
-    expect(screen.queryByText('Elige el estilo de la pizza')).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Agregar pizza' }))
-    expect(onAdd.mock.calls[0]?.[0].config.portions).toEqual([{ styleId: 'varas', ingredientIds: [], extraIngredientIds: [] }])
+    expect(summary()).toHaveTextContent('Pizza Chica · Varas')
+    await openNotes()
+    await user.type(screen.getByLabelText(/nota de la pizza/i), 'bien cocida')
+    await add()
+    expect(onAdd).toHaveBeenCalledTimes(1)
+    expect(onAdd).toHaveBeenCalledWith({
+      config: { size: 'chica', portions: [{ styleId: 'varas', ingredientIds: [], extraIngredientIds: [] }], extraIds: [] },
+      name: 'Pizza Chica: Estilo Varas',
+      notes: 'bien cocida',
+    })
   })
 
-  it('shows the ingredients and collapses the list once a style is chosen', async () => {
-    const { user, card } = renderBuilder(CUSTOM_ONLY)
-    await user.click(card('Chica'))
-    await user.click(card(/Arma tu combinación/))
-    expect(screen.getByRole('group', { name: 'Ingredientes disponibles' })).toBeVisible()
-    expect(screen.getByText('Incluye 2 ingredientes a elección · Doble cuenta como extra')).toBeVisible()
-    expect(screen.getByRole('button', { name: 'Cambiar estilo' })).toBeVisible()
+  it('adds as many identical pizzas as the quantity (1 to 20) and closes', async () => {
+    const { onAdd, onClose, user, add, readyPizza } = renderBuilder()
+    await readyPizza()
+    const group = screen.getByRole('group', { name: 'Cantidad de pizzas' })
+    expect(within(group).getByText('×1')).toBeVisible()
+    expect(within(group).getByRole('button', { name: 'Menos' })).toBeDisabled()
+    await user.click(within(group).getByRole('button', { name: 'Más' }))
+    await user.click(within(group).getByRole('button', { name: 'Más' }))
+    expect(within(group).getByText('×3')).toBeVisible()
+    await add()
+    expect(onAdd).toHaveBeenCalledTimes(3)
+    expect(onAdd.mock.calls[1]?.[0]).toEqual(onAdd.mock.calls[0]?.[0])
+    expect(onAdd.mock.calls[2]?.[0]).toEqual(onAdd.mock.calls[0]?.[0])
+    expect(onClose).toHaveBeenCalledTimes(1)
   })
 
-  it('every half starts without a style and blocks Siguiente until chosen', async () => {
-    const { user, card } = renderBuilder()
+  it('caps the quantity at 20', async () => {
+    const { user, readyPizza } = renderBuilder()
+    await readyPizza()
+    const group = screen.getByRole('group', { name: 'Cantidad de pizzas' })
+    for (let i = 0; i < 25; i++) {
+      const more = within(group).getByRole('button', { name: 'Más' })
+      if (!(more as HTMLButtonElement).disabled) await user.click(more)
+    }
+    expect(within(group).getByText('×20')).toBeVisible()
+    expect(within(group).getByRole('button', { name: 'Más' })).toBeDisabled()
+  })
+
+  it('shows a live summary with size, portions and extras', async () => {
+    const { user, card, readyPizza } = renderBuilder()
     await user.click(card('Grande'))
     await user.click(card('Mitades'))
-    expect(screen.getByRole('button', { name: 'Siguiente: Mitad 2 →' })).toBeDisabled()
-    expect(screen.getByText('Elige el estilo de la mitad 1')).toBeVisible()
-    await user.click(card(/Estilo Varas/))
-    expect(within(screen.getByRole('group', { name: 'Estilo de la Mitad 2' })).getAllByRole('button')).toHaveLength(2)
-    expect(screen.queryByRole('group', { name: 'Ingredientes disponibles' })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Agregar pizza' })).toBeDisabled()
-    expect(screen.getByText('Elige el estilo de la mitad 2')).toBeVisible()
-    expect(screen.getByRole('status', { name: 'Resumen de la pizza' })).toHaveTextContent('Mitad 2 sin estilo')
+    await readyPizza()
+    await user.click(screen.getByRole('checkbox', { name: 'Extra queso' }))
+    expect(summary()).toHaveTextContent('Pizza Grande · Mitad Varas / Mitad Varas · Extra queso')
+  })
+
+  it('adds an entera pizza with a style without ingredient choices in 3 taps', async () => {
+    const { onAdd, onClose, user, card } = renderBuilder()
+    let taps = 0
+    const count = () => {
+      taps += 1
+    }
+    document.addEventListener('click', count)
+    try {
+      await user.click(card('Grande'))
+      await user.click(card(/Estilo Varas/))
+      await user.click(screen.getByRole('button', { name: 'Agregar pizza' }))
+    } finally {
+      document.removeEventListener('click', count)
+    }
+    expect(taps).toBe(3)
+    expect(onAdd).toHaveBeenCalledTimes(1)
+    expect(onAdd.mock.calls[0]?.[0].config).toEqual({
+      size: 'grande',
+      portions: [{ styleId: 'varas', ingredientIds: [], extraIngredientIds: [] }],
+      extraIds: [],
+    })
+    expect(onClose).toHaveBeenCalledTimes(1)
   })
 })
 
-describe('PizzaBuilderModal auto-advance', () => {
-  const stepsList = () => screen.getByRole('list', { name: 'Pasos de la pizza' })
-  const divisionGroup = () => screen.getByRole('group', { name: 'División' })
-
-  describe('size step (S2)', () => {
-    it('has no Siguiente button and tapping a size goes straight to the first portion', async () => {
-      const { user, card } = renderBuilder()
-      expect(screen.getByRole('group', { name: 'Tamaño' })).toBeVisible()
-      expect(screen.queryByRole('button', { name: /^Siguiente/ })).not.toBeInTheDocument()
-      await user.click(card('Grande'))
-      expect(screen.queryByRole('group', { name: 'Tamaño' })).not.toBeInTheDocument()
-      expect(screen.getByRole('group', { name: 'Estilo de la Pizza entera' })).toBeVisible()
-      expect(screen.getByRole('status', { name: 'Resumen de la pizza' })).toHaveTextContent('Pizza Grande')
-    })
-
-    it('also advances when the already selected size is tapped, keeping the choice', async () => {
-      const { user, back, card } = renderBuilder()
-      await user.click(card('Chica'))
-      await back()
-      expect(card('Chica')).toHaveAttribute('aria-pressed', 'true')
-      await user.click(card('Chica'))
-      expect(screen.getByRole('group', { name: 'Estilo de la Pizza entera' })).toBeVisible()
-      expect(screen.getByRole('status', { name: 'Resumen de la pizza' })).toHaveTextContent('Pizza Chica')
-    })
-
-    it('keeps a sold-out size disabled and does not advance when it is tapped', async () => {
-      const { user, card } = renderBuilder(withDough(null, 0))
-      expect(card(/Grande/)).toBeDisabled()
-      await user.click(card(/Grande/))
-      expect(screen.getByRole('group', { name: 'Tamaño' })).toBeVisible()
-      expect(screen.queryByRole('group', { name: /^Estilo de la / })).not.toBeInTheDocument()
-    })
+describe('PizzaBuilderModal notes', () => {
+  it('starts folded because the notes are optional', async () => {
+    const { user, card, openNotes } = renderBuilder()
+    await user.click(card('Chica'))
+    const toggle = screen.getByRole('button', { name: 'Notas' })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByLabelText(/nota de la pizza/i)).not.toBeInTheDocument()
+    await openNotes()
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByLabelText(/nota de la pizza/i)).toBeVisible()
   })
 
-  describe('division (S3)', () => {
-    it('starts as Entera, with no División step in the flow or the header', async () => {
-      const { user, card } = renderBuilder()
-      await user.click(card('Grande'))
-      expect(stepsList()).not.toHaveTextContent('División')
-      expect(within(stepsList()).getAllByRole('listitem').map((item) => item.textContent)).toEqual([
-        expect.stringContaining('Tamaño'),
-        expect.stringContaining('Pizza'),
-      ])
-      expect(within(divisionGroup()).getByRole('button', { name: 'Entera' })).toHaveAttribute('aria-pressed', 'true')
-      expect(within(divisionGroup()).getByRole('button', { name: 'Mitades' })).toHaveAttribute('aria-pressed', 'false')
-    })
-
-    it('shows the selector above the styles with the divisions the size allows', async () => {
-      const { user, card } = renderBuilder()
-      await user.click(card('Grande'))
-      const names = within(divisionGroup()).getAllByRole('button').map((button) => button.textContent)
-      expect(names).toEqual(['Entera', 'Mitades', 'Tercios', 'Cuartos'])
-      const styles = screen.getByRole('group', { name: 'Estilo de la Pizza entera' })
-      expect(divisionGroup().compareDocumentPosition(styles) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    })
-
-    it('does not show the selector when the size only allows a whole pizza', async () => {
-      const { user, card } = renderBuilder(chicaWhole())
-      await user.click(card('Chica'))
-      expect(screen.queryByRole('group', { name: 'División' })).not.toBeInTheDocument()
-      expect(screen.getByRole('group', { name: 'Estilo de la Pizza entera' })).toBeVisible()
-    })
-
-    it('adds and removes portion steps and keeps the styles already chosen', async () => {
-      const { user, card, next } = renderBuilder()
-      await user.click(card('Grande'))
-      await user.click(card(/Arma tu combinación/))
-      await user.click(within(screen.getByRole('group', { name: 'Ingredientes disponibles' })).getByRole('button', { name: 'Piña' }))
-      await user.click(card('Mitades'))
-      expect(within(stepsList()).getAllByRole('listitem').map((item) => item.textContent)).toEqual([
-        expect.stringContaining('Tamaño'),
-        expect.stringContaining('Mitad 1'),
-        expect.stringContaining('Mitad 2'),
-      ])
-      expect(screen.getByRole('group', { name: 'Estilo de la Mitad 1' })).toBeVisible()
-      expect(card(/Arma tu combinación/)).toHaveAttribute('aria-pressed', 'true')
-      expect(within(screen.getByRole('group', { name: 'Ingredientes disponibles' })).getByRole('button', { name: 'Piña' })).toHaveAttribute('aria-pressed', 'true')
-      await next()
-      expect(within(screen.getByRole('group', { name: 'Estilo de la Mitad 2' })).getAllByRole('button')).toHaveLength(2)
-      expect(screen.queryByRole('group', { name: 'División' })).not.toBeInTheDocument()
-    })
-
-    it('goes back to Entera removing the extra portion steps', async () => {
-      const { user, card } = renderBuilder()
-      await user.click(card('Grande'))
-      await user.click(card('Tercios'))
-      expect(within(stepsList()).getAllByRole('listitem')).toHaveLength(4)
-      await user.click(card('Entera'))
-      expect(within(stepsList()).getAllByRole('listitem')).toHaveLength(2)
-      expect(screen.getByRole('group', { name: 'Estilo de la Pizza entera' })).toBeVisible()
-    })
-
-    it('falls back to Entera when another size does not allow the current division', async () => {
-      const { user, back, card } = renderBuilder()
-      await user.click(card('Grande'))
-      await user.click(card('Cuartos'))
-      await back()
-      await user.click(card('Chica'))
-      expect(card('Entera')).toHaveAttribute('aria-pressed', 'true')
-      expect(within(divisionGroup()).queryByRole('button', { name: 'Cuartos' })).not.toBeInTheDocument()
-    })
-  })
-
-  describe('style (S4)', () => {
-    it('moves to the next portion at once when the style has no ingredients to choose', async () => {
-      const { user, card } = renderBuilder()
-      await user.click(card('Grande'))
-      await user.click(card('Mitades'))
-      await user.click(card(/Estilo Varas/))
-      expect(screen.getByRole('group', { name: 'Estilo de la Mitad 2' })).toBeVisible()
-      expect(screen.queryByRole('group', { name: 'Estilo de la Mitad 1' })).not.toBeInTheDocument()
-      expect(stepsList()).toHaveTextContent(/Mitad 1 ✓\s*Varas/)
-      expect(screen.getByRole('button', { name: 'Agregar pizza' })).toBeDisabled()
-      expect(screen.getByText('Elige el estilo de la mitad 2')).toBeVisible()
-    })
-
-    it('enables Agregar pizza right away on the last portion and stays there', async () => {
-      const { onAdd, user, add, card } = renderBuilder()
-      await user.click(card('Grande'))
-      await user.click(card('Mitades'))
-      await user.click(card(/Estilo Varas/))
-      await user.click(card(/Estilo Varas/))
-      expect(screen.getByRole('group', { name: 'Estilo de la Mitad 2' })).toBeVisible()
-      expect(screen.getByRole('button', { name: 'Agregar pizza' })).toBeEnabled()
-      expect(screen.queryByRole('button', { name: /^Siguiente/ })).not.toBeInTheDocument()
-      await add()
-      expect(onAdd.mock.calls[0]?.[0].config.portions).toEqual([
-        { styleId: 'varas', ingredientIds: [], extraIngredientIds: [] },
-        { styleId: 'varas', ingredientIds: [], extraIngredientIds: [] },
-      ])
-    })
-
-    it('stays on its step with Siguiente when the style has ingredients to choose', async () => {
-      const { user, next, card } = renderBuilder()
-      await user.click(card('Grande'))
-      await user.click(card('Mitades'))
-      await user.click(card(/Arma tu combinación/))
-      expect(screen.getByRole('group', { name: 'Estilo de la Mitad 1' })).toBeVisible()
-      expect(screen.getByRole('group', { name: 'Ingredientes disponibles' })).toBeVisible()
-      await user.click(within(screen.getByRole('group', { name: 'Ingredientes disponibles' })).getByRole('button', { name: 'Pepperoni' }))
-      expect(screen.getByRole('button', { name: 'Siguiente: Mitad 2 →' })).toBeEnabled()
-      await next()
-      expect(screen.getByRole('group', { name: 'Estilo de la Mitad 2' })).toBeVisible()
-    })
-
-    it('keeps a style with a chile choice on its step', async () => {
-      const catalog: PizzaCatalog = { ...pizzaCatalogFixture, styles: [...pizzaCatalogFixture.styles, MEXICANA] }
-      const { user, card } = renderBuilder(catalog)
-      await user.click(card('Grande'))
-      await user.click(card('Mitades'))
-      await user.click(card(/Estilo Mexicana/))
-      expect(screen.getByRole('group', { name: 'Estilo de la Mitad 1' })).toBeVisible()
-      expect(screen.getByRole('group', { name: 'Chile (elige uno o dos)' })).toBeVisible()
-      expect(screen.getByRole('button', { name: 'Siguiente: Mitad 2 →' })).toBeEnabled()
-    })
-
-    it('does not advance when only the ingredients of a style are changed', async () => {
-      const { user, back, card } = renderBuilder()
-      await user.click(card('Grande'))
-      await user.click(card('Mitades'))
-      await user.click(card(/Estilo Varas/))
-      await back()
-      expect(screen.getByRole('group', { name: 'Estilo de la Mitad 1' })).toBeVisible()
-      await user.click(within(screen.getByRole('group', { name: 'Ingredientes disponibles' })).getByRole('button', { name: 'Jalapeños' }))
-      expect(screen.getByRole('group', { name: 'Estilo de la Mitad 1' })).toBeVisible()
-    })
-  })
-
-  describe('back and last step (S5)', () => {
-    it('goes from the first portion back to Tamaño and from there to cancel', async () => {
-      const { user, onClose, back, card } = renderBuilder()
-      await user.click(card('Grande'))
-      expect(screen.getByRole('button', { name: '← Tamaño' })).toBeVisible()
-      await back()
-      expect(screen.getByRole('group', { name: 'Tamaño' })).toBeVisible()
-      expect(card('Grande')).toHaveAttribute('aria-pressed', 'true')
-      await user.click(screen.getByRole('button', { name: '← Cancelar pizza' }))
-      expect(onClose).toHaveBeenCalledTimes(1)
-    })
-
-    it('goes back from the second portion to the first with its style kept', async () => {
-      const { user, back, card } = renderBuilder()
-      await user.click(card('Grande'))
-      await user.click(card('Mitades'))
-      await user.click(card(/Estilo Varas/))
-      expect(screen.getByRole('button', { name: '← Mitad 1' })).toBeVisible()
-      await back()
-      expect(card(/Estilo Varas/)).toHaveAttribute('aria-pressed', 'true')
-    })
-
-    it('keeps extras, note, quantity and Agregar pizza on the last portion', async () => {
-      const { onAdd, user, add, next, card } = renderBuilder()
-      await user.click(card('Grande'))
-      await user.click(card('Mitades'))
-      await user.click(card(/Arma tu combinación/))
-      await user.click(within(screen.getByRole('group', { name: 'Ingredientes disponibles' })).getByRole('button', { name: 'Pepperoni' }))
-      expect(screen.queryByRole('group', { name: 'Extras para toda la pizza' })).not.toBeInTheDocument()
-      expect(screen.queryByRole('group', { name: 'Cantidad de pizzas' })).not.toBeInTheDocument()
-      await next()
-      await user.click(card(/Estilo Varas/))
-      expect(screen.getByRole('group', { name: 'Extras para toda la pizza' })).toBeVisible()
-      expect(screen.getByLabelText(/nota de la pizza/i)).toBeVisible()
-      expect(screen.getByRole('group', { name: 'Cantidad de pizzas' })).toBeVisible()
-      await user.click(screen.getByRole('checkbox', { name: 'Extra queso' }))
-      await add()
-      expect(onAdd.mock.calls[0]?.[0].config.extraIds).toEqual(['queso'])
-    })
-
-    it('adds an entera pizza with a style without ingredient choices in 3 taps after opening the builder', async () => {
-      const { onAdd, onClose, user, card } = renderBuilder()
-      let taps = 0
-      const count = () => {
-        taps += 1
-      }
-      document.addEventListener('click', count)
-      try {
-        await user.click(card('Grande'))
-        await user.click(card(/Estilo Varas/))
-        await user.click(screen.getByRole('button', { name: 'Agregar pizza' }))
-      } finally {
-        document.removeEventListener('click', count)
-      }
-      expect(taps).toBe(3)
-      expect(onAdd).toHaveBeenCalledTimes(1)
-      expect(onAdd.mock.calls[0]?.[0].config).toEqual({
-        size: 'grande',
-        portions: [{ styleId: 'varas', ingredientIds: [], extraIngredientIds: [] }],
-        extraIds: [],
-      })
-      expect(onClose).toHaveBeenCalledTimes(1)
-    })
-
-    it('fixes a quick pizza (Fijar pizza) with the same flow', async () => {
-      const onAdd = vi.fn()
-      render(<PizzaBuilderModal catalog={pizzaCatalogFixture} onAdd={onAdd} onClose={vi.fn()} quickPick />)
-      const { user } = advancingUser()
-      await user.click(screen.getByRole('button', { name: 'Grande' }))
-      await user.click(screen.getByRole('button', { name: /Estilo Varas/ }))
-      expect(screen.queryByRole('group', { name: 'Cantidad de pizzas' })).not.toBeInTheDocument()
-      await user.click(screen.getByRole('button', { name: 'Fijar pizza' }))
-      expect(onAdd).toHaveBeenCalledTimes(1)
-    })
-  })
-
-  describe('extras of a portion the style moved past (S8)', () => {
-    const extraStops = () => screen.queryByRole('group', { name: 'Ingredientes extra de porciones anteriores' })
-    const chips = () => screen.getByRole('group', { name: 'Ingredientes disponibles' })
-
-    it('offers the way back to a portion left behind, and the ingredient added there is charged', async () => {
-      const { onAdd, user, add, card, next, pickStyle } = renderBuilder()
-      await user.click(card('Grande'))
-      await user.click(card('Mitades'))
-      await user.click(card(/Estilo Varas/))
-      expect(screen.getByRole('group', { name: 'Estilo de la Mitad 2' })).toBeVisible()
-      expect(within(extraStops() as HTMLElement).getByText('Mitad 1 · Varas')).toBeVisible()
-      await user.click(screen.getByRole('button', { name: /Extras en Mitad 1/ }))
-      expect(screen.getByRole('group', { name: 'Estilo de la Mitad 1' })).toBeVisible()
-      await user.click(within(chips()).getByRole('button', { name: 'Jalapeños' }))
-      await next()
-      await pickStyle()
-      await add()
-      expect(onAdd.mock.calls[0]?.[0].config.portions).toEqual([
-        { styleId: 'varas', ingredientIds: [], extraIngredientIds: ['jal'] },
-        { styleId: 'varas', ingredientIds: [], extraIngredientIds: [] },
-      ])
-    })
-
-    it('shows one way back per portion left behind', async () => {
-      const { user, card } = renderBuilder()
-      await user.click(card('Grande'))
-      await user.click(card('Tercios'))
-      await user.click(card(/Estilo Varas/))
-      await user.click(card(/Estilo Varas/))
-      expect(screen.getByRole('group', { name: 'Estilo de la Porción 3' })).toBeVisible()
-      expect(within(extraStops() as HTMLElement).getAllByRole('button').map((button) => button.textContent)).toEqual([
-        '+ Extras en Porción 1',
-        '+ Extras en Porción 2',
-      ])
-      await user.click(screen.getByRole('button', { name: /Extras en Porción 1/ }))
-      expect(screen.getByRole('group', { name: 'Estilo de la Porción 1' })).toBeVisible()
-      expect(within(chips()).getByRole('button', { name: 'Jalapeños' })).toHaveAttribute('aria-pressed', 'false')
-    })
-
-    it('shows nothing when the portion was not left behind by itself', async () => {
-      const { user, card } = renderBuilder(CUSTOM_ONLY)
-      await user.click(card('Grande'))
-      await user.click(card('Mitades'))
-      await user.click(card(/Arma tu combinación/))
-      expect(screen.getByRole('group', { name: 'Estilo de la Mitad 1' })).toBeVisible()
-      expect(extraStops()).not.toBeInTheDocument()
-    })
-
-    it('shows nothing on a whole pizza, which never moves on by itself', async () => {
-      const { user, card } = renderBuilder()
-      await user.click(card('Chica'))
-      await user.click(card(/Estilo Varas/))
-      expect(screen.getByRole('group', { name: 'Ingredientes disponibles' })).toBeVisible()
-      expect(extraStops()).not.toBeInTheDocument()
-    })
-  })
-})
-
-describe('PizzaBuilderModal portion notes', () => {
-  async function toLastHalf() {
-    const built = renderBuilder()
-    await built.user.click(built.card('Grande'))
-    await built.user.click(built.card('Mitades'))
-    await built.pickStyle()
-    await built.pickStyle()
-    return built
-  }
-
-  it('shows a note per portion on the last step, labelled with the portion and its style, before the pizza note', async () => {
-    await toLastHalf()
-    const group = screen.getByRole('group', { name: 'Notas por porción' })
-    expect(within(group).getByLabelText('Mitad 1 · Varas')).toBeVisible()
-    expect(within(group).getByLabelText('Mitad 2 · Varas')).toBeVisible()
-    const pizzaNote = screen.getByLabelText(/nota de la pizza/i)
-    expect(group.compareDocumentPosition(pizzaNote) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-  })
-
-  it('does not show them before the last step', async () => {
-    const { user, card, pickStyle } = renderBuilder()
+  it('shows a note per portion labelled with the portion and its style, before the pizza note', async () => {
+    const { user, card, pickStyle, openNotes } = renderBuilder()
     await user.click(card('Grande'))
     await user.click(card('Mitades'))
     await pickStyle()
-    await user.click(screen.getByRole('button', { name: /^←/ }))
-    expect(screen.queryByRole('group', { name: 'Notas por porción' })).not.toBeInTheDocument()
+    await pickStyle()
+    await openNotes()
+    expect(screen.getByLabelText('Mitad 1 · Varas')).toBeVisible()
+    expect(screen.getByLabelText('Mitad 2 · Varas')).toBeVisible()
+    expect(screen.queryByText('Notas por porción')).not.toBeInTheDocument()
+    const first = screen.getByLabelText('Mitad 1 · Varas')
+    const pizzaNote = screen.getByLabelText(/nota de la pizza/i)
+    expect(first.compareDocumentPosition(pizzaNote) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it('adds the pizza with trimmed portion notes and drops a blank one, keeping the pizza note apart', async () => {
-    const { onAdd, user, add } = await toLastHalf()
+    const { onAdd, user, add, card, pickStyle, openNotes } = renderBuilder()
+    await user.click(card('Grande'))
+    await user.click(card('Mitades'))
+    await pickStyle()
+    await pickStyle()
+    await openNotes()
     await user.type(screen.getByLabelText('Mitad 1 · Varas'), '  sin piña en la orilla ')
     await user.type(screen.getByLabelText('Mitad 2 · Varas'), '   ')
     await user.type(screen.getByLabelText(/nota de la pizza/i), 'bien cocida')
@@ -1008,81 +792,69 @@ describe('PizzaBuilderModal portion notes', () => {
   })
 
   it('limits each note to 80 characters', async () => {
-    await toLastHalf()
-    expect(screen.getByLabelText('Mitad 1 · Varas')).toHaveAttribute('maxlength', '80')
+    const { user, card, openNotes } = renderBuilder()
+    await user.click(card('Chica'))
+    await openNotes()
+    expect(screen.getByLabelText(/nota de la pizza/i)).toHaveAttribute('maxlength')
+    expect(screen.getByLabelText(/nota de la pizza/i)).toHaveAttribute('maxlength', '200')
   })
 
-  it('names the third portions Porción 3', async () => {
-    const { user, card, pickStyle } = renderBuilder()
-    await user.click(card('Grande'))
-    await user.click(card('Tercios'))
-    await pickStyle()
-    await pickStyle()
-    await pickStyle()
-    expect(screen.getByLabelText('Porción 3 · Varas')).toBeVisible()
-  })
-
-  it('shows no portion notes on a whole pizza and sends none after going back from halves', async () => {
-    const whole = renderBuilder()
-    await whole.toIngredients()
-    expect(screen.queryByRole('group', { name: 'Notas por porción' })).not.toBeInTheDocument()
+  it('shows no portion notes on a whole pizza', async () => {
+    const { user, card, openNotes } = renderBuilder()
+    await user.click(card('Chica'))
+    await openNotes()
+    expect(screen.queryByLabelText(/^Mitad /)).not.toBeInTheDocument()
     expect(screen.getByLabelText(/nota de la pizza/i)).toBeVisible()
   })
 
   it('drops the portion notes when the division goes back to a whole pizza', async () => {
-    const { onAdd, user, back, card, add, pickStyle } = await toLastHalf()
-    await user.type(screen.getByLabelText('Mitad 1 · Varas'), 'sin piña')
-    await back()
-    await user.click(card('Entera'))
+    const { onAdd, user, add, card, pickStyle, openNotes } = renderBuilder()
+    await user.click(card('Grande'))
+    await user.click(card('Mitades'))
     await pickStyle()
-    expect(screen.queryByRole('group', { name: 'Notas por porción' })).not.toBeInTheDocument()
+    await pickStyle()
+    await openNotes()
+    await user.type(screen.getByLabelText('Mitad 1 · Varas'), 'sin piña')
+    await user.click(card('Entera'))
+    expect(screen.queryByLabelText(/^Mitad /)).not.toBeInTheDocument()
     await add()
     expect(onAdd.mock.calls[0]![0].config.portions).toEqual([{ styleId: 'varas', ingredientIds: [], extraIngredientIds: [] }])
-  })
-
-  it('does not offer them when pinning a quick pizza', async () => {
-    const onAdd = vi.fn()
-    render(<PizzaBuilderModal catalog={pizzaCatalogFixture} onAdd={onAdd} onClose={vi.fn()} quickPick />)
-    const { user } = advancingUser()
-    await user.click(screen.getByRole('button', { name: 'Grande' }))
-    await user.click(screen.getByRole('button', { name: 'Mitades' }))
-    for (let i = 0; i < 2; i++) {
-      const group = screen.getByRole('group', { name: /^Estilo de la / })
-      await user.click(within(group).getAllByRole('button').find((c) => /Estilo Varas/.test(c.textContent ?? '')) as HTMLElement)
-    }
-    expect(screen.getByRole('button', { name: 'Fijar pizza' })).toBeVisible()
-    expect(screen.queryByRole('group', { name: 'Notas por porción' })).not.toBeInTheDocument()
   })
 })
 
 describe('PizzaBuilderModal note shortcuts', () => {
   const shortcuts = ['Sin cebolla', 'Bien cocida']
 
-  async function toLast(options: { shortcuts?: string[]; halves?: boolean } = {}) {
+  async function halves(options: { shortcuts?: string[] } = {}) {
     const onAdd = vi.fn()
-    render(<PizzaBuilderModal catalog={pizzaCatalogFixture} onAdd={onAdd} onClose={vi.fn()} noteShortcuts={options.shortcuts ?? shortcuts} />)
+    render(
+      <PizzaBuilderModal catalog={pizzaCatalogFixture} onAdd={onAdd} onClose={vi.fn()} noteShortcuts={options.shortcuts ?? shortcuts} />,
+    )
     const { user } = advancingUser()
     await user.click(screen.getByRole('button', { name: 'Grande' }))
-    if (options.halves !== false) await user.click(screen.getByRole('button', { name: 'Mitades' }))
-    const count = options.halves === false ? 1 : 2
-    for (let i = 0; i < count; i++) {
-      const group = screen.getByRole('group', { name: /^Estilo de la / })
-      await user.click(within(group).getAllByRole('button').find((c) => /Estilo Varas/.test(c.textContent ?? '')) as HTMLElement)
+    await user.click(screen.getByRole('button', { name: 'Mitades' }))
+    for (let i = 0; i < 2; i++) {
+      await user.click(
+        within(screen.getByRole('group', { name: /^Estilo de la / }))
+          .getAllByRole('button')
+          .find((c) => /Estilo Varas/.test(c.textContent ?? '')) as HTMLElement,
+      )
     }
+    await user.click(screen.getByRole('button', { name: 'Notas' }))
     return { onAdd, user }
   }
 
   it('shows toggle chips under each portion note and under the pizza note', async () => {
-    await toLast()
+    await halves()
     for (const name of ['Atajos de Mitad 1 · Varas', 'Atajos de Mitad 2 · Varas', 'Atajos de notas de la pizza']) {
-      const group = screen.getByRole('group', { name: name })
+      const group = screen.getByRole('group', { name })
       expect(within(group).getAllByRole('button').map((b) => b.textContent)).toEqual(shortcuts)
       for (const chip of within(group).getAllByRole('button')) expect(chip).toHaveAttribute('aria-pressed', 'false')
     }
   })
 
   it('appends a tapped shortcut to that note only, joined with ", ", and removes it on a second tap', async () => {
-    const { user } = await toLast()
+    const { user } = await halves()
     const half1 = screen.getByRole('group', { name: 'Atajos de Mitad 1 · Varas' })
     await user.type(screen.getByLabelText('Mitad 1 · Varas'), 'poca sal')
     await user.click(within(half1).getByRole('button', { name: 'Sin cebolla' }))
@@ -1097,7 +869,7 @@ describe('PizzaBuilderModal note shortcuts', () => {
   })
 
   it('fills the pizza note and keeps free text working, sending both notes with the pizza', async () => {
-    const { onAdd, user } = await toLast()
+    const { onAdd, user } = await halves()
     const half2 = screen.getByRole('group', { name: 'Atajos de Mitad 2 · Varas' })
     await user.click(within(half2).getByRole('button', { name: 'Bien cocida' }))
     await user.type(screen.getByLabelText('Mitad 2 · Varas'), ' y crujiente')
@@ -1107,19 +879,12 @@ describe('PizzaBuilderModal note shortcuts', () => {
     await user.click(screen.getByRole('button', { name: 'Agregar pizza' }))
     const built = onAdd.mock.calls[0]![0]
     expect(built.notes).toBe('Sin cebolla')
-    expect(built.config.portions[1].note).toBe('Bien cocida y crujiente')
-    expect(built.config.portions[0].note).toBeUndefined()
-  })
-
-  it('works on a whole pizza with only the pizza note chips', async () => {
-    const { user } = await toLast({ halves: false })
-    expect(screen.queryByRole('group', { name: /^Atajos de Mitad/ })).not.toBeInTheDocument()
-    await user.click(within(screen.getByRole('group', { name: 'Atajos de notas de la pizza' })).getByRole('button', { name: 'Bien cocida' }))
-    expect(screen.getByLabelText(/nota de la pizza/i)).toHaveValue('Bien cocida')
+    expect(built.config.portions[1]?.note).toBe('Bien cocida y crujiente')
+    expect(built.config.portions[0]?.note).toBeUndefined()
   })
 
   it('does not append past the 80-character portion limit: the chip is disabled and the note stays', async () => {
-    const { user } = await toLast({ shortcuts: ['Sin cebolla'] })
+    const { user } = await halves({ shortcuts: ['Sin cebolla'] })
     const note = screen.getByLabelText('Mitad 1 · Varas')
     await user.type(note, 'x'.repeat(75))
     const chip = within(screen.getByRole('group', { name: 'Atajos de Mitad 1 · Varas' })).getByRole('button', { name: 'Sin cebolla' })
@@ -1129,135 +894,39 @@ describe('PizzaBuilderModal note shortcuts', () => {
   })
 
   it('shows no chips when there are no shortcuts', async () => {
-    await toLast({ shortcuts: [] })
+    await halves({ shortcuts: [] })
     expect(screen.queryByRole('group', { name: /^Atajos de/ })).not.toBeInTheDocument()
     expect(screen.getByLabelText('Mitad 1 · Varas')).toBeVisible()
   })
-
-  it('shows no chips when pinning a quick pizza', async () => {
-    render(<PizzaBuilderModal catalog={pizzaCatalogFixture} onAdd={vi.fn()} onClose={vi.fn()} quickPick noteShortcuts={shortcuts} />)
-    const { user } = advancingUser()
-    await user.click(screen.getByRole('button', { name: 'Grande' }))
-    await user.click(screen.getByRole('button', { name: 'Mitades' }))
-    for (let i = 0; i < 2; i++) {
-      const group = screen.getByRole('group', { name: /^Estilo de la / })
-      await user.click(within(group).getAllByRole('button').find((c) => /Estilo Varas/.test(c.textContent ?? '')) as HTMLElement)
-    }
-    expect(screen.queryByRole('group', { name: /^Atajos de/ })).not.toBeInTheDocument()
-  })
 })
 
-describe('PizzaBuilderModal no default size and visible auto-advance (S6, S7)', () => {
-  const sizeButtons = () => within(screen.getByRole('group', { name: 'Tamaño' })).getAllByRole('button')
-
-  it('opens with no size selected and asks to choose one (S6)', () => {
-    const { onAdd } = renderBuilder()
-    for (const button of sizeButtons()) expect(button).toHaveAttribute('aria-pressed', 'false')
-    expect(screen.getByRole('list', { name: 'Pasos de la pizza' })).toHaveTextContent(/^Tamaño\s*Pizza/)
-    expect(screen.getByRole('list', { name: 'Pasos de la pizza' })).not.toHaveTextContent(/Chica|Grande/)
-    expect(screen.getByRole('status', { name: 'Resumen de la pizza' })).toHaveTextContent('Elige el tamaño')
-    expect(screen.getByRole('button', { name: 'Agregar pizza' })).toBeDisabled()
-    expect(onAdd).not.toHaveBeenCalled()
-  })
-
-  it('keeps Fijar pizza disabled until a size is chosen (S6, quick pick)', () => {
-    renderBuilder(pizzaCatalogFixture, true)
+describe('PizzaBuilderModal quick pizza (Fijar pizza)', () => {
+  it('fixes a quick pizza without quantity, notes or portion notes', async () => {
+    const { onAdd, user, card } = renderBuilder(pizzaCatalogFixture, true)
     expect(screen.getByRole('status', { name: 'Resumen de la pizza' })).toHaveTextContent('Elige el tamaño')
     expect(screen.getByRole('button', { name: 'Fijar pizza' })).toBeDisabled()
     expect(screen.queryByRole('button', { name: 'Agregar pizza' })).not.toBeInTheDocument()
-  })
+    expect(screen.queryByRole('group', { name: 'Cantidad de pizzas' })).not.toBeInTheDocument()
 
-  it('shows the chosen size marked when coming back to Tamaño (S6)', async () => {
-    const { user, back, card } = renderBuilder()
     await user.click(card('Grande'))
-    await back()
-    expect(card('Grande')).toHaveAttribute('aria-pressed', 'true')
-    expect(card('Chica')).toHaveAttribute('aria-pressed', 'false')
-    expect(screen.getByRole('status', { name: 'Resumen de la pizza' })).toHaveTextContent('Pizza Grande')
-  })
-
-  it('unselects a chosen size that sold out instead of replacing it (S6)', async () => {
-    const { user, card, view } = renderBuilder()
-    await user.click(card('Chica'))
-    expect(screen.getByRole('group', { name: 'Estilo de la Pizza entera' })).toBeVisible()
-    view.rerender(<PizzaBuilderModal catalog={withDough(0, 5)} onAdd={vi.fn()} onClose={vi.fn()} />)
-    expect(screen.getByRole('group', { name: 'Tamaño' })).toBeVisible()
-    for (const button of sizeButtons()) expect(button).toHaveAttribute('aria-pressed', 'false')
-    expect(screen.getByRole('status', { name: 'Resumen de la pizza' })).toHaveTextContent('Elige el tamaño')
-  })
-
-  it('moves to the first portion in the same tap and shows the size in the step header (S7)', async () => {
-    const { tap, card } = renderBuilder()
-    await tap.click(card('Grande'))
-    expect(screen.queryByRole('group', { name: 'Tamaño' })).not.toBeInTheDocument()
-    expect(screen.getByRole('group', { name: 'Estilo de la Pizza entera' })).toBeVisible()
-    expect(screen.getByRole('list', { name: 'Pasos de la pizza' })).toHaveTextContent(/Tamaño ✓.*Grande/)
-    expect(vi.getTimerCount()).toBe(0)
-  })
-
-  it('moves to the next portion in the same tap after a no-choice style (S7)', async () => {
-    const { user, tap, card } = renderBuilder()
-    await user.click(card('Grande'))
-    await user.click(card('Mitades'))
-    await tap.click(card(/Estilo Varas/))
-    expect(screen.queryByRole('group', { name: 'Estilo de la Mitad 1' })).not.toBeInTheDocument()
-    expect(screen.getByRole('group', { name: 'Estilo de la Mitad 2' })).toBeVisible()
-    expect(vi.getTimerCount()).toBe(0)
-  })
-
-  it('ignores a quick second tap on the new step, then accepts taps after the guard (S7)', async () => {
-    const { tap, card } = renderBuilder()
-    await tap.click(card('Grande'))
-    await tap.click(card(/Estilo Varas/))
-    expect(card(/Estilo Varas/)).toHaveAttribute('aria-pressed', 'false')
-    act(() => {
-      vi.advanceTimersByTime(100)
-    })
-    await tap.click(card(/Estilo Varas/))
-    expect(card(/Estilo Varas/)).toHaveAttribute('aria-pressed', 'false')
-    act(() => {
-      vi.advanceTimersByTime(GHOST_TAP_GUARD_MS)
-    })
-    await tap.click(card(/Estilo Varas/))
-    expect(card(/Estilo Varas/)).toHaveAttribute('aria-pressed', 'true')
-  })
-
-  it('a quick second tap after the size does not change the division (S7)', async () => {
-    const { tap, card } = renderBuilder()
-    await tap.click(card('Grande'))
-    await tap.click(card('Mitades'))
-    expect(card('Entera')).toHaveAttribute('aria-pressed', 'true')
-    expect(card('Mitades')).toHaveAttribute('aria-pressed', 'false')
-    expect(screen.getByRole('group', { name: 'Estilo de la Pizza entera' })).toBeVisible()
-  })
-
-  it('a quick second tap after a no-choice style does not pick on the next portion (S7)', async () => {
-    const { user, tap, card } = renderBuilder()
-    await user.click(card('Grande'))
-    await user.click(card('Mitades'))
-    await tap.click(card(/Estilo Varas/))
-    await tap.click(card(/Estilo Varas/))
-    expect(screen.getByRole('group', { name: 'Estilo de la Mitad 2' })).toBeVisible()
-    expect(card(/Estilo Varas/)).toHaveAttribute('aria-pressed', 'false')
-  })
-
-  it('changing the division never changes the step and keeps Entera as default (S7)', async () => {
-    const { user, tap, card } = renderBuilder()
-    await user.click(card('Grande'))
-    expect(card('Entera')).toHaveAttribute('aria-pressed', 'true')
-    await tap.click(card('Mitades'))
-    await flushAdvance()
-    expect(card('Mitades')).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByRole('group', { name: 'Estilo de la Mitad 1' })).toBeVisible()
-    expect(screen.getByRole('group', { name: 'División' })).toBeVisible()
-  })
-
-  it('fixes a quick pizza after the auto-advance (S7, Fijar pizza)', async () => {
-    const { user, onAdd, card } = renderBuilder(chicaWhole(), true)
-    await user.click(card('Chica'))
     await user.click(card(/Estilo Varas/))
+    expect(screen.queryByRole('button', { name: 'Notas' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Fijar pizza' })).toBeEnabled()
     await user.click(screen.getByRole('button', { name: 'Fijar pizza' }))
     expect(onAdd).toHaveBeenCalledTimes(1)
-    expect(onAdd.mock.calls[0]?.[0].config.size).toBe('chica')
+    expect(onAdd.mock.calls[0]?.[0].config.size).toBe('grande')
+  })
+
+  it('fixes a quick pizza with halves and no notes', async () => {
+    const { onAdd, user, card, tab } = renderBuilder(pizzaCatalogFixture, true)
+    await user.click(card('Grande'))
+    await user.click(card('Mitades'))
+    await user.click(card(/Estilo Varas/))
+    expect(tab(/Mitad 2/)).toHaveAttribute('aria-selected', 'true')
+    await user.click(card(/Estilo Varas/))
+    expect(screen.queryByRole('button', { name: 'Notas' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Fijar pizza' }))
+    expect(onAdd).toHaveBeenCalledTimes(1)
+    expect(onAdd.mock.calls[0]?.[0].config.portions).toHaveLength(2)
   })
 })
